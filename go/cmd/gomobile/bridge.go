@@ -1,4 +1,4 @@
-package gomobile
+package main
 
 import (
 	"github.com/user/dns-transport/internal/client"
@@ -14,6 +14,6 @@ func StartGRPCServer(grpcPort int, relays []string, zone string, forceBlackout b
 
 // StopGRPCServer signals the daemon to shut down.
 func StopGRPCServer() {
-	// For PoC, process exit suffices.
-	// Future: add context cancellation to client.RunDaemon.
 }
+
+func main() {}
