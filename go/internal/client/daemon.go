@@ -116,14 +116,10 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		return nil, err
 	}
 
-	// Try send via DNS engine
-	mode := d.detector.CurrentMode()
-	msgID, chunkCount, err := d.engine.SendMessage(ciphertext)
+		// Try send via DNS engine
+		msgID, chunkCount, err := d.engine.SendMessage(ciphertext)
 	if err != nil {
 		// Queue offline
-		if mode == ModeBlackout && d.engine.GetRelays() != nil {
-			// In blackout mode with relays, retry might work — still queue
-		}
 		slog.Warn("send failed, queueing offline", "error", err)
 		_, qErr := d.queue.Enqueue(req.PeerPubkey, req.Plaintext)
 		if qErr != nil {

@@ -69,7 +69,7 @@ func (q *OfflineQueue) Pending() ([]QueuedMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		m.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 		msgs = append(msgs, m)
 	}
 	return msgs, nil
