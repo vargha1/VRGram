@@ -132,22 +132,34 @@ func DecodeChunkFromLabels(labels []string, zone string) (*Chunk, error) {
         return nil, errors.New("too few labels for chunk metadata")
     }
 
-    msgID, err := base32hex.DecodeString(body[0])
-    if err != nil || len(msgID) != 8 {
-        return nil, fmt.Errorf("invalid msgID: %w", err)
-    }
-    idxBytes, err := base32hex.DecodeString(body[1])
-    if err != nil || len(idxBytes) != 2 {
-        return nil, fmt.Errorf("invalid chunkIdx: %w", err)
-    }
-    totalBytes, err := base32hex.DecodeString(body[2])
-    if err != nil || len(totalBytes) != 2 {
-        return nil, fmt.Errorf("invalid totalChunks: %w", err)
-    }
-    cksumBytes, err := base32hex.DecodeString(body[3])
-    if err != nil || len(cksumBytes) != 2 {
-        return nil, fmt.Errorf("invalid checksum: %w", err)
-    }
+	msgID, err := base32hex.DecodeString(body[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid msgID: %w", err)
+	}
+	if len(msgID) != 8 {
+		return nil, fmt.Errorf("invalid msgID: decoded %d bytes, want 8", len(msgID))
+	}
+	idxBytes, err := base32hex.DecodeString(body[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid chunkIdx: %w", err)
+	}
+	if len(idxBytes) != 2 {
+		return nil, fmt.Errorf("invalid chunkIdx: decoded %d bytes, want 2", len(idxBytes))
+	}
+	totalBytes, err := base32hex.DecodeString(body[2])
+	if err != nil {
+		return nil, fmt.Errorf("invalid totalChunks: %w", err)
+	}
+	if len(totalBytes) != 2 {
+		return nil, fmt.Errorf("invalid totalChunks: decoded %d bytes, want 2", len(totalBytes))
+	}
+	cksumBytes, err := base32hex.DecodeString(body[3])
+	if err != nil {
+		return nil, fmt.Errorf("invalid checksum: %w", err)
+	}
+	if len(cksumBytes) != 2 {
+		return nil, fmt.Errorf("invalid checksum: decoded %d bytes, want 2", len(cksumBytes))
+	}
 
     payloadLabels := body[4:]
     payload, err := DecodePayload(payloadLabels)
