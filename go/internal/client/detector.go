@@ -46,7 +46,9 @@ func (d *Detector) Check() NetworkMode {
 		d.mode = ModeBlackout
 		return ModeBlackout
 	}
-	_, err := net.DefaultResolver.LookupHost(context.Background(), d.probeDomain)
+	lookupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := net.DefaultResolver.LookupHost(lookupCtx, d.probeDomain)
 	if err != nil {
 		d.mode = ModeBlackout
 	} else {

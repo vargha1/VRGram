@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
 	"github.com/user/dns-transport/internal/crypto"
@@ -102,6 +104,9 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 
 // SendMessage encrypts and sends a message via DNS engine, falling back to offline queue.
 func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.SendResponse, error) {
+	if d.identity == nil {
+		return nil, status.Error(codes.FailedPrecondition, "identity not initialized")
+	}
 	// Decrypt peer pubkey
 	peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
 	if err != nil {
@@ -119,9 +124,9 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		// Try send via DNS engine
 		msgID, chunkCount, err := d.engine.SendMessage(ciphertext)
 	if err != nil {
-		// Queue offline
+		// Queue ciphertext offline (already encrypted)
 		slog.Warn("send failed, queueing offline", "error", err)
-		_, qErr := d.queue.Enqueue(req.PeerPubkey, req.Plaintext)
+		_, qErr := d.queue.Enqueue(req.PeerPubkey, ciphertext)
 		if qErr != nil {
 			return nil, qErr
 		}
@@ -205,24 +210,19 @@ func (d *Daemon) processQueue() {
 			continue
 		}
 		for _, msg := range pending {
-			peerPubkey, err := base64.StdEncoding.DecodeString(msg.PeerKey)
-			if err != nil {
+			if msg.Retries >= 5 {
+				slog.Warn("permanent failure, removing message", "id", msg.ID, "retries", msg.Retries)
 				d.queue.Remove(msg.ID)
 				continue
 			}
-			sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
+			// Message already encrypted when queued — send ciphertext directly
+			_, _, err = d.engine.SendMessage(msg.Ciphertext)
 			if err != nil {
-				continue
-			}
-			ciphertext, _, err := crypto.EncryptMessage(sharedSecret, msg.Plaintext)
-			if err != nil {
-				continue
-			}
-			_, _, err = d.engine.SendMessage(ciphertext)
-			if err != nil {
+				slog.Error("queue send failed", "id", msg.ID, "error", err)
 				d.queue.MarkFailed(msg.ID, err.Error())
 				continue
 			}
+			slog.Info("queue message sent", "id", msg.ID)
 			d.queue.Remove(msg.ID)
 		}
 	}

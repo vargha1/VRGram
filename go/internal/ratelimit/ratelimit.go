@@ -62,12 +62,12 @@ func NewIPRateLimiter(limit, burst int) *IPRateLimiter {
 }
 
 func (rl *IPRateLimiter) Allow(ip string) bool {
-    rl.mu.Lock()
-    tb, ok := rl.buckets[ip]
-    if !ok {
-        tb = NewTokenBucket(rl.limit, rl.burst)
-        rl.buckets[ip] = tb
-    }
-    rl.mu.Unlock()
-    return tb.Allow()
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	tb, ok := rl.buckets[ip]
+	if !ok {
+		tb = NewTokenBucket(rl.limit, rl.burst)
+		rl.buckets[ip] = tb
+	}
+	return tb.Allow()
 }

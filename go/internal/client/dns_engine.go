@@ -55,6 +55,14 @@ func (e *DNSClientEngine) SendMessage(plaintext []byte) ([8]byte, int, error) {
 	var msgID [8]byte
 	rand.Read(msgID[:])
 
+	// Pad plaintext with 0-64 random bytes for traffic analysis protection
+	padLenBuf := make([]byte, 1)
+	rand.Read(padLenBuf)
+	padLen := int(padLenBuf[0]) % 65
+	padding := make([]byte, padLen)
+	rand.Read(padding)
+	plaintext = append(plaintext, padding...)
+
 	chunks := encoding.ChunkMessage(msgID, plaintext, 220)
 
 	for _, chunk := range chunks {

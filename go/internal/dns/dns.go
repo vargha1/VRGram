@@ -23,6 +23,7 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(name), dns.TypeTXT)
 	m.RecursionDesired = false
+	m.SetEdns0(4096, true)
 
 	client := &dns.Client{
 		Timeout: defaultTimeout,
@@ -35,6 +36,13 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
 		return fmt.Errorf("dns exchange failed: %w", err)
+	}
+	if resp.MsgHdr.Truncated {
+		client.Net = "tcp"
+		resp, _, err = client.Exchange(m, addr)
+		if err != nil {
+			return fmt.Errorf("dns tcp fallback failed: %w", err)
+		}
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		return fmt.Errorf("dns response code: %d", resp.Rcode)
