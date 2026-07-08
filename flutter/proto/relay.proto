@@ -1,0 +1,64 @@
+syntax = "proto3";
+package relaypb;
+option go_package = "github.com/user/dns-transport/pkg/relaypb";
+
+service RelayClient {
+  rpc SendMessage(SendRequest) returns (SendResponse);
+  rpc PollMessages(PollRequest) returns (PollResponse);
+  rpc GetRelayStatus(Empty) returns (RelayStatusList);
+  rpc AddRelay(RelayEndpoint) returns (Empty);
+  rpc RemoveRelay(RelayEndpoint) returns (Empty);
+  rpc GetIdentity(Empty) returns (IdentityInfo);
+  rpc AddPeer(PeerInfo) returns (Empty);
+}
+
+message SendRequest {
+  string peer_pubkey = 1;
+  bytes plaintext = 2;
+}
+
+message SendResponse {
+  string message_id = 1;
+  bool queued = 2;
+  int32 chunk_count = 3;
+}
+
+message PollRequest {}
+
+message PollResponse {
+  repeated ReceivedMessage messages = 1;
+}
+
+message ReceivedMessage {
+  string from_peer = 1;
+  string message_id = 2;
+  bytes plaintext = 3;
+  int64 timestamp = 4;
+}
+
+message Empty {}
+
+message RelayEndpoint {
+  string address = 1;
+}
+
+message RelayStatusList {
+  repeated RelayStatus endpoints = 1;
+}
+
+message RelayStatus {
+  string address = 1;
+  bool reachable = 2;
+  int64 latency_ms = 3;
+  string last_error = 4;
+  bool blackout_mode = 5;
+}
+
+message IdentityInfo {
+  string pubkey = 1;
+}
+
+message PeerInfo {
+  string nickname = 1;
+  string pubkey = 2;
+}
