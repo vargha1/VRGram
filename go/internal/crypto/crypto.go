@@ -3,6 +3,7 @@ package crypto
 import (
     "crypto/rand"
     "encoding/base64"
+    "errors"
     "fmt"
     "os"
     "strings"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-    KeyLength   = 32
-    NonceLength = 24
+    KeyLength    = 32
+    NonceLength  = 24
+    KeyFileMagic = "RELAYD IDENTITY KEY v1"
 )
 
 type KeyPair struct {
@@ -81,29 +83,30 @@ func DecryptMessage(sharedSecret, nonce, ciphertext []byte) ([]byte, error) {
 }
 
 func SaveIdentity(path string, kp *KeyPair) error {
-    var b strings.Builder
-    b.WriteString(base64.StdEncoding.EncodeToString(kp.PrivateKey))
-    b.WriteString(":")
-    b.WriteString(base64.StdEncoding.EncodeToString(kp.PublicKey))
-    return os.WriteFile(path, []byte(b.String()), 0600)
+	pubB64 := base64.StdEncoding.EncodeToString(kp.PublicKey)
+	privB64 := base64.StdEncoding.EncodeToString(kp.PrivateKey)
+	data := fmt.Sprintf("%s\npub:%s\npriv:%s\n", KeyFileMagic, pubB64, privB64)
+	return os.WriteFile(path, []byte(data), 0600)
 }
 
 func LoadIdentity(path string) (*KeyPair, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        return nil, err
-    }
-    parts := strings.SplitN(strings.TrimSpace(string(data)), ":", 2)
-    if len(parts) != 2 {
-        return nil, fmt.Errorf("invalid identity file format")
-    }
-    privateKey, err := base64.StdEncoding.DecodeString(parts[0])
-    if err != nil {
-        return nil, fmt.Errorf("failed to decode private key: %w", err)
-    }
-    publicKey, err := base64.StdEncoding.DecodeString(parts[1])
-    if err != nil {
-        return nil, fmt.Errorf("failed to decode public key: %w", err)
-    }
-    return &KeyPair{PublicKey: publicKey, PrivateKey: privateKey}, nil
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) < 3 || lines[0] != KeyFileMagic {
+		return nil, errors.New("invalid identity file format")
+	}
+	pubB64 := strings.TrimPrefix(lines[1], "pub:")
+	privB64 := strings.TrimPrefix(lines[2], "priv:")
+	pub, err := base64.StdEncoding.DecodeString(pubB64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid public key: %w", err)
+	}
+	priv, err := base64.StdEncoding.DecodeString(privB64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key: %w", err)
+	}
+	return &KeyPair{PublicKey: pub, PrivateKey: priv}, nil
 }
