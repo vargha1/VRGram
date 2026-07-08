@@ -1,15 +1,23 @@
-*.exe\n*.test\n*.out\ngo/relayd\n
+# Binaries
+*.exe
+*.test
+*.out
+go/relayd
 
-# Flutter
+# Flutter generated
 flutter/.dart_tool/
 flutter/.packages
 flutter/.pub/
 flutter/build/
 flutter/.flutter-plugins
 flutter/.flutter-plugins-dependencies
+flutter/*.iml
+flutter/pubspec.lock
+flutter/test/
 flutter/android/.gradle/
 flutter/android/local.properties
 flutter/android/key.properties
+flutter/android/app/libs/
 flutter/ios/Pods/
 flutter/ios/.symlinks/
 flutter/ios/Flutter/Flutter.framework
@@ -17,16 +25,16 @@ flutter/ios/Flutter/Flutter.podspec
 flutter/ios/Runner/GeneratedPluginRegistrant.*
 flutter/windows/flutter/
 flutter/windows/runner/GeneratedPluginRegistrant.*
-flutter/windows/runner/flutter_window.*
 flutter/windows/runner/runner.exe
 flutter/windows/runner/VRGram*
+flutter/windows/relayd.*
 flutter/.idea/
 flutter/.vscode/
-flutter/*.iml
-flutter/pubspec.lock
-flutter/test/
-flutter/android/app/libs/
-flutter/windows/relayd.*
+
+# Go gomobile bridge
 protoc_tmp/
+
+# Temp files
 run_analyze.bat
 analyze_result.txt
+.superpowers/
