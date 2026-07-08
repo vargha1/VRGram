@@ -3,6 +3,7 @@ module github.com/user/dns-transport
 go 1.25.5
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.47
 	golang.org/x/crypto v0.50.0
 	google.golang.org/grpc v1.82.0
 	google.golang.org/protobuf v1.36.11
