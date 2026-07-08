@@ -1,0 +1,150 @@
+- generic [active] [ref=f18e1]:
+  - main [ref=f18e3]:
+    - generic [ref=f18e4]:
+      - generic [ref=f18e5]:
+        - link [ref=f18e6] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f18e8]:
+          - button "Become a Seller" [ref=f18e10] [cursor=pointer]:
+            - generic [ref=f18e11]: Become a Seller
+          - button "Log in" [ref=f18e12] [cursor=pointer]
+          - button "Sign up" [ref=f18e13] [cursor=pointer]
+      - generic [ref=f18e15]:
+        - generic [ref=f18e17]:
+          - generic [ref=f18e20]:
+            - generic "Various shows at Whatnot" [ref=f18e25]
+            - generic [ref=f18e27]:
+              - heading "The Live Shopping Marketplace" [level=1] [ref=f18e28]
+              - paragraph [ref=f18e29]: Shop, sell, and connect around the things you love.
+              - paragraph [ref=f18e30]: Download Whatnot
+              - img "QR Code" [ref=f18e31]
+          - button "How it works" [ref=f18e33] [cursor=pointer]: How it works
+        - generic [ref=f18e37]:
+          - generic [ref=f18e40]:
+            - generic "Video of phone spinning and playing different shows" [ref=f18e42]
+            - generic [ref=f18e45]:
+              - heading "Join In the Fun" [level=2] [ref=f18e46]
+              - paragraph [ref=f18e47]: Take part in fast-paced auctions, incredible flash sales, live show giveaways, and so much more.
+              - paragraph [ref=f18e48]: Download Whatnot
+              - img "QR Code" [ref=f18e49]
+          - generic [ref=f18e50]:
+            - button "Go Back" [ref=f18e51] [cursor=pointer]:
+              - img "Go Back" [ref=f18e53]
+            - button "More" [ref=f18e55] [cursor=pointer]: More
+        - generic [ref=f18e59]:
+          - generic [ref=f18e62]:
+            - generic [ref=f18e63]:
+              - img "Images of different designer toys sold at Whatnot" [ref=f18e64]
+              - img "Images of different fashion sold at Whatnot" [ref=f18e65]
+              - img "Images of different sports sold at Whatnot" [ref=f18e66]
+              - img "Images of different comics sold at Whatnot" [ref=f18e67]
+            - generic [ref=f18e69]:
+              - heading "We've Got It All" [level=2] [ref=f18e70]
+              - paragraph [ref=f18e71]: Search our marketplace to find the exact product you're looking for
+              - paragraph [ref=f18e72]: Download Whatnot
+              - img "QR Code" [ref=f18e73]
+          - generic [ref=f18e74]:
+            - button "Go Back" [ref=f18e75] [cursor=pointer]:
+              - img "Go Back" [ref=f18e77]
+            - button "More" [ref=f18e79] [cursor=pointer]: More
+        - generic [ref=f18e83]:
+          - generic [ref=f18e86]:
+            - generic [ref=f18e87]:
+              - img [ref=f18e90]
+              - img "Image of a Nike shoe" [ref=f18e145]
+            - generic [ref=f18e147]:
+              - heading "Find Incredible Deals on Name Brands" [level=2] [ref=f18e148]
+              - paragraph [ref=f18e149]: From the brands you love, to hard-to-find specialty products. There's a deal on whatever you're looking for.
+              - paragraph [ref=f18e150]: Download Whatnot
+              - img "QR Code" [ref=f18e151]
+          - generic [ref=f18e152]:
+            - button "Go Back" [ref=f18e153] [cursor=pointer]:
+              - img "Go Back" [ref=f18e155]
+            - button "To the Top" [ref=f18e157] [cursor=pointer]
+        - generic [ref=f18e158]:
+          - generic [ref=f18e159]:
+            - link [ref=f18e161] [cursor=pointer]:
+              - /url: /
+            - generic [ref=f18e163]:
+              - generic [ref=f18e164]:
+                - strong [ref=f18e166]: Whatnot
+                - list [ref=f18e167]:
+                  - listitem [ref=f18e168]:
+                    - link "Blog" [ref=f18e169] [cursor=pointer]:
+                      - /url: https://blog.teamwhatnot.com
+                      - strong [ref=f18e170]: Blog
+                  - listitem [ref=f18e171]:
+                    - link "Careers" [ref=f18e172] [cursor=pointer]:
+                      - /url: https://careers.whatnot.com
+                      - strong [ref=f18e173]: Careers
+                  - listitem [ref=f18e174]:
+                    - link "About Us" [ref=f18e175] [cursor=pointer]:
+                      - /url: /about-us
+                      - strong [ref=f18e176]: About Us
+                  - listitem [ref=f18e177]:
+                    - link "FAQ" [ref=f18e178] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/
+                      - strong [ref=f18e179]: FAQ
+                  - listitem [ref=f18e180]:
+                    - link "Whatnot Affiliates" [ref=f18e181] [cursor=pointer]:
+                      - /url: https://www.whatnotaffiliates.com/
+                      - strong [ref=f18e182]: Whatnot Affiliates
+              - generic [ref=f18e183]:
+                - strong [ref=f18e185]: Get Help
+                - list [ref=f18e186]:
+                  - listitem [ref=f18e187]:
+                    - link "Order Status" [ref=f18e188] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/articles/360061605391-Tracking-the-Status-of-your-Order
+                      - strong [ref=f18e189]: Order Status
+                  - listitem [ref=f18e190]:
+                    - link "Shipping and Delivery" [ref=f18e191] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/articles/16369289657741-Shipping-on-Whatnot
+                      - strong [ref=f18e192]: Shipping and Delivery
+                  - listitem [ref=f18e193]:
+                    - link "Returns" [ref=f18e194] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/articles/360061194552-Return-Policy-in-the-US-and-Canada
+                      - strong [ref=f18e195]: Returns
+                  - listitem [ref=f18e196]:
+                    - link "Payment Options" [ref=f18e197] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/articles/17151383107725-Buy-Now-Pay-Later-as-a-Payment-Method
+                      - strong [ref=f18e198]: Payment Options
+                  - listitem [ref=f18e199]:
+                    - link "Contact Us" [ref=f18e200] [cursor=pointer]:
+                      - /url: https://help.whatnot.com/hc/articles/4406478493069-Contact-Whatnot-Support
+                      - strong [ref=f18e201]: Contact Us
+          - generic [ref=f18e202]:
+            - generic [ref=f18e203]:
+              - strong [ref=f18e204]: © 2026 Whatnot Inc.
+              - link "Terms" [ref=f18e205] [cursor=pointer]:
+                - /url: /terms
+                - strong [ref=f18e206]: Terms
+              - link "Privacy" [ref=f18e207] [cursor=pointer]:
+                - /url: /privacy
+                - strong [ref=f18e208]: Privacy
+              - generic [ref=f18e209] [cursor=pointer]:
+                - img "Language Selector" [ref=f18e211]
+                - combobox "Select language" [ref=f18e213]:
+                  - option "English" [selected]
+                  - option "British English"
+                  - option "Australian English"
+                  - option "français"
+                  - option "Deutsch"
+                  - option "日本語 (日本)"
+            - generic [ref=f18e214]:
+              - link "Facebook logo" [ref=f18e215] [cursor=pointer]:
+                - /url: https://www.facebook.com/RealWhatnot
+                - img "Facebook logo" [ref=f18e217]
+              - link "X (formerly Twitter) logo" [ref=f18e220] [cursor=pointer]:
+                - /url: https://x.com/Whatnot
+                - img "X (formerly Twitter) logo" [ref=f18e222]
+              - link "Instagram logo" [ref=f18e224] [cursor=pointer]:
+                - /url: https://www.instagram.com/Whatnot
+                - img "Instagram logo" [ref=f18e226]
+              - link "Linkedin logo" [ref=f18e230] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/whatnot-inc/
+                - img "Linkedin logo" [ref=f18e232]
+              - link "TikTok logo" [ref=f18e235] [cursor=pointer]:
+                - /url: https://www.tiktok.com/@Whatnot
+                - img "TikTok logo" [ref=f18e237]
+  - region "Notifications alt+T"
+  - alert [ref=f18e239]
