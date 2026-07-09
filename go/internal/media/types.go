@@ -77,10 +77,12 @@ func DecryptFile(key []byte, ciphertext []byte) ([]byte, error) {
 }
 
 // GenerateFileKey returns a random 32-byte AES-256 key.
-func GenerateFileKey() []byte {
+func GenerateFileKey() ([]byte, error) {
 	k := make([]byte, 32)
-	rand.Read(k)
-	return k
+	if _, err := rand.Read(k); err != nil {
+		return nil, fmt.Errorf("generate file key: %w", err)
+	}
+	return k, nil
 }
 
 // Serialize and deserialize helpers
