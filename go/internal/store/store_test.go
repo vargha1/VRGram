@@ -13,7 +13,7 @@ func TestStoreAndReassemble(t *testing.T) {
 	var msgID [8]byte
 	rand.Read(msgID[:])
 	plaintext := []byte("hello from test message")
-	chunks := encoding.ChunkMessage(msgID, plaintext, 50)
+	chunks := encoding.ChunkMessage(msgID, plaintext, 50, "")
 
 	for _, c := range chunks {
 		complete, err := s.Store(c)

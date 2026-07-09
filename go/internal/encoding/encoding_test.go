@@ -50,7 +50,7 @@ func TestChunkMessageReassemble(t *testing.T) {
     original := make([]byte, 1000)
     rand.Read(original)
 
-    chunks := ChunkMessage(msgID, original, 220)
+    chunks := ChunkMessage(msgID, original, 220, "")
     if len(chunks) != 5 { // ceil(1000/220)
         t.Fatalf("expected 5 chunks, got %d", len(chunks))
     }
