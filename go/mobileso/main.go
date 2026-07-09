@@ -24,15 +24,22 @@ static void releaseChars(JNIEnv* env, jstring js, const char* cStr) {
 */
 import "C"
 
-import "github.com/user/dns-transport/mobile"
+import (
+	"fmt"
+
+	"github.com/user/dns-transport/mobile"
+)
 
 //export Java_com_example_vrgram_GoBridge_startDaemon
 func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass, grpcPort C.int, relayList C.jstring, zone C.jstring, forceBlackout C.jstring, dataDir C.jstring, p2pPort C.int, bootstrapAddrs C.jstring) {
+	fmt.Println("[VRGram-SO] JNI function called")
 	rl := jstringToGo(env, relayList)
 	z := jstringToGo(env, zone)
 	fb := jstringToGo(env, forceBlackout)
 	dd := jstringToGo(env, dataDir)
 	ba := jstringToGo(env, bootstrapAddrs)
+
+	fmt.Printf("[VRGram-SO] grpcPort=%d dataDir=%s p2pPort=%d\n", int(grpcPort), dd.str, int(p2pPort))
 
 	mobile.StartDaemon(
 		int(grpcPort),
