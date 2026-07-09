@@ -35,10 +35,15 @@ class GoBridge {
       );
     }
     // On mobile, native code (MainActivity/AppDelegate) starts the daemon
-    // before Flutter engine loads. We just wait for gRPC readiness.
+    // before Flutter engine loads. If the Go runtime isn't embedded yet,
+    // the gRPC wait will time out quickly and the app loads without daemon.
+    // The UI handles this with "daemon not connected" state.
 
-    // Wait for gRPC server to become ready
-    await _waitForGRPC(grpcPort);
+    if (isDesktop) {
+      // Wait for gRPC server to become ready (desktop only — mobile handles
+      // daemon start via gomobile native code before Flutter loads)
+      await _waitForGRPC(grpcPort);
+    }
   }
 
   /// Stop the Go daemon.
@@ -88,9 +93,12 @@ class GoBridge {
     debugPrint('Starting relayd: $binaryPath ${args.join(' ')}');
 
     try {
+      // Start relayd as a child process (stdin piped to /dev/null, stdout/stderr captured)
       _process = await Process.start(binaryPath, args,
-        mode: ProcessStartMode.detached,
+        runInShell: false,
       );
+      // Close stdin immediately (we don't send input)
+      _process!.stdin.close();
       // Pipe stdout/stderr to debug console
       _process!.stdout
           .transform(utf8.decoder)
