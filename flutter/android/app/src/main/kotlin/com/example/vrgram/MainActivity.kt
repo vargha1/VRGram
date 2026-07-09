@@ -9,26 +9,6 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "vrgram/bridge"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        // Start Go daemon before Flutter engine loads
-        try {
-            val dataDir = applicationContext.filesDir.absolutePath
-            Log.d("VRGram", "Starting Go daemon, dataDir=$dataDir")
-            GoBridge.startDaemon(
-                9876,                    // grpcPort
-                "",                      // relayList (comma-separated, empty = none)
-                "msg.local-domain",      // zone
-                "false",                 // forceBlackout
-                dataDir,                 // dataDir
-                4001,                    // p2pPort
-                "",                      // bootstrapAddrs
-            )
-            Log.d("VRGram", "Go daemon started successfully")
-        } catch (e: UnsatisfiedLinkError) {
-            Log.e("VRGram", "Failed to load native library", e)
-        } catch (e: Exception) {
-            Log.e("VRGram", "Failed to start Go daemon", e)
-        }
-
         super.configureFlutterEngine(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).apply {
@@ -36,6 +16,36 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "getDataDir" -> {
                         result.success(applicationContext.filesDir.absolutePath)
+                    }
+                    "startDaemon" -> {
+                        try {
+                            val args = call.arguments as Map<*, *>
+                            val dataDir = args["dataDir"] as String
+                            val grpcPort = args["grpcPort"] as Int
+                            val p2pPort = args["p2pPort"] as Int
+                            val zone = args["zone"] as String
+                            val relays = args["relays"] as String
+                            val bootstrap = args["bootstrap"] as String
+
+                            Log.d("VRGram", "Starting Go daemon via method channel, dataDir=$dataDir")
+                            GoBridge.startDaemon(
+                                grpcPort,
+                                relays,
+                                zone,
+                                "false",
+                                dataDir,
+                                p2pPort,
+                                bootstrap,
+                            )
+                            Log.d("VRGram", "Go daemon startDaemon called")
+                            result.success(true)
+                        } catch (e: UnsatisfiedLinkError) {
+                            Log.e("VRGram", "Failed to load native library", e)
+                            result.error("LINK_ERROR", e.message, null)
+                        } catch (e: Exception) {
+                            Log.e("VRGram", "Failed to start Go daemon", e)
+                            result.error("START_ERROR", e.message, null)
+                        }
                     }
                     else -> result.notImplemented()
                 }

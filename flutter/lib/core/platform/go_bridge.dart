@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart';
 
 import '../grpc/relay.pb.dart';
@@ -11,6 +12,7 @@ import '../grpc/relay.pbgrpc.dart';
 class GoBridge {
   static Process? _process;
   static bool _started = false;
+  static const _channel = MethodChannel('vrgram/bridge');
 
   /// Start the Go daemon and wait for gRPC server to be ready.
   static Future<void> start({
@@ -33,11 +35,46 @@ class GoBridge {
         relays: relays,
         zone: zone,
       );
+    } else {
+      // Mobile: start daemon via native method channel
+      await _startMobileDaemon(
+        grpcPort: grpcPort,
+        dataDir: dataDir,
+        p2pPort: p2pPort,
+        bootstrap: bootstrap,
+        relays: relays,
+        zone: zone,
+      );
     }
-    // On mobile, native code (MainActivity) starts the daemon via gomobile
-    // before Flutter engine loads. Just wait for gRPC readiness below.
 
     await _waitForGRPC(grpcPort);
+  }
+
+  /// Mobile: call native GoBridge.startDaemon via method channel.
+  static Future<void> _startMobileDaemon({
+    required int grpcPort,
+    required String dataDir,
+    required int p2pPort,
+    required String bootstrap,
+    required String relays,
+    required String zone,
+  }) async {
+    try {
+      debugPrint('Starting Go daemon via method channel...');
+      final result = await _channel.invokeMethod('startDaemon', {
+        'grpcPort': grpcPort,
+        'dataDir': dataDir,
+        'p2pPort': p2pPort,
+        'zone': zone,
+        'relays': relays,
+        'bootstrap': bootstrap,
+      });
+      debugPrint('Go daemon method channel returned: $result');
+    } on PlatformException catch (e) {
+      debugPrint('Failed to start Go daemon: ${e.code} - ${e.message}');
+    } catch (e) {
+      debugPrint('Failed to start Go daemon: $e');
+    }
   }
 
   /// Stop the Go daemon.

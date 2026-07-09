@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/grpc/client.dart';
@@ -8,8 +11,19 @@ import 'shared/constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start Go daemon (native code runs before Flutter, but ensure readiness)
-  await GoBridge.start();
+  // On mobile, get data directory from native side before starting daemon
+  String dataDir = '';
+  if (!GoBridge.isDesktop) {
+    const channel = MethodChannel('vrgram/bridge');
+    try {
+      dataDir = await channel.invokeMethod('getDataDir') ?? '';
+    } catch (e) {
+      debugPrint('Failed to get dataDir: $e');
+    }
+  }
+
+  // Start Go daemon
+  await GoBridge.start(dataDir: dataDir);
 
   // Initialize gRPC client
   await GrpcClient().init();
