@@ -113,9 +113,10 @@ class ChatList extends Notifier<List<ChatMessage>> {
 
   void startMediaStatusPolling(String msgId, String mediaMessageId) {
     _pollTimer?.cancel();
+    // I6: Store client reference once instead of creating per tick
+    final client = GrpcClient();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
       try {
-        final client = GrpcClient();
         final resp = await client.stub
             .getMediaStatus(GetMediaStatusRequest(messageId: mediaMessageId));
         final progress = _statusToProgress(resp.status);

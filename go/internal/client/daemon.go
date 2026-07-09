@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/user/dns-transport/internal/media"
@@ -38,11 +39,69 @@ type Daemon struct {
 	grpcServer     *grpc.Server
 	bridgeCli      *bridge.Client
 	libp2pTransport Libp2pTransport // optional libp2p transport for media
+
+	// Media transfer tracking
+	transfers   map[string]*MediaTransfer // messageID -> transfer
+	transferMu  sync.Mutex
 }
 
 // Libp2pTransport is the interface for sending files over libp2p.
 type Libp2pTransport interface {
 	SendFile(ctx context.Context, peerID string, fileName string, mimeType string, data []byte) error
+}
+
+// TransferStatus represents the state of a media transfer.
+type TransferStatus int32
+
+const (
+	TransferQueued     TransferStatus = 0
+	TransferSending    TransferStatus = 1
+	TransferComplete   TransferStatus = 2
+	TransferFailed     TransferStatus = 3
+	TransferCancelled  TransferStatus = 4
+)
+
+// MediaTransfer tracks the progress and state of a media transfer.
+type MediaTransfer struct {
+	mu       sync.Mutex
+	Status   TransferStatus
+	Progress int32 // 0-100
+	Error    string
+	Created  time.Time
+}
+
+// toProtoStatus converts internal status to protobuf status enum value.
+func (t *MediaTransfer) toProtoStatus() pb.MediaStatusResponse_Status {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	switch t.Status {
+	case TransferQueued:
+		return pb.MediaStatusResponse_QUEUED
+	case TransferSending:
+		return pb.MediaStatusResponse_SENDING
+	case TransferComplete:
+		return pb.MediaStatusResponse_COMPLETE
+	case TransferFailed:
+		return pb.MediaStatusResponse_FAILED
+	case TransferCancelled:
+		return pb.MediaStatusResponse_FAILED
+	default:
+		return pb.MediaStatusResponse_QUEUED
+	}
+}
+
+// getProgress returns the current progress safely.
+func (t *MediaTransfer) getProgress() int32 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Progress
+}
+
+// getError returns the error string safely.
+func (t *MediaTransfer) getError() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Error
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
@@ -120,6 +179,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		dataDir:   dataDir,
 		dhtOnly:   dhtOnly,
 		bridgeCli: cli,
+		transfers: make(map[string]*MediaTransfer),
 	}
 
 	// Start gRPC server
@@ -128,7 +188,10 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		return err
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.MaxRecvMsgSize(100 * 1024 * 1024), // 100 MB max receive
+		grpc.MaxSendMsgSize(100 * 1024 * 1024), // 100 MB max send
+	)
 	pb.RegisterRelayClientServer(s, daemon)
 	daemon.grpcServer = s
 
@@ -143,6 +206,9 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 
 	// Start offline queue processor
 	go daemon.processQueue()
+
+	// Start transfer cleanup goroutine (every 5 minutes)
+	go daemon.cleanupTransfers()
 
 	slog.Info("client daemon listening", "grpc", grpcPort, "pubkey", base64.StdEncoding.EncodeToString(identity.PublicKey))
 	return s.Serve(lis)
@@ -320,73 +386,297 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
 	transport := "dns"
 	estimatedSec := int32(len(req.MediaData) / 1000) // rough estimate
+	msgID := fmt.Sprintf("%x", time.Now().UnixNano())
+
+	// Create transfer tracking entry
+	transfer := &MediaTransfer{
+		Status:  TransferQueued,
+		Progress: 0,
+		Created: time.Now(),
+	}
+	d.transferMu.Lock()
+	d.transfers[msgID] = transfer
+	d.transferMu.Unlock()
 
 	if req.PreferredTransport == pb.SendMediaRequest_DNS ||
 		(req.PreferredTransport == pb.SendMediaRequest_AUTO && len(req.MediaData) < media.MediaDNSSizeThreshold) {
 		// DNS path
-		var msgID [8]byte
-		rand.Read(msgID[:])
+		var mid [8]byte
+		rand.Read(mid[:])
 
 		dnsTransport := media.NewDNSTransport(d.engine)
-		meta, err := dnsTransport.SendChunks(ctx, msgID, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+
+		// I5: MediaLibp2pHardCap enforced inside SendChunks
+		meta, err := dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
 		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
 
-		// Send metadata as text message to peer
+		// I3: Set timestamp
+		meta.Timestamp = time.Now().UnixMilli()
+		meta.MessageID = msgID
+
+		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
+
+		// I2: Send metadata as E2E-encrypted message addressed to peer
 		metaBytes, err := meta.Marshal()
 		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
-		// Encrypt and send metadata via DNS
 		peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
 		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
 		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
 		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
 		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
 		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
 		if _, _, err := d.engine.SendMessage(ctx, ciphertext); err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
 			return nil, err
 		}
 
-		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
+		transfer.mu.Lock()
+		transfer.Status = TransferSending
+		transfer.Progress = 50
+		transfer.mu.Unlock()
+
 	} else if req.PreferredTransport == pb.SendMediaRequest_LIBP2P ||
 		(len(req.MediaData) >= media.MediaDNSSizeThreshold && d.libp2pTransport != nil) {
-		transport = "libp2p"
-		if d.libp2pTransport != nil {
-			peerID := req.PeerPubkey // libp2p peer ID (may differ from pubkey, using pubkey as placeholder)
-			if err := d.libp2pTransport.SendFile(ctx, peerID, req.Filename, req.MimeType, req.MediaData); err != nil {
-				return nil, err
-			}
+
+		// C3: libp2p peer ID is X25519 pubkey — wrong.
+		// For PoC, skip if we cannot resolve a proper peer ID.
+		// TODO: Implement proper pubkey -> libp2p PeerID mapping.
+		// Currently req.PeerPubkey is the X25519 public key, not the libp2p PeerID.
+		peerID := "" // would need a mapping from pubkey -> peerID
+		if peerID == "" {
+			// No mapping available; this is a PoC limitation.
+			// The real fix requires identifying libp2p peers by their PeerID,
+			// which needs a mapping from X25519 pubkey to libp2p PeerID.
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = "libp2p peer ID mapping not available (PoC limitation)"
+			transfer.mu.Unlock()
+			return nil, status.Error(codes.Unimplemented, "libp2p peer ID mapping not available (PoC)")
 		}
+
+		transport = "libp2p"
+
+		// C1: Encrypt file before sending over libp2p
+		fileKey, err := media.GenerateFileKey()
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		encryptedData, err := media.EncryptFile(fileKey, req.MediaData)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+
+		// Build metadata with file key so peer can decrypt
+		meta := &media.MediaMessage{
+			MessageID:   msgID,
+			Timestamp:   time.Now().UnixMilli(),
+			MediaType:   media.MediaTypeFile,
+			FileName:    req.Filename,
+			MimeType:    req.MimeType,
+			FileSize:    int64(len(req.MediaData)),
+			Chunks:      0, // 0 = sent via libp2p
+			FileKeyB64:  base64.StdEncoding.EncodeToString(fileKey),
+		}
+
+		// I2: Send metadata as E2E-encrypted message addressed to peer
+		metaBytes, err := meta.Marshal()
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		if _, _, err := d.engine.SendMessage(ctx, ciphertext); err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+
+		// Send encrypted file via libp2p
+		if err := d.libp2pTransport.SendFile(ctx, peerID, req.Filename, req.MimeType, encryptedData); err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+
+		transfer.mu.Lock()
+		transfer.Status = TransferComplete
+		transfer.Progress = 100
+		transfer.mu.Unlock()
+
 		estimatedSec = int32(len(req.MediaData) / (1024 * 1024)) // ~1 MB/s est
+
+	} else if req.PreferredTransport == pb.SendMediaRequest_AUTO &&
+		len(req.MediaData) >= media.MediaDNSSizeThreshold &&
+		d.libp2pTransport == nil {
+		// I4: AUTO transport but file too large for DNS and libp2p unavailable
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = "file too large for DNS, libp2p unavailable"
+		transfer.mu.Unlock()
+		return nil, status.Error(codes.FailedPrecondition, "file too large for DNS, libp2p unavailable")
 	}
 
+	transfer.mu.Lock()
+	transfer.Status = TransferComplete
+	transfer.Progress = 100
+	transfer.mu.Unlock()
+
 	return &pb.SendMediaResponse{
-		MessageId:       fmt.Sprintf("%x", time.Now().UnixNano()),
+		MessageId:       msgID,
 		EstimatedSeconds: estimatedSec,
 		Transport:       transport,
 	}, nil
 }
 
-// GetMediaStatus returns the status of a media transfer (PoC: stub).
+// GetMediaStatus returns the status of a media transfer.
 func (d *Daemon) GetMediaStatus(ctx context.Context, req *pb.GetMediaStatusRequest) (*pb.MediaStatusResponse, error) {
+	d.transferMu.Lock()
+	t, ok := d.transfers[req.MessageId]
+	d.transferMu.Unlock()
+
+	if !ok {
+		return nil, status.Error(codes.NotFound, "transfer not found")
+	}
+
+	t.mu.Lock()
+	status := t.Status
+	progress := t.Progress
+	errStr := t.Error
+	t.mu.Unlock()
+
+	var pbStatus pb.MediaStatusResponse_Status
+	switch status {
+	case TransferQueued:
+		pbStatus = pb.MediaStatusResponse_QUEUED
+	case TransferSending:
+		pbStatus = pb.MediaStatusResponse_SENDING
+	case TransferComplete:
+		pbStatus = pb.MediaStatusResponse_COMPLETE
+	case TransferFailed:
+		pbStatus = pb.MediaStatusResponse_FAILED
+	case TransferCancelled:
+		pbStatus = pb.MediaStatusResponse_FAILED
+	default:
+		pbStatus = pb.MediaStatusResponse_QUEUED
+	}
+
 	return &pb.MediaStatusResponse{
-		MessageId:  req.MessageId,
-		Status:     pb.MediaStatusResponse_COMPLETE,
-		ProgressPct: 100,
+		MessageId:   req.MessageId,
+		Status:      pbStatus,
+		ProgressPct: progress,
+		Error:       errStr,
 	}, nil
 }
 
-// CancelSend cancels a pending send (PoC: stub, always succeeds).
+// CancelSend cancels a pending send.
 func (d *Daemon) CancelSend(ctx context.Context, req *pb.CancelSendRequest) (*pb.Empty, error) {
+	d.transferMu.Lock()
+	t, ok := d.transfers[req.MessageId]
+	d.transferMu.Unlock()
+
+	if !ok {
+		return nil, status.Error(codes.NotFound, "transfer not found")
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.Status == TransferComplete || t.Status == TransferFailed {
+		return nil, status.Error(codes.FailedPrecondition, "transfer already finished")
+	}
+
+	t.Status = TransferCancelled
 	return &pb.Empty{}, nil
+}
+
+// cleanupTransfers periodically removes old completed transfers from the map.
+func (d *Daemon) cleanupTransfers() {
+	for {
+		time.Sleep(5 * time.Minute)
+		now := time.Now()
+		d.transferMu.Lock()
+		for id, t := range d.transfers {
+			t.mu.Lock()
+			// Remove transfers older than 1 hour that are in a terminal state
+			if (t.Status == TransferComplete || t.Status == TransferFailed || t.Status == TransferCancelled) &&
+				now.Sub(t.Created) > 1*time.Hour {
+				delete(d.transfers, id)
+			}
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+	}
 }
 
 // processQueue periodically retries sending queued messages.

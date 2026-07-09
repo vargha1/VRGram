@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	"github.com/user/dns-transport/internal/encoding"
 )
@@ -36,6 +37,11 @@ func NewDNSTransport(sender DNSChunkSender) *DNSTransport {
 // SendChunks sends a file over DNS, returning the metadata message and file key.
 // Returns the metadata message, file key, and error.
 func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData []byte, fileName string, mimeType string, mediaType MediaType) (*MediaMessage, error) {
+	// I5: Enforce hard cap on DNS file size
+	if len(fileData) > MediaLibp2pHardCap {
+		return nil, fmt.Errorf("file exceeds max DNS size (%d bytes > %d bytes)", len(fileData), MediaLibp2pHardCap)
+	}
+
 	// 1. Generate per-file key
 	fileKey, err := GenerateFileKey()
 	if err != nil {
@@ -61,7 +67,7 @@ func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 	// 5. Build metadata message (this is also sent via DNS as a text-like message)
 	meta := &MediaMessage{
 		MessageID:  fmt.Sprintf("%x", msgID),
-		Timestamp:  0, // filled by sender
+		Timestamp:  time.Now().UnixMilli(), // I3: set real timestamp
 		MediaType:  mediaType,
 		FileName:   fileName,
 		MimeType:   mimeType,
