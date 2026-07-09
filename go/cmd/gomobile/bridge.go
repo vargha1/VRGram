@@ -19,7 +19,8 @@ import (
 //   - dataDir: path to data directory
 //   - p2pPort: libp2p listen port (0 to disable embedded p2p)
 //   - bootstrap: comma-separated bootstrap multiaddrs
-func StartEmbedded(grpcPort int, relays string, zone string, forceBlackout string, dataDir string, p2pPort int, bootstrap string) {
+//   - dnsResolver: custom DNS resolver for domain relay addresses (e.g., "8.8.8.8:53")
+func StartEmbedded(grpcPort int, relays string, zone string, forceBlackout string, dataDir string, p2pPort int, bootstrap string, dnsResolver string) {
 	go func() {
 		var p2pHost *p2p.P2PHost
 		var dhtClient *p2p.DHTClient
@@ -52,7 +53,7 @@ func StartEmbedded(grpcPort int, relays string, zone string, forceBlackout strin
 			}
 		}
 
-		_ = client.RunDaemon(grpcPort, relayList, zone, dataDir, forceBlackout == "true", p2pHost, dhtClient, false)
+		_ = client.RunDaemon(grpcPort, relayList, zone, dataDir, forceBlackout == "true", p2pHost, dhtClient, false, dnsResolver)
 	}()
 }
 

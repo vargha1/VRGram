@@ -107,7 +107,7 @@ func (t *MediaTransfer) getError() string {
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
-func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, p2pHost *p2p.P2PHost, dhtClient *p2p.DHTClient, dhtOnly bool) error {
+func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, p2pHost *p2p.P2PHost, dhtClient *p2p.DHTClient, dhtOnly bool, dnsResolver string) error {
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
@@ -148,6 +148,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 
 	// Create DNS engine
 	engine := NewDNSClientEngine(engineRelays, zone)
+	engine.SetDNSResolver(dnsResolver)
 
 		// Create network detector
 		detector := NewDetector(forceBlackout, dhtClient, len(engineRelays))

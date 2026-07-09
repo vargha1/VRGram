@@ -5,9 +5,10 @@ import '../../../shared/constants.dart';
 
 class RelayTile extends StatelessWidget {
   final RelayStatus status;
+  final String? dnsResolver;
   final VoidCallback onDelete;
 
-  const RelayTile({super.key, required this.status, required this.onDelete});
+  const RelayTile({super.key, required this.status, this.dnsResolver, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +26,23 @@ class RelayTile extends StatelessWidget {
     return ListTile(
       leading: Icon(Icons.dns, color: color),
       title: Text(status.address),
-      subtitle: Row(
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          StatusBadge(color: color, label: label),
-          if (status.latencyMs > 0) ...[
-            const SizedBox(width: 8),
-            Text('${status.latencyMs}ms',
-                style: const TextStyle(fontSize: 12)),
-          ],
+          Row(
+            children: [
+              StatusBadge(color: color, label: label),
+              if (status.latencyMs > 0) ...[
+                const SizedBox(width: 8),
+                Text('${status.latencyMs}ms', style: const TextStyle(fontSize: 12)),
+              ],
+            ],
+          ),
+          if (dnsResolver != null && dnsResolver!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('DNS: $dnsResolver', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            ),
         ],
       ),
       trailing: IconButton(

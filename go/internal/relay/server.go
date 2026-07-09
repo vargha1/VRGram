@@ -1,9 +1,15 @@
 package relay
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/base32"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,8 +24,10 @@ const DefaultChunkTTL = 7 * 24 * time.Hour
 
 var base32hex = base32.HexEncoding.WithPadding(base32.NoPadding)
 
-func RunServer(addr, zone string, s *store.ChunkStore, rl *ratelimit.IPRateLimiter) error {
-	slog.Info("relay server starting", "addr", addr, "zone", zone)
+// RunServer starts the DNS relay server and optionally an HTTP media server.
+// If mediaPort is non-empty, starts HTTP server on that port for file upload/download.
+func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.IPRateLimiter) error {
+	slog.Info("relay server starting", "addr", addr, "zone", zone, "mediaPort", mediaPort)
 	zone = dns.Fqdn(zone)
 
 	mux := dns.NewServeMux()
@@ -63,11 +71,11 @@ func RunServer(addr, zone string, s *store.ChunkStore, rl *ratelimit.IPRateLimit
 				return
 			}
 			peerHash := labels[1]
-				msgIDs := s.ListPeerMessages(peerHash)
-				var pending []string
-				for _, id := range msgIDs {
-					pending = append(pending, base32hex.EncodeToString(id[:]))
-				}
+			msgIDs := s.ListPeerMessages(peerHash)
+			var pending []string
+			for _, id := range msgIDs {
+				pending = append(pending, base32hex.EncodeToString(id[:]))
+			}
 			m.Answer = append(m.Answer, &dns.TXT{
 				Hdr: dns.RR_Header{
 					Name:   qname,
@@ -131,7 +139,6 @@ func RunServer(addr, zone string, s *store.ChunkStore, rl *ratelimit.IPRateLimit
 			"complete", complete)
 
 		// Acknowledge
-		// Re-encode labels without zone for the ack
 		ackMsgID := base32hex.EncodeToString(chunk.MsgID[:])
 		ackIdx := base32hex.EncodeToString([]byte{byte(chunk.ChunkIdx >> 8), byte(chunk.ChunkIdx)})
 		ackLabels := []string{ackMsgID, ackIdx, "OK"}
@@ -147,12 +154,85 @@ func RunServer(addr, zone string, s *store.ChunkStore, rl *ratelimit.IPRateLimit
 		w.WriteMsg(m)
 	})
 
+	// Start HTTP media server if mediaPort specified
+	if mediaPort != "" {
+		go startMediaServer(mediaPort)
+	}
+
 	server := &dns.Server{
 		Addr:    addr,
 		Net:     "udp",
 		Handler: mux,
 	}
 	return server.ListenAndServe()
+}
+
+// startMediaServer runs the HTTP server for file upload/download.
+func startMediaServer(port string) {
+	mediaDir := filepath.Join(os.Getenv("HOME"), ".config", "relayd", "media")
+	if err := os.MkdirAll(mediaDir, 0700); err != nil {
+		slog.Error("failed to create media dir", "error", err)
+		return
+	}
+
+	// Cleanup old files (older than 7 days)
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			entries, _ := os.ReadDir(mediaDir)
+			for _, e := range entries {
+				info, _ := e.Info()
+				if time.Since(info.ModTime()) > 7*24*time.Hour {
+					os.Remove(filepath.Join(mediaDir, e.Name()))
+				}
+			}
+		}
+	}()
+
+	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", 405)
+			return
+		}
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "read failed", 500)
+			return
+		}
+		hash := sha256.Sum256(data)
+		fileID := hex.EncodeToString(hash[:])
+		if err := os.WriteFile(filepath.Join(mediaDir, fileID), data, 0600); err != nil {
+			http.Error(w, "write failed", 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"file_id":"` + fileID + `"}`))
+	})
+
+	http.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
+		fileID := strings.TrimPrefix(r.URL.Path, "/download/")
+		if fileID == "" {
+			http.NotFound(w, r)
+			return
+		}
+		// Validate fileID is hex
+		if _, err := hex.DecodeString(fileID); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		path := filepath.Join(mediaDir, fileID)
+		if _, err := os.Stat(path); err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, path)
+	})
+
+	slog.Info("media HTTP server starting", "port", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		slog.Error("media server failed", "error", err)
+	}
 }
 
 func extractIP(addr net.Addr) string {

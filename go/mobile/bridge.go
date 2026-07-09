@@ -10,8 +10,8 @@ import (
 )
 
 // StartDaemon starts the relayd daemon in a background goroutine.
-func StartDaemon(grpcPort int, relayList string, zone string, forceBlackout string, dataDir string, p2pPort int, bootstrapAddrs string) {
-	fmt.Printf("[VRGram-Go] StartDaemon: grpcPort=%d dataDir=%s p2pPort=%d\n", grpcPort, dataDir, p2pPort)
+func StartDaemon(grpcPort int, relayList string, zone string, forceBlackout string, dataDir string, p2pPort int, bootstrapAddrs string, dnsResolver string) {
+	fmt.Printf("[VRGram-Go] StartDaemon: grpcPort=%d dataDir=%s p2pPort=%d dnsResolver=%s\n", grpcPort, dataDir, p2pPort, dnsResolver)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -63,7 +63,7 @@ func StartDaemon(grpcPort int, relayList string, zone string, forceBlackout stri
 			}
 		}
 
-		err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout == "true", p2pHost, dhtClient, false)
+		err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout == "true", p2pHost, dhtClient, false, dnsResolver)
 		if err != nil {
 			fmt.Printf("[VRGram-Go] RunDaemon FAILED: %v\n", err)
 		} else {

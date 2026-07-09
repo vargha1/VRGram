@@ -1,21 +1,22 @@
 package client
 
 import (
-		"context"
-		"crypto/rand"
-		"crypto/sha256"
-		"encoding/base32"
-		"fmt"
-		"log/slog"
-		"math"
-		"strings"
-		"sync"
-		"time"
-	
-		mdns "github.com/miekg/dns"
-		"github.com/user/dns-transport/internal/dns"
-		"github.com/user/dns-transport/internal/encoding"
-	)
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base32"
+	"fmt"
+	"log/slog"
+	"math"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
+	mdns "github.com/miekg/dns"
+	"github.com/user/dns-transport/internal/dns"
+	"github.com/user/dns-transport/internal/encoding"
+)
 
 const (
 	maxRetries     = 3
@@ -39,6 +40,7 @@ type DNSClientEngine struct {
 	relays         []string
 	fallbackRelays []string
 	zone           string
+	dnsResolver    string // custom DNS resolver for domain relay addresses (e.g., "8.8.8.8:53")
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
@@ -49,6 +51,7 @@ func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 		fallbackRelays: fallbackRelays,
 		relays:         relays,
 		zone:           zone,
+		dnsResolver:    "8.8.8.8:53",
 	}
 }
 
@@ -64,6 +67,57 @@ func (e *DNSClientEngine) GetRelays() []string {
 	r := make([]string, len(e.relays))
 	copy(r, e.relays)
 	return r
+}
+
+func (e *DNSClientEngine) SetDNSResolver(resolver string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.dnsResolver = resolver
+}
+
+func (e *DNSClientEngine) GetDNSResolver() string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.dnsResolver
+}
+
+// resolveAddr resolves a domain:port to IP:port using custom DNS resolver.
+// If already IP:port, returns as-is.
+func (e *DNSClientEngine) resolveAddr(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr, err
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return addr, nil // already IP
+	}
+
+	e.mu.RLock()
+	resolver := e.dnsResolver
+	e.mu.RUnlock()
+
+	if resolver == "" {
+		resolver = "8.8.8.8:53"
+	}
+
+	client := &mdns.Client{Timeout: 5 * time.Second}
+	msg := new(mdns.Msg)
+	msg.SetQuestion(mdns.Fqdn(host), mdns.TypeA)
+	msg.RecursionDesired = true
+
+	resp, _, err := client.Exchange(msg, resolver)
+	if err != nil {
+		return "", fmt.Errorf("dns resolve failed: %w", err)
+	}
+	if resp.Rcode != mdns.RcodeSuccess || len(resp.Answer) == 0 {
+		return "", fmt.Errorf("no A record for %s", host)
+	}
+	for _, ans := range resp.Answer {
+		if a, ok := ans.(*mdns.A); ok {
+			return net.JoinHostPort(a.A.String(), port), nil
+		}
+	}
+	return "", fmt.Errorf("no A record for %s", host)
 }
 
 // SendMessage sends all chunks over DNS relays. recipientPubkey is used for
@@ -99,7 +153,8 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, rec
 	return msgID, len(chunks), nil
 }
 
-// PollRelays queries relays for pending msgIDs for the given recipient pubkey.
+// PollRelays queries ALL relays for pending msgIDs for the given recipient pubkey.
+// Returns all unique msgIDs from all relays (client-side federation).
 func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) {
 	if recipientPubkey == "" {
 		return nil, nil
@@ -112,22 +167,34 @@ func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) 
 	hash := sha256.Sum256([]byte(recipientPubkey))
 	peerID := base32hex.EncodeToString(hash[:])
 
+	var allMsgIDs [][8]byte
+	seen := make(map[[8]byte]bool)
+
 	for _, relay := range relays {
-		msgIDs, err := pollRelay(relay, peerID, e.zone)
+		msgIDs, err := e.pollRelay(relay, peerID)
 		if err != nil {
 			slog.Warn("poll relay failed", "relay", relay, "error", err)
 			continue
 		}
-		if len(msgIDs) > 0 {
-			return msgIDs, nil
+		for _, id := range msgIDs {
+			if !seen[id] {
+				seen[id] = true
+				allMsgIDs = append(allMsgIDs, id)
+			}
 		}
 	}
-	return nil, nil
+	return allMsgIDs, nil
 }
 
 // pollRelay sends a POLL query to a relay server and returns pending msgIDs.
-func pollRelay(addr, peerID, zone string) ([][8]byte, error) {
-	queryLabels := []string{"POLL", peerID, zone}
+func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
+	// Resolve relay address if it's a domain
+	resolved, err := e.resolveAddr(addr)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", addr, err)
+	}
+
+	queryLabels := []string{"POLL", peerID, e.zone}
 	name := strings.Join(queryLabels, ".")
 
 	m := new(mdns.Msg)
@@ -135,7 +202,7 @@ func pollRelay(addr, peerID, zone string) ([][8]byte, error) {
 	m.RecursionDesired = false
 
 	client := &mdns.Client{Timeout: 5 * time.Second}
-	resp, _, err := client.Exchange(m, addr)
+	resp, _, err := client.Exchange(m, resolved)
 	if err != nil {
 		return nil, fmt.Errorf("dns exchange failed: %w", err)
 	}

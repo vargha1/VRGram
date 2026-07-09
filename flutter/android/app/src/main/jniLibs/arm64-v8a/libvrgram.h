@@ -99,7 +99,7 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern void Java_com_example_vrgram_GoBridge_startDaemon(JNIEnv* env, jclass clazz, int grpcPort, jstring relayList, jstring zone, jstring forceBlackout, jstring dataDir, int p2pPort, jstring bootstrapAddrs);
+extern void Java_com_example_vrgram_GoBridge_startDaemon(JNIEnv* env, jclass clazz, int grpcPort, jstring relayList, jstring zone, jstring forceBlackout, jstring dataDir, int p2pPort, jstring bootstrapAddrs, jstring dnsResolver);
 
 #ifdef __cplusplus
 }

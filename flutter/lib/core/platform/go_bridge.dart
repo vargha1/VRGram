@@ -23,6 +23,7 @@ class GoBridge {
     String bootstrap = '',
     String relays = defaultRelay,
     String zone = 'msg.local-domain',
+    String dnsResolver = '8.8.8.8:53',
   }) async {
     if (_started) return;
     _started = true;
@@ -35,6 +36,7 @@ class GoBridge {
         bootstrap: bootstrap,
         relays: relays,
         zone: zone,
+        dnsResolver: dnsResolver,
       );
     } else {
       // Mobile: start daemon via native method channel
@@ -45,6 +47,7 @@ class GoBridge {
         bootstrap: bootstrap,
         relays: relays,
         zone: zone,
+        dnsResolver: dnsResolver,
       );
     }
 
@@ -59,6 +62,7 @@ class GoBridge {
     required String bootstrap,
     required String relays,
     required String zone,
+    required String dnsResolver,
   }) async {
     try {
       debugPrint('Starting Go daemon via method channel...');
@@ -69,6 +73,7 @@ class GoBridge {
         'zone': zone,
         'relays': relays,
         'bootstrap': bootstrap,
+        'dnsResolver': dnsResolver,
       });
       debugPrint('Go daemon method channel returned: $result');
     } on PlatformException catch (e) {
@@ -96,6 +101,7 @@ class GoBridge {
     required String bootstrap,
     required String relays,
     required String zone,
+    required String dnsResolver,
   }) async {
     // Find relayd binary next to the Flutter executable or in PATH
     final binaryName = Platform.isWindows ? 'relayd.exe' : 'relayd';
@@ -120,6 +126,9 @@ class GoBridge {
     }
     if (relays.isNotEmpty) {
       args.addAll(['--relay', relays]);
+    }
+    if (dnsResolver.isNotEmpty) {
+      args.addAll(['--dns-resolver', dnsResolver]);
     }
 
     debugPrint('Starting relayd: $binaryPath ${args.join(' ')}');

@@ -31,13 +31,14 @@ import (
 )
 
 //export Java_com_example_vrgram_GoBridge_startDaemon
-func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass, grpcPort C.int, relayList C.jstring, zone C.jstring, forceBlackout C.jstring, dataDir C.jstring, p2pPort C.int, bootstrapAddrs C.jstring) {
+func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass, grpcPort C.int, relayList C.jstring, zone C.jstring, forceBlackout C.jstring, dataDir C.jstring, p2pPort C.int, bootstrapAddrs C.jstring, dnsResolver C.jstring) {
 	fmt.Println("[VRGram-SO] JNI function called")
 	rl := jstringToGo(env, relayList)
 	z := jstringToGo(env, zone)
 	fb := jstringToGo(env, forceBlackout)
 	dd := jstringToGo(env, dataDir)
 	ba := jstringToGo(env, bootstrapAddrs)
+	dr := jstringToGo(env, dnsResolver)
 
 	fmt.Printf("[VRGram-SO] grpcPort=%d dataDir=%s p2pPort=%d\n", int(grpcPort), dd.str, int(p2pPort))
 
@@ -49,6 +50,7 @@ func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass,
 		dd.str,
 		int(p2pPort),
 		ba.str,
+		dr.str,
 	)
 
 	// Release all after StartDaemon returns (it spawns its own goroutine,
@@ -58,6 +60,7 @@ func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass,
 	fb.release(env)
 	dd.release(env)
 	ba.release(env)
+	dr.release(env)
 }
 
 type jstr struct {

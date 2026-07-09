@@ -12,55 +12,84 @@ class RelayConfigScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final relays = ref.watch(relayProvider);
+    final dnsResolver = ref.watch(relayProvider.notifier).defaultDnsResolver;
     final statusAsync = ref.watch(relayStatusProvider);
-    final blackoutAsync = ref.watch(isBlackoutProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Relay Servers')),
       body: Column(
         children: [
-          // Blackout mode banner
-          if (blackoutAsync.asData?.value == true)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: AppColors.blackoutBanner,
-              child: const Row(
-                children: [
-                  Icon(Icons.warning_amber, color: Colors.white),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      AppStrings.blackoutMode,
-                      style: TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
-                ],
+          // DNS Resolver field
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: TextEditingController(text: dnsResolver),
+              decoration: const InputDecoration(
+                labelText: 'Default DNS Resolver',
+                hintText: '8.8.8.8:53',
               ),
+              onSubmitted: (value) async {
+                if (value.trim().isNotEmpty) {
+                  await ref.read(relayProvider.notifier).setDnsResolver(value.trim());
+                }
+              },
             ),
+          ),
+          // Blackout mode banner
+          statusAsync.when(
+            data: (statusList) {
+              if (statusList.endpoints.any((e) => e.blackoutMode)) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  color: AppColors.blackoutBanner,
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.white),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          AppStrings.blackoutMode,
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_) => const SizedBox.shrink(),
+          ),
           // Relay list
           Expanded(
             child: statusAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(child: Text('Error: $err')),
               data: (statusList) {
-                if (statusList.endpoints.isEmpty) {
+                if (relays.isEmpty) {
                   return const Center(child: Text('No relays configured'));
                 }
                 return ListView.builder(
-                  itemCount: statusList.endpoints.length,
-                  itemBuilder: (_, i) => RelayTile(
-                    status: statusList.endpoints[i],
-                    onDelete: () async {
-                      await GrpcClient().stub.removeRelay(
-                        RelayEndpoint(
-                          address: statusList.endpoints[i].address,
-                        ),
-                      );
-                      ref.invalidate(relayStatusProvider);
-                    },
-                  ),
+                  itemCount: relays.length,
+                  itemBuilder: (_, i) {
+                    final relay = relays[i];
+                    final status = statusList.endpoints.firstWhere(
+                      (s) => s.address == relay.address,
+                      orElse: () => RelayStatus(address: relay.address, reachable: false),
+                    );
+                    return RelayTile(
+                      status: status,
+                      dnsResolver: relay.dnsResolver,
+                      onDelete: () async {
+                        await GrpcClient().stub.removeRelay(RelayEndpoint(address: relay.address));
+                        await ref.read(relayProvider.notifier).removeRelay(i);
+                        ref.invalidate(relayStatusProvider);
+                      },
+                    );
+                  },
                 );
               },
             ),
@@ -69,14 +98,13 @@ class RelayConfigScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final address = await showDialog<String>(
+          final result = await showDialog<Map<String, String>>(
             context: context,
             builder: (_) => const AddRelayDialog(),
           );
-          if (address != null) {
-            await GrpcClient()
-                .stub
-                .addRelay(RelayEndpoint(address: address));
+          if (result != null) {
+            await GrpcClient().stub.addRelay(RelayEndpoint(address: result['address']!));
+            await ref.read(relayProvider.notifier).addRelay(result['address']!, result['dnsResolver']!);
             ref.invalidate(relayStatusProvider);
           }
         },

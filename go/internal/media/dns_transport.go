@@ -1,10 +1,15 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/user/dns-transport/internal/encoding"
@@ -14,7 +19,7 @@ const (
 	// MaxDNSChunkSize is the max payload per DNS chunk for media (slightly smaller
 	// than text to leave room for media chunk header overhead).
 	MaxDNSChunkSize = 200
-	// MediaDNSSizeThreshold is the max file size sent via DNS before libp2p is required.
+	// MediaDNSSizeThreshold is the max file size sent via DNS before TCP is required.
 	MediaDNSSizeThreshold = 240 * 1024 // 240 KB
 	// MediaLibp2pHardCap is the max file size that can be sent via DNS at all.
 	MediaLibp2pHardCap = 10 * 1024 * 1024 // 10 MB
@@ -97,4 +102,113 @@ func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 func sha256Hash(data []byte) []byte {
 	h := sha256.Sum256(data)
 	return h[:]
+}
+
+// TCPTransport handles sending media files over HTTP to relay server.
+type TCPTransport struct {
+	relayAddr string // relay IP:port (e.g., "1.2.3.4:9877")
+	client    *http.Client
+}
+
+// NewTCPTransport creates a TCP transport for media using the relay's HTTP endpoint.
+func NewTCPTransport(relayAddr string) *TCPTransport {
+	// Remove :53 DNS port if present, use default media port
+	host := relayAddr
+	if _, _, err := net.SplitHostPort(relayAddr); err == nil {
+		host, _, _ = net.SplitHostPort(relayAddr)
+	}
+	return &TCPTransport{
+		relayAddr: host + ":9877",
+		client:    &http.Client{Timeout: 5 * time.Minute},
+	}
+}
+
+// TCPUploadResponse is the response from the relay's /upload endpoint.
+type TCPUploadResponse struct {
+	FileID string `json:"file_id"`
+}
+
+// SendChunks uploads a file via TCP to the relay server.
+func (t *TCPTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData []byte, fileName string, mimeType string, mediaType MediaType) (*MediaMessage, error) {
+	// I5: Enforce hard cap (same as DNS)
+	if len(fileData) > MediaLibp2pHardCap {
+		return nil, fmt.Errorf("file exceeds max size (%d bytes > %d bytes)", len(fileData), MediaLibp2pHardCap)
+	}
+
+	// 1. Generate per-file key
+	fileKey, err := GenerateFileKey()
+	if err != nil {
+		return nil, fmt.Errorf("generate key: %w", err)
+	}
+
+	// 2. Encrypt file
+	encrypted, err := EncryptFile(fileKey, fileData)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt: %w", err)
+	}
+
+	// 3. Upload via HTTP POST
+	url := "http://" + t.relayAddr + "/upload"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(encrypted))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("upload failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("upload failed: %s", resp.Status)
+	}
+
+	var uploadResp TCPUploadResponse
+	if err := json.NewDecoder(resp.Body).Decode(&uploadResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	// 4. Build metadata message
+	meta := &MediaMessage{
+		MessageID:  fmt.Sprintf("%x", msgID),
+		Timestamp:  time.Now().UnixMilli(),
+		MediaType:  mediaType,
+		FileName:   fileName,
+		MimeType:   mimeType,
+		FileSize:   int64(len(fileData)),
+		Chunks:     0, // not chunked over TCP
+		ChunkSize:  0,
+		FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
+		Checksum:   fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
+		Transport:  "tcp",
+		FileID:     uploadResp.FileID,
+	}
+
+	return meta, nil
+}
+
+// DownloadFile downloads a file from the relay via TCP.
+func (t *TCPTransport) DownloadFile(ctx context.Context, fileID string) ([]byte, error) {
+	url := "http://" + t.relayAddr + "/download/" + fileID
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("file not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download failed: %s", resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
 }

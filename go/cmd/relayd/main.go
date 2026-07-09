@@ -22,6 +22,7 @@ func main() {
 	serverAddr := serverCmd.String("addr", ":53", "listen address")
 	serverZone := serverCmd.String("zone", "msg.local-domain", "DNS zone")
 	serverDB := serverCmd.String("db", "/var/lib/relayd", "data directory")
+	serverMediaPort := serverCmd.String("media-port", "9877", "TCP port for media HTTP server (empty to disable)")
 
 	// Client mode flags
 	clientCmd := flag.NewFlagSet("client", flag.ExitOnError)
@@ -32,6 +33,7 @@ func main() {
 	clientP2PPort := clientCmd.Int("p2p-port", 4001, "libp2p listen port")
 	clientBootstrap := clientCmd.String("bootstrap", "", "comma-separated bootstrap multiaddrs")
 	clientDHTOnly := clientCmd.Bool("dht-only", false, "only use DHT-discovered relays, no fallback")
+	clientDNSResolver := clientCmd.String("dns-resolver", "8.8.8.8:53", "custom DNS resolver for domain relay addresses (e.g., 8.8.8.8:53)")
 
 	// Relay endpoints (for client mode)
 	var clientRelays relayList
@@ -49,17 +51,17 @@ func main() {
 	switch os.Args[1] {
 	case "server":
 		serverCmd.Parse(os.Args[2:])
-		runServer(*serverAddr, *serverZone, *serverDB)
+		runServer(*serverAddr, *serverZone, *serverDB, *serverMediaPort)
 		case "client":
 			clientCmd.Parse(os.Args[2:])
-			runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout, *clientP2PPort, *clientBootstrap, *clientDHTOnly)
+			runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout, *clientP2PPort, *clientBootstrap, *clientDHTOnly, *clientDNSResolver)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode: %s (use 'server' or 'client')\n", os.Args[1])
 		os.Exit(1)
 	}
 }
 
-func runServer(addr, zone, db string) {
+func runServer(addr, zone, db, mediaPort string) {
 	if err := os.MkdirAll(db, 0755); err != nil {
 		slog.Error("failed to create data directory", "error", err)
 		os.Exit(1)
@@ -68,14 +70,14 @@ func runServer(addr, zone, db string) {
 	s := store.NewChunkStore(60*time.Second, relay.DefaultChunkTTL)
 	rl := ratelimit.NewIPRateLimiter(10, 20)
 
-	slog.Info("starting relay server", "addr", addr, "zone", zone)
-	if err := relay.RunServer(addr, zone, s, rl); err != nil {
+	slog.Info("starting relay server", "addr", addr, "zone", zone, "media-port", mediaPort)
+	if err := relay.RunServer(addr, zone, mediaPort, s, rl); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackout bool, p2pPort int, bootstrap string, dhtOnly bool) {
+func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackout bool, p2pPort int, bootstrap string, dhtOnly bool, dnsResolver string) {
 	if len(relays) == 0 {
 		slog.Warn("no relay endpoints configured, use --relay flag")
 	}
@@ -122,7 +124,7 @@ func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackou
 		dhtClient = dht
 	}
 
-	if err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout, p2pHost, dhtClient, dhtOnly); err != nil {
+	if err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout, p2pHost, dhtClient, dhtOnly, dnsResolver); err != nil {
 		slog.Error("client daemon failed", "error", err)
 		os.Exit(1)
 	}

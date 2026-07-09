@@ -26,12 +26,15 @@ type MediaMessage struct {
 	FileName string `json:"file_name,omitempty"`
 	MimeType string `json:"mime_type,omitempty"`
 	FileSize int64  `json:"file_size,omitempty"`
-	Chunks   int32  `json:"chunks,omitempty"`   // total DNS chunks (0 = sent via libp2p)
+	Chunks   int32  `json:"chunks,omitempty"`   // total DNS chunks (0 = sent via libp2p/TCP)
 	ChunkSize int32 `json:"chunk_size,omitempty"`
 	FileKeyB64 string `json:"file_key_b64,omitempty"` // base64 AES-256 key
 	Checksum   string `json:"checksum,omitempty"`     // "sha256:hex"
 	HasThumbnail bool `json:"has_thumbnail,omitempty"`
 	Thumbnail    *ThumbnailInfo `json:"thumbnail,omitempty"`
+	// TCP transport fields
+	Transport string `json:"transport,omitempty"` // "dns" or "tcp"
+	FileID     string `json:"file_id,omitempty"`   // file ID on relay (TCP transport)
 }
 
 type ThumbnailInfo struct {
