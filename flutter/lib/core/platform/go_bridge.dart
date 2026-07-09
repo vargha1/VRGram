@@ -13,6 +13,7 @@ class GoBridge {
   static Process? _process;
   static bool _started = false;
   static const _channel = MethodChannel('vrgram/bridge');
+  static const defaultRelay = '31.15.17.161:53';
 
   /// Start the Go daemon and wait for gRPC server to be ready.
   static Future<void> start({
@@ -20,7 +21,7 @@ class GoBridge {
     String dataDir = '',
     int p2pPort = 4001,
     String bootstrap = '',
-    String relays = '',
+    String relays = defaultRelay,
     String zone = 'msg.local-domain',
   }) async {
     if (_started) return;

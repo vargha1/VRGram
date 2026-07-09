@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -238,17 +239,22 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 	if err != nil {
 		return nil, err
 	}
-	ciphertext, _, err := crypto.EncryptMessage(sharedSecret, req.Plaintext)
+	// Prepend sender pubkey so recipient knows who sent it
+	senderPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	payloadWithSender := append([]byte(senderPubkeyB64+"\n"), req.Plaintext...)
+	ciphertext, nonce, err := crypto.EncryptMessage(sharedSecret, payloadWithSender)
 	if err != nil {
 		return nil, err
 	}
+	// Prepend nonce to ciphertext for transport
+	transportPayload := append(nonce, ciphertext...)
 
 	// Try send via DNS engine
-	msgID, chunkCount, err := d.engine.SendMessage(ctx, ciphertext)
-	if err != nil {
-		// Queue ciphertext offline (already encrypted)
-		slog.Warn("send failed, queueing offline", "error", err)
-		_, qErr := d.queue.Enqueue(req.PeerPubkey, ciphertext)
+		msgID, chunkCount, err := d.engine.SendMessage(ctx, transportPayload, req.PeerPubkey)
+		if err != nil {
+			// Queue ciphertext offline (already encrypted)
+			slog.Warn("send failed, queueing offline", "error", err)
+			_, qErr := d.queue.Enqueue(req.PeerPubkey, transportPayload)
 		if qErr != nil {
 			return nil, qErr
 		}
@@ -266,10 +272,67 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 	}, nil
 }
 
-// PollMessages returns pending messages (PoC: returns empty).
+// PollMessages polls relays for pending messages and returns them.
 func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.PollResponse, error) {
-	// PoC: server-mode only, returns empty
-	return &pb.PollResponse{}, nil
+	if d.identity == nil {
+		return &pb.PollResponse{}, nil
+	}
+	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	rawMessages, err := d.engine.PollMessages(myPubkey)
+	if err != nil {
+		slog.Warn("poll messages failed", "error", err)
+		return &pb.PollResponse{}, nil
+	}
+
+	var resp pb.PollResponse
+	for _, raw := range rawMessages {
+		if len(raw) < crypto.NonceLength {
+			slog.Warn("message too short", "len", len(raw))
+			continue
+		}
+		nonce := raw[:crypto.NonceLength]
+		ciphertext := raw[crypto.NonceLength:]
+
+		// Try to decrypt with each peer's shared secret
+		var decrypted []byte
+		var fromPeer string
+		for nickname, pubkeyStr := range d.peers {
+			pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
+			if err != nil {
+				continue
+			}
+			ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+			if err != nil {
+				continue
+			}
+			plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
+			if err != nil {
+				continue
+			}
+			// First line is sender's pubkey (base64)
+			parts := strings.SplitN(string(plaintext), "\n", 2)
+			if len(parts) == 2 {
+				fromPeer = parts[0]
+				decrypted = []byte(parts[1])
+			} else {
+				decrypted = plaintext
+				fromPeer = pubkeyStr
+			}
+			_ = nickname
+			break
+		}
+		if decrypted == nil {
+			slog.Warn("could not decrypt message from any known peer")
+			continue
+		}
+
+		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
+			MessageId:  fmt.Sprintf("%x", time.Now().UnixNano()),
+			Plaintext:  decrypted,
+			FromPeer:   fromPeer,
+		})
+	}
+	return &resp, nil
 }
 
 // GetRelayStatus returns the status of all configured relays.
@@ -400,7 +463,7 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 		var mid [8]byte
 		rand.Read(mid[:])
 
-		dnsTransport := media.NewDNSTransport(d.engine)
+		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{Engine: d.engine})
 
 		// I5: MediaLibp2pHardCap enforced inside SendChunks
 		meta, err := dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
@@ -451,7 +514,7 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 			transfer.mu.Unlock()
 			return nil, err
 		}
-		if _, _, err := d.engine.SendMessage(ctx, ciphertext); err != nil {
+		if _, _, err := d.engine.SendMessage(ctx, ciphertext, ""); err != nil {
 			transfer.mu.Lock()
 			transfer.Status = TransferFailed
 			transfer.Error = err.Error()
@@ -548,7 +611,7 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 			transfer.mu.Unlock()
 			return nil, err
 		}
-		if _, _, err := d.engine.SendMessage(ctx, ciphertext); err != nil {
+		if _, _, err := d.engine.SendMessage(ctx, ciphertext, ""); err != nil {
 			transfer.mu.Lock()
 			transfer.Status = TransferFailed
 			transfer.Error = err.Error()
@@ -691,7 +754,7 @@ func (d *Daemon) processQueue() {
 				continue
 			}
 			// Message already encrypted when queued — send ciphertext directly
-			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext)
+			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, "")
 			if err != nil {
 				slog.Error("queue send failed", "id", msg.ID, "error", err)
 				d.queue.MarkFailed(msg.ID, err.Error())

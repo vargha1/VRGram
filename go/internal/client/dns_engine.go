@@ -1,26 +1,32 @@
 package client
 
 import (
-	"context"
-	"crypto/rand"
-	"fmt"
-	"log/slog"
-	"math"
-	"sync"
-	"time"
-
-	"github.com/user/dns-transport/internal/dns"
-	"github.com/user/dns-transport/internal/encoding"
-)
+		"context"
+		"crypto/rand"
+		"crypto/sha256"
+		"encoding/base32"
+		"fmt"
+		"log/slog"
+		"math"
+		"strings"
+		"sync"
+		"time"
+	
+		mdns "github.com/miekg/dns"
+		"github.com/user/dns-transport/internal/dns"
+		"github.com/user/dns-transport/internal/encoding"
+	)
 
 const (
 	maxRetries     = 3
 	baseBackoff    = 500 * time.Millisecond
 	maxJitter      = 0.25
-	parallelism    = 15 // max concurrent goroutines (5 relays x 3 concurrency)
+	parallelism    = 15
 	maxRelays      = 5
 	chunkSize      = 220
 )
+
+var base32hex = base32.HexEncoding.WithPadding(base32.NoPadding)
 
 // DNSChunkSender is the interface for sending data as DNS chunks.
 type DNSChunkSender interface {
@@ -28,16 +34,14 @@ type DNSChunkSender interface {
 }
 
 // DNSClientEngine sends chunked messages over DNS with retry and failover.
-// Supports parallel sending across dynamically discovered relays via DHT.
 type DNSClientEngine struct {
-	mu            sync.RWMutex
-	relays        []string  // mutable, managed via SetRelays/GetRelays for daemon
-	fallbackRelays []string // static fallback when no DHT discovery
-	zone          string
+	mu             sync.RWMutex
+	relays         []string
+	fallbackRelays []string
+	zone           string
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
-// fallbackRelays are used when DHT discovery is unavailable or returns no relays.
 func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 	relays := make([]string, len(fallbackRelays))
 	copy(relays, fallbackRelays)
@@ -48,14 +52,12 @@ func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 	}
 }
 
-// SetRelays updates the relay list under a write lock.
 func (e *DNSClientEngine) SetRelays(relays []string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.relays = relays
 }
 
-// GetRelays returns a copy of the relay list.
 func (e *DNSClientEngine) GetRelays() []string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -64,13 +66,13 @@ func (e *DNSClientEngine) GetRelays() []string {
 	return r
 }
 
-// SendMessage sends all chunks of a message over DNS relays.
-// Discovers relays dynamically if available, otherwise uses fallback relays.
-func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error) {
+// SendMessage sends all chunks over DNS relays. recipientPubkey is used for
+// server-side recipient indexing so the recipient can poll for messages.
+func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, recipientPubkey string) ([8]byte, int, error) {
 	var msgID [8]byte
 	rand.Read(msgID[:])
 
-	// Pad plaintext with 0-64 random bytes for traffic analysis protection
+	// Random padding 0-64 bytes for traffic analysis protection
 	padLenBuf := make([]byte, 1)
 	rand.Read(padLenBuf)
 	padLen := int(padLenBuf[0]) % 65
@@ -78,21 +80,18 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8
 	rand.Read(padding)
 	plaintext = append(plaintext, padding...)
 
-	chunks := encoding.ChunkMessage(msgID, plaintext, chunkSize)
+	chunks := encoding.ChunkMessage(msgID, plaintext, chunkSize, recipientPubkey)
 
 	relays := e.discoverActiveRelays(ctx)
 	if len(relays) > 0 {
-		// Parallel send across discovered relays
 		if err := e.sendParallel(ctx, chunks, relays); err != nil {
 			return msgID, 0, err
 		}
 	} else {
-		// Fallback serial sending (backward compatible)
 		for _, chunk := range chunks {
 			if err := e.sendWithRetry(ctx, chunk); err != nil {
 				return msgID, 0, err
 			}
-			// Random jitter between chunks to avoid flooding
 			jitter := time.Duration(float64(500) * (1 + (randFloat64()-0.5)*2*maxJitter))
 			time.Sleep(jitter * time.Millisecond)
 		}
@@ -100,8 +99,112 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8
 	return msgID, len(chunks), nil
 }
 
-// discoverActiveRelays returns up to maxRelays relay DNS addresses.
-// Uses fallbackRelays when available, otherwise the mutable relay list.
+// PollRelays queries relays for pending msgIDs for the given recipient pubkey.
+func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) {
+	if recipientPubkey == "" {
+		return nil, nil
+	}
+	relays := e.discoverActiveRelays(nil)
+	if len(relays) == 0 {
+		return nil, nil
+	}
+
+	hash := sha256.Sum256([]byte(recipientPubkey))
+	peerID := base32hex.EncodeToString(hash[:])
+
+	for _, relay := range relays {
+		msgIDs, err := pollRelay(relay, peerID, e.zone)
+		if err != nil {
+			slog.Warn("poll relay failed", "relay", relay, "error", err)
+			continue
+		}
+		if len(msgIDs) > 0 {
+			return msgIDs, nil
+		}
+	}
+	return nil, nil
+}
+
+// pollRelay sends a POLL query to a relay server and returns pending msgIDs.
+func pollRelay(addr, peerID, zone string) ([][8]byte, error) {
+	queryLabels := []string{"POLL", peerID, zone}
+	name := strings.Join(queryLabels, ".")
+
+	m := new(mdns.Msg)
+	m.SetQuestion(mdns.Fqdn(name), mdns.TypeTXT)
+	m.RecursionDesired = false
+
+	client := &mdns.Client{Timeout: 5 * time.Second}
+	resp, _, err := client.Exchange(m, addr)
+	if err != nil {
+		return nil, fmt.Errorf("dns exchange failed: %w", err)
+	}
+	if resp.Rcode != mdns.RcodeSuccess {
+		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
+	}
+
+	var msgIDs [][8]byte
+	for _, ans := range resp.Answer {
+		txt, ok := ans.(*mdns.TXT)
+		if !ok {
+			continue
+		}
+		for _, t := range txt.Txt {
+			idBytes, err := base32hex.DecodeString(t)
+			if err != nil || len(idBytes) != 8 {
+				continue
+			}
+			var mid [8]byte
+			copy(mid[:], idBytes)
+			msgIDs = append(msgIDs, mid)
+		}
+	}
+	return msgIDs, nil
+}
+
+// PollMessages fetches and reassembles all pending messages for a recipient.
+func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([][]byte, error) {
+	msgIDs, err := e.PollRelays(recipientPubkey)
+	if err != nil || len(msgIDs) == 0 {
+		return nil, err
+	}
+
+	relays := e.discoverActiveRelays(nil)
+	if len(relays) == 0 {
+		return nil, fmt.Errorf("no relays to fetch from")
+	}
+
+	var messages [][]byte
+	for _, msgID := range msgIDs {
+		data, err := fetchAndReassemble(relays[0], e.zone, msgID)
+		if err != nil {
+			slog.Warn("fetch message failed", "msgID", msgID, "error", err)
+			continue
+		}
+		messages = append(messages, data)
+	}
+	return messages, nil
+}
+
+// fetchAndReassemble retrieves all chunks for a msgID from a relay and reassembles.
+func fetchAndReassemble(relayAddr, zone string, msgID [8]byte) ([]byte, error) {
+	firstChunk, err := dns.QueryChunk(relayAddr, zone, msgID, 0)
+	if err != nil {
+		return nil, fmt.Errorf("fetch chunk 0: %w", err)
+	}
+	total := int(firstChunk.TotalChunks)
+	allChunks := make([]*encoding.Chunk, total)
+	allChunks[0] = firstChunk
+	for i := 1; i < total; i++ {
+		chunk, err := dns.QueryChunk(relayAddr, zone, msgID, uint16(i))
+		if err != nil {
+			return nil, fmt.Errorf("fetch chunk %d: %w", i, err)
+		}
+		allChunks[i] = chunk
+	}
+	return encoding.ReassembleMessage(allChunks)
+}
+
 func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
 	if len(e.fallbackRelays) > 0 {
 		return e.fallbackRelays
@@ -109,9 +212,6 @@ func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
 	return e.GetRelays()
 }
 
-// sendParallel sends all chunks to all relays concurrently.
-// Semaphore caps at parallelism (15) goroutines.
-// Cancels remaining goroutines on first error (early abort).
 func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.Chunk, relays []string) error {
 	total := len(chunks) * len(relays)
 	if total == 0 {
@@ -122,36 +222,30 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 	var wg sync.WaitGroup
 	errCh := make(chan error, total)
 
-	// Cancellable context for early abort on first error
 	sendCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	for _, chunk := range chunks {
 		for _, relay := range relays {
 			wg.Add(1)
-			chunk := chunk // capture loop var
+			chunk := chunk
 			relay := relay
 			go func() {
 				defer wg.Done()
-
-				// Respect context / cancellation before acquiring semaphore
 				select {
 				case sem <- struct{}{}:
 				case <-sendCtx.Done():
 					return
 				}
 				defer func() { <-sem }()
-
-				// Check context before sending
 				select {
 				case <-sendCtx.Done():
 					return
 				default:
 				}
-
 				if err := dns.SendChunk(relay, e.zone, chunk, false); err != nil {
 					errCh <- fmt.Errorf("send to %s: %w", relay, err)
-					cancel() // signal remaining goroutines to abort
+					cancel()
 				}
 			}()
 		}
@@ -160,7 +254,6 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 	wg.Wait()
 	close(errCh)
 
-	// Collect errors, return first
 	for err := range errCh {
 		if err != nil {
 			return err
@@ -169,8 +262,6 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 	return nil
 }
 
-// sendWithRetry tries each relay in sequence with exponential backoff.
-// Retained for fallback when DHT discovery is unavailable.
 func (e *DNSClientEngine) sendWithRetry(ctx context.Context, chunk *encoding.Chunk) error {
 	relays := e.GetRelays()
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -186,16 +277,10 @@ func (e *DNSClientEngine) sendWithRetry(ctx context.Context, chunk *encoding.Chu
 			}
 			slog.Warn("send chunk failed", "relay", relay, "attempt", attempt, "error", err)
 		}
-		// Exponential backoff with jitter
 		sleepMs := float64(baseBackoff/time.Millisecond) * math.Pow(2, float64(attempt)) * (1 + (randFloat64()-0.5)*2*maxJitter)
 		time.Sleep(time.Duration(sleepMs) * time.Millisecond)
 	}
 	return fmt.Errorf("all relays failed after %d attempts", maxRetries)
-}
-
-// PollRelays queries all discovered relays for pending messages (PoC: stub).
-func (e *DNSClientEngine) PollRelays() ([][8]byte, error) {
-	return nil, nil
 }
 
 func randFloat64() float64 {

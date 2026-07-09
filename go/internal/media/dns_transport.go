@@ -28,8 +28,21 @@ type DNSTransport struct {
 // DNSChunkSender is the interface the DNS engine must implement.
 type DNSChunkSender interface {
 	SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error)
+	// For media chunks, recipientPubkey is not needed.
 }
 
+// SendMessageAdapter wraps a DNSClientEngine that has the 3-param SendMessage.
+type SendMessageAdapter struct {
+	Engine interface {
+		SendMessage(ctx context.Context, plaintext []byte, recipientPubkey string) ([8]byte, int, error)
+	}
+}
+
+func (a *SendMessageAdapter) SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error) {
+	return a.Engine.SendMessage(ctx, plaintext, "")
+}
+
+// NewDNSTransport creates a DNS transport for media using the given chunk sender.
 func NewDNSTransport(sender DNSChunkSender) *DNSTransport {
 	return &DNSTransport{dnsEngine: sender}
 }
@@ -55,7 +68,7 @@ func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 	}
 
 	// 3. Chunk encrypted data
-	chunks := encoding.ChunkMessage(msgID, encrypted, MaxDNSChunkSize)
+	chunks := encoding.ChunkMessage(msgID, encrypted, MaxDNSChunkSize, "")
 
 	// 4. Send each chunk via DNS
 	for _, chunk := range chunks {

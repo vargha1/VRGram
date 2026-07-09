@@ -26,7 +26,7 @@ type ChunkStore struct {
 	ttl          time.Duration
 	done         chan struct{}
 
-	// Per-peer storage tracking (optional)
+	// Per-peer storage tracking
 	peerMu       sync.RWMutex
 	peerMessages map[string]int     // peerID -> number of message buffers
 	messageOwner map[[8]byte]string // msgID -> peerID
@@ -49,16 +49,12 @@ func NewChunkStore(gcInterval, ttl time.Duration) *ChunkStore {
 	return s
 }
 
-// SetMaxPerPeer sets the maximum number of message buffers per peer.
-// Set to 0 for unlimited.
 func (s *ChunkStore) SetMaxPerPeer(limit int) {
 	s.peerMu.Lock()
 	defer s.peerMu.Unlock()
 	s.maxPerPeer = limit
 }
 
-// SetMessageOwner associates a message ID with a peer ID for per-peer tracking.
-// This is optional and only needed when per-peer storage limits are desired.
 func (s *ChunkStore) SetMessageOwner(msgID [8]byte, peerID string) {
 	s.peerMu.Lock()
 	defer s.peerMu.Unlock()
@@ -68,18 +64,28 @@ func (s *ChunkStore) SetMessageOwner(msgID [8]byte, peerID string) {
 	}
 }
 
-// PeerMessageCount returns the number of message buffers for a given peer.
 func (s *ChunkStore) PeerMessageCount(peerID string) int {
 	s.peerMu.RLock()
 	defer s.peerMu.RUnlock()
 	return s.peerMessages[peerID]
 }
 
-// TotalPeers returns the number of peers with stored messages.
 func (s *ChunkStore) TotalPeers() int {
 	s.peerMu.RLock()
 	defer s.peerMu.RUnlock()
 	return len(s.peerMessages)
+}
+
+func (s *ChunkStore) ListPeerMessages(peerID string) [][8]byte {
+	s.peerMu.RLock()
+	defer s.peerMu.RUnlock()
+	var ids [][8]byte
+	for id, pid := range s.messageOwner {
+		if pid == peerID {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 func (s *ChunkStore) Store(chunk *encoding.Chunk) (bool, error) {
@@ -160,7 +166,6 @@ func (s *ChunkStore) gc() {
 	for id, buf := range s.messages {
 		if now.Sub(buf.createdAt) > s.ttl {
 			delete(s.messages, id)
-			// Clean up per-peer tracking
 			s.peerMu.Lock()
 			if peerID, ok := s.messageOwner[id]; ok {
 				s.peerMessages[peerID]--

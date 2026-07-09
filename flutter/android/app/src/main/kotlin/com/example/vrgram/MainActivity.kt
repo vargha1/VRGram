@@ -27,10 +27,14 @@ class MainActivity : FlutterActivity() {
                             val relays = args["relays"] as String
                             val bootstrap = args["bootstrap"] as String
 
-                            Log.d("VRGram", "Starting Go daemon via method channel, dataDir=$dataDir")
+                            // Default relay if none configured
+                            val defaultRelay = "31.15.17.161:53"
+                            val relayList = if (relays.isBlank()) defaultRelay else relays
+
+                            Log.d("VRGram", "Starting Go daemon via method channel, dataDir=$dataDir relay=$relayList")
                             GoBridge.startDaemon(
                                 grpcPort,
-                                relays,
+                                relayList,
                                 zone,
                                 "false",
                                 dataDir,
