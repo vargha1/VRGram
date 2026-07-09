@@ -51,18 +51,29 @@ class ChatListScreen extends ConsumerWidget {
             )
           : ListView.builder(
               itemCount: peers.length,
-              itemBuilder: (_, i) => ListTile(
-                leading: CircleAvatar(
-                  child: Text(peers[i].nickname[0].toUpperCase()),
-                ),
-                title: Text(peers[i].nickname),
-                subtitle: messages.isEmpty
-                    ? const Text('No messages')
-                    : Text(messages.last.text),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.pushNamed(context, '/chat',
-                    arguments: peers[i]),
-              ),
+              itemBuilder: (_, i) {
+                final peer = peers[i];
+                // Find last message for this specific peer
+                final peerMessages = messages.where((m) =>
+                    m.toPeer == peer.pubkey || m.fromPeer == peer.pubkey).toList();
+                final lastMsg = peerMessages.isNotEmpty ? peerMessages.last : null;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    child: Text(peer.nickname[0].toUpperCase()),
+                  ),
+                  title: Text(peer.nickname),
+                  subtitle: lastMsg == null
+                      ? const Text('No messages')
+                      : Text(
+                          lastMsg.text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/chat', extra: peer),
+                );
+              },
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(

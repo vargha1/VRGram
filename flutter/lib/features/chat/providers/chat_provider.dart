@@ -14,6 +14,7 @@ class ChatMessage {
   final bool isSent;
   final MessageStatus status;
   final String? fromPeer;
+  final String? toPeer;
   final String? mimeType;
   final String? filename;
   final int? estimatedSeconds;
@@ -28,6 +29,7 @@ class ChatMessage {
     required this.isSent,
     required this.status,
     this.fromPeer,
+    this.toPeer,
     this.mimeType,
     this.filename,
     this.estimatedSeconds,
@@ -43,6 +45,7 @@ class ChatMessage {
     bool? isSent,
     MessageStatus? status,
     String? fromPeer,
+    String? toPeer,
     String? mimeType,
     String? filename,
     int? estimatedSeconds,
@@ -57,6 +60,7 @@ class ChatMessage {
       isSent: isSent ?? this.isSent,
       status: status ?? this.status,
       fromPeer: fromPeer ?? this.fromPeer,
+      toPeer: toPeer ?? this.toPeer,
       mimeType: mimeType ?? this.mimeType,
       filename: filename ?? this.filename,
       estimatedSeconds: estimatedSeconds ?? this.estimatedSeconds,
@@ -166,6 +170,7 @@ final sendMessageProvider =
         timestamp: DateTime.now(),
         isSent: true,
         status: MessageStatus.sent,
+        toPeer: params.peerPubkey,
       ));
 
   try {
@@ -206,6 +211,7 @@ final sendMediaProvider =
         timestamp: DateTime.now(),
         isSent: true,
         status: MessageStatus.sending,
+        toPeer: params.peerPubkey,
         mimeType: params.mimeType,
         filename: filename,
         estimatedSeconds: null, // set after response
@@ -227,6 +233,7 @@ final sendMediaProvider =
             timestamp: DateTime.now(),
             isSent: true,
             status: MessageStatus.sending,
+            toPeer: params.peerPubkey,
             mimeType: params.mimeType,
             filename: filename,
             estimatedSeconds: resp.estimatedSeconds,

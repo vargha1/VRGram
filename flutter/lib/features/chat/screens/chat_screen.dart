@@ -12,9 +12,13 @@ class ChatScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final messages = ref.watch(chatProvider);
+    final allMessages = ref.watch(chatProvider);
     // Start polling for incoming messages
     ref.watch(pollMessagesProvider);
+
+    // Filter to only messages with this peer
+    final messages = allMessages.where((m) =>
+        m.toPeer == peer.pubkey || m.fromPeer == peer.pubkey).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(peer.nickname)),
