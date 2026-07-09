@@ -51,6 +51,24 @@ class RelayClientClient extends Client {
     (List<int> data) => TransportStatusResponse.fromBuffer(data),
   );
 
+  static final _$sendMedia = ClientMethod<SendMediaRequest, SendMediaResponse>(
+    '/relaypb.RelayClient/SendMedia',
+    (SendMediaRequest data) => data.writeToBuffer(),
+    (List<int> data) => SendMediaResponse.fromBuffer(data),
+  );
+
+  static final _$getMediaStatus = ClientMethod<GetMediaStatusRequest, MediaStatusResponse>(
+    '/relaypb.RelayClient/GetMediaStatus',
+    (GetMediaStatusRequest data) => data.writeToBuffer(),
+    (List<int> data) => MediaStatusResponse.fromBuffer(data),
+  );
+
+  static final _$cancelSend = ClientMethod<CancelSendRequest, Empty>(
+    '/relaypb.RelayClient/CancelSend',
+    (CancelSendRequest data) => data.writeToBuffer(),
+    (List<int> data) => Empty.fromBuffer(data),
+  );
+
   RelayClientClient(ClientChannel channel, {CallOptions? options})
       : super(channel, options: options);
 
@@ -92,5 +110,20 @@ class RelayClientClient extends Client {
   ResponseFuture<TransportStatusResponse> getTransportStatus(Empty request,
       {CallOptions? options}) {
     return $createUnaryCall(_$getTransportStatus, request, options: options);
+  }
+
+  ResponseFuture<SendMediaResponse> sendMedia(SendMediaRequest request,
+      {CallOptions? options}) {
+    return $createUnaryCall(_$sendMedia, request, options: options);
+  }
+
+  ResponseFuture<MediaStatusResponse> getMediaStatus(GetMediaStatusRequest request,
+      {CallOptions? options}) {
+    return $createUnaryCall(_$getMediaStatus, request, options: options);
+  }
+
+  ResponseFuture<Empty> cancelSend(CancelSendRequest request,
+      {CallOptions? options}) {
+    return $createUnaryCall(_$cancelSend, request, options: options);
   }
 }

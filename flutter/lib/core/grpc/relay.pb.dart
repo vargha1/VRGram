@@ -804,6 +804,427 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
   void clearDnsMode() => $_clearField(5);
 }
 
+class SendMediaRequest_Transport extends $pb.ProtobufEnum {
+  const SendMediaRequest_Transport._(super.value, super.name);
+
+  static const SendMediaRequest_Transport AUTO = SendMediaRequest_Transport._(0, 'AUTO');
+  static const SendMediaRequest_Transport DNS = SendMediaRequest_Transport._(1, 'DNS');
+  static const SendMediaRequest_Transport LIBP2P = SendMediaRequest_Transport._(2, 'LIBP2P');
+
+  static const $core.List<SendMediaRequest_Transport> values = <SendMediaRequest_Transport>[
+    AUTO,
+    DNS,
+    LIBP2P,
+  ];
+
+  static final $core.List<SendMediaRequest_Transport?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static SendMediaRequest_Transport? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+}
+
+class SendMediaRequest extends $pb.GeneratedMessage {
+  factory SendMediaRequest({
+    $core.String? peerPubkey,
+    $core.List<$core.int>? mediaData,
+    $core.String? filename,
+    $core.String? mimeType,
+    SendMediaRequest_Transport? preferredTransport,
+  }) {
+    final result = create();
+    if (peerPubkey != null) result.peerPubkey = peerPubkey;
+    if (mediaData != null) result.mediaData = mediaData;
+    if (filename != null) result.filename = filename;
+    if (mimeType != null) result.mimeType = mimeType;
+    if (preferredTransport != null) result.preferredTransport = preferredTransport;
+    return result;
+  }
+
+  SendMediaRequest._();
+
+  factory SendMediaRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SendMediaRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendMediaRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'peerPubkey')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'mediaData', $pb.PbFieldType.OY)
+    ..aOS(3, _omitFieldNames ? '' : 'filename')
+    ..aOS(4, _omitFieldNames ? '' : 'mimeType')
+    ..aE<SendMediaRequest_Transport>(5, _omitFieldNames ? '' : 'preferredTransport', enumValues: SendMediaRequest_Transport.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendMediaRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendMediaRequest copyWith(void Function(SendMediaRequest) updates) =>
+      super.copyWith((message) => updates(message as SendMediaRequest))
+          as SendMediaRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SendMediaRequest create() => SendMediaRequest._();
+  @$core.override
+  SendMediaRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SendMediaRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendMediaRequest>(create);
+  static SendMediaRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get peerPubkey => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set peerPubkey($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPeerPubkey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPeerPubkey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get mediaData => $_getN(1);
+  @$pb.TagNumber(2)
+  set mediaData($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMediaData() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMediaData() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get filename => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set filename($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFilename() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFilename() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get mimeType => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set mimeType($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMimeType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMimeType() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  SendMediaRequest_Transport get preferredTransport => $_getN(4);
+  @$pb.TagNumber(5)
+  set preferredTransport(SendMediaRequest_Transport value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPreferredTransport() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPreferredTransport() => $_clearField(5);
+}
+
+class SendMediaResponse extends $pb.GeneratedMessage {
+  factory SendMediaResponse({
+    $core.String? messageId,
+    $core.int? estimatedSeconds,
+    $core.String? transport,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    if (estimatedSeconds != null) result.estimatedSeconds = estimatedSeconds;
+    if (transport != null) result.transport = transport;
+    return result;
+  }
+
+  SendMediaResponse._();
+
+  factory SendMediaResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SendMediaResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendMediaResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aI(2, _omitFieldNames ? '' : 'estimatedSeconds')
+    ..aOS(3, _omitFieldNames ? '' : 'transport')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendMediaResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendMediaResponse copyWith(void Function(SendMediaResponse) updates) =>
+      super.copyWith((message) => updates(message as SendMediaResponse))
+          as SendMediaResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SendMediaResponse create() => SendMediaResponse._();
+  @$core.override
+  SendMediaResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SendMediaResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendMediaResponse>(create);
+  static SendMediaResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get estimatedSeconds => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set estimatedSeconds($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEstimatedSeconds() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEstimatedSeconds() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get transport => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set transport($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTransport() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTransport() => $_clearField(3);
+}
+
+class GetMediaStatusRequest extends $pb.GeneratedMessage {
+  factory GetMediaStatusRequest({
+    $core.String? messageId,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    return result;
+  }
+
+  GetMediaStatusRequest._();
+
+  factory GetMediaStatusRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetMediaStatusRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMediaStatusRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMediaStatusRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMediaStatusRequest copyWith(void Function(GetMediaStatusRequest) updates) =>
+      super.copyWith((message) => updates(message as GetMediaStatusRequest))
+          as GetMediaStatusRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetMediaStatusRequest create() => GetMediaStatusRequest._();
+  @$core.override
+  GetMediaStatusRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetMediaStatusRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMediaStatusRequest>(create);
+  static GetMediaStatusRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+}
+
+class MediaStatusResponse_Status extends $pb.ProtobufEnum {
+  const MediaStatusResponse_Status._(super.value, super.name);
+
+  static const MediaStatusResponse_Status QUEUED = MediaStatusResponse_Status._(0, 'QUEUED');
+  static const MediaStatusResponse_Status SENDING = MediaStatusResponse_Status._(1, 'SENDING');
+  static const MediaStatusResponse_Status ARRIVING = MediaStatusResponse_Status._(2, 'ARRIVING');
+  static const MediaStatusResponse_Status COMPLETE = MediaStatusResponse_Status._(3, 'COMPLETE');
+  static const MediaStatusResponse_Status FAILED = MediaStatusResponse_Status._(4, 'FAILED');
+
+  static const $core.List<MediaStatusResponse_Status> values = <MediaStatusResponse_Status>[
+    QUEUED,
+    SENDING,
+    ARRIVING,
+    COMPLETE,
+    FAILED,
+  ];
+
+  static final $core.List<MediaStatusResponse_Status?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static MediaStatusResponse_Status? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+}
+
+class MediaStatusResponse extends $pb.GeneratedMessage {
+  factory MediaStatusResponse({
+    $core.String? messageId,
+    MediaStatusResponse_Status? status,
+    $core.int? progressPct,
+    $core.String? error,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    if (status != null) result.status = status;
+    if (progressPct != null) result.progressPct = progressPct;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  MediaStatusResponse._();
+
+  factory MediaStatusResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MediaStatusResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MediaStatusResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..aE<MediaStatusResponse_Status>(2, _omitFieldNames ? '' : 'status', enumValues: MediaStatusResponse_Status.values)
+    ..aI(3, _omitFieldNames ? '' : 'progressPct')
+    ..aOS(4, _omitFieldNames ? '' : 'error')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MediaStatusResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MediaStatusResponse copyWith(void Function(MediaStatusResponse) updates) =>
+      super.copyWith((message) => updates(message as MediaStatusResponse))
+          as MediaStatusResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MediaStatusResponse create() => MediaStatusResponse._();
+  @$core.override
+  MediaStatusResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MediaStatusResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MediaStatusResponse>(create);
+  static MediaStatusResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  MediaStatusResponse_Status get status => $_getN(1);
+  @$pb.TagNumber(2)
+  set status(MediaStatusResponse_Status value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStatus() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get progressPct => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set progressPct($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProgressPct() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProgressPct() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get error => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set error($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasError() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearError() => $_clearField(4);
+}
+
+class CancelSendRequest extends $pb.GeneratedMessage {
+  factory CancelSendRequest({
+    $core.String? messageId,
+  }) {
+    final result = create();
+    if (messageId != null) result.messageId = messageId;
+    return result;
+  }
+
+  CancelSendRequest._();
+
+  factory CancelSendRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CancelSendRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CancelSendRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'messageId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelSendRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelSendRequest copyWith(void Function(CancelSendRequest) updates) =>
+      super.copyWith((message) => updates(message as CancelSendRequest))
+          as CancelSendRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CancelSendRequest create() => CancelSendRequest._();
+  @$core.override
+  CancelSendRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CancelSendRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CancelSendRequest>(create);
+  static CancelSendRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get messageId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set messageId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessageId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessageId() => $_clearField(1);
+}
+
 class RelayClientApi {
   final $pb.RpcClient _client;
 
@@ -838,6 +1259,18 @@ class RelayClientApi {
           $pb.ClientContext? ctx, Empty request) =>
       _client.invoke<TransportStatusResponse>(
           ctx, 'RelayClient', 'GetTransportStatus', request, TransportStatusResponse());
+  $async.Future<SendMediaResponse> sendMedia(
+          $pb.ClientContext? ctx, SendMediaRequest request) =>
+      _client.invoke<SendMediaResponse>(
+          ctx, 'RelayClient', 'SendMedia', request, SendMediaResponse());
+  $async.Future<MediaStatusResponse> getMediaStatus(
+          $pb.ClientContext? ctx, GetMediaStatusRequest request) =>
+      _client.invoke<MediaStatusResponse>(
+          ctx, 'RelayClient', 'GetMediaStatus', request, MediaStatusResponse());
+  $async.Future<Empty> cancelSend(
+          $pb.ClientContext? ctx, CancelSendRequest request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'CancelSend', request, Empty());
 }
 
 const $core.bool _omitFieldNames =
