@@ -12,9 +12,10 @@ import (
 
 type Server struct {
 	pb.UnimplementedP2PBridgeServer
-	host *p2p.P2PHost
-	dht  *p2p.DHTClient
-	zone string
+	host   *p2p.P2PHost
+	dht    *p2p.DHTClient
+	zone   string
+	dnsFwd *p2p.DNSForwarder
 
 	mu         sync.RWMutex
 	relaySubs  map[string]chan *pb.RelayUpdate
@@ -22,13 +23,26 @@ type Server struct {
 }
 
 func NewServer(host *p2p.P2PHost, dht *p2p.DHTClient, zone string) *Server {
-	return &Server{
+	s := &Server{
 		host:       host,
 		dht:        dht,
 		zone:       zone,
 		relaySubs:  make(map[string]chan *pb.RelayUpdate),
 		incomingCh: make(chan *pb.DNSPacket, 100),
+		dnsFwd:     p2p.NewDNSForwarder(host),
 	}
+
+	// Start polling incoming DNS packets from libp2p
+	go func() {
+		for pkt := range s.dnsFwd.IncomingPackets() {
+			s.incomingCh <- &pb.DNSPacket{
+				Raw:          pkt.Raw,
+				RemotePeerId: pkt.RemotePeerID,
+			}
+		}
+	}()
+
+	return s
 }
 
 func (s *Server) DiscoverRelays(req *pb.DiscoverRequest, stream pb.P2PBridge_DiscoverRelaysServer) error {
@@ -97,8 +111,9 @@ func (s *Server) AdvertiseRelay(ctx context.Context, req *pb.AdvertiseRequest) (
 }
 
 func (s *Server) ForwardDNSPacket(ctx context.Context, pkt *pb.DNSPacket) (*pb.Empty, error) {
-	// Send DNS response back via libp2p circuit to remote peer
-	// Implementation in Task 5
+	if err := s.dnsFwd.Forward(ctx, pkt.RemotePeerId, pkt.Raw); err != nil {
+		return nil, fmt.Errorf("forward DNS: %w", err)
+	}
 	return &pb.Empty{}, nil
 }
 
@@ -116,9 +131,20 @@ func (s *Server) IncomingDNS(_ *pb.Empty, stream pb.P2PBridge_IncomingDNSServer)
 }
 
 func (s *Server) RelayDNSPacket(ctx context.Context, pkt *pb.DNSPacket) (*pb.DNSPacket, error) {
-	// Forward DNS query to remote peer via libp2p, return response
-	// Implementation in Task 5
-	return pkt, nil
+	// Send query to remote peer, get response
+	if err := s.dnsFwd.Forward(ctx, pkt.RemotePeerId, pkt.Raw); err != nil {
+		return nil, fmt.Errorf("relay DNS: %w", err)
+	}
+
+	// Read response from incoming stream
+	select {
+	case resp := <-s.incomingCh:
+		return resp, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(30 * time.Second):
+		return nil, fmt.Errorf("timeout waiting for DNS response")
+	}
 }
 
 func (s *Server) GetTransportStatus(ctx context.Context, _ *pb.Empty) (*pb.TransportStatus, error) {
