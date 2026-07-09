@@ -25,7 +25,7 @@ class ChatListScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.dns),
-            onPressed: () => context.push('/relays'),
+            onPressed: () => context.push('/dht'),
             tooltip: 'Relay servers',
           ),
         ],

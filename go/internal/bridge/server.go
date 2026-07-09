@@ -3,7 +3,9 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/user/dns-transport/internal/p2p"
@@ -20,6 +22,8 @@ type Server struct {
 	mu         sync.RWMutex
 	relaySubs  map[string]chan *pb.RelayUpdate
 	incomingCh chan *pb.DNSPacket
+
+	discoveredRelayCount atomic.Int32
 }
 
 func NewServer(host *p2p.P2PHost, dht *p2p.DHTClient, zone string) *Server {
@@ -49,6 +53,36 @@ func NewServer(host *p2p.P2PHost, dht *p2p.DHTClient, zone string) *Server {
 	return s
 }
 
+// dnsAddressFromMultiaddrs extracts a DNS address from a peer's multiaddrs.
+// For IP-based addresses, returns "IP:53". For circuit relay addresses
+// (containing /p2p-circuit/), returns "peerID.circuit". Returns empty string
+// if no usable address is found.
+func dnsAddressFromMultiaddrs(addrs []string, peerID string) string {
+	for _, addr := range addrs {
+		if strings.Contains(addr, "/p2p-circuit/") {
+			return peerID + ".circuit"
+		}
+		var ip string
+		if strings.HasPrefix(addr, "/ip4/") {
+			rest := strings.TrimPrefix(addr, "/ip4/")
+			parts := strings.SplitN(rest, "/", 2)
+			if len(parts) > 0 {
+				ip = parts[0]
+			}
+		} else if strings.HasPrefix(addr, "/ip6/") {
+			rest := strings.TrimPrefix(addr, "/ip6/")
+			parts := strings.SplitN(rest, "/", 2)
+			if len(parts) > 0 {
+				ip = parts[0]
+			}
+		}
+		if ip != "" {
+			return ip + ":53"
+		}
+	}
+	return ""
+}
+
 func (s *Server) DiscoverRelays(req *pb.DiscoverRequest, stream pb.P2PBridge_DiscoverRelaysServer) error {
 	peers, err := s.dht.FindRelayProviders(stream.Context(), int(req.MaxRelays))
 	if err != nil {
@@ -59,17 +93,20 @@ func (s *Server) DiscoverRelays(req *pb.DiscoverRequest, stream pb.P2PBridge_Dis
 		InitialBatch: true,
 		Added:        make([]*pb.RelayInfo, 0, len(peers)),
 	}
-	for _, p := range peers {
-		addrs := make([]string, len(p.Addrs))
-		for i, a := range p.Addrs {
-			addrs[i] = a.String()
+		for _, p := range peers {
+			addrs := make([]string, len(p.Addrs))
+			for i, a := range p.Addrs {
+				addrs[i] = a.String()
+			}
+			dnsAddr := dnsAddressFromMultiaddrs(addrs, p.ID.String())
+			update.Added = append(update.Added, &pb.RelayInfo{
+				PeerId:     p.ID.String(),
+				DnsAddress: dnsAddr,
+				Multiaddrs: addrs,
+				LastSeen:   time.Now().Unix(),
+			})
 		}
-		update.Added = append(update.Added, &pb.RelayInfo{
-			PeerId:     p.ID.String(),
-			Multiaddrs: addrs,
-			LastSeen:   time.Now().Unix(),
-		})
-	}
+		s.discoveredRelayCount.Store(int32(len(peers)))
 	if err := stream.Send(update); err != nil {
 		return err
 	}
@@ -135,6 +172,10 @@ func (s *Server) IncomingDNS(_ *pb.Empty, stream pb.P2PBridge_IncomingDNSServer)
 }
 
 func (s *Server) RelayDNSPacket(ctx context.Context, pkt *pb.DNSPacket) (*pb.DNSPacket, error) {
+	// PLACEHOLDER: Real bidirectional DNS relay not yet implemented.
+	// Currently ForwardRPC sends the DNS query and reads back a 1-byte ack
+	// written by handleStream in p2p/dns.go. This ack is returned as if it
+	// were a real DNS response. Replace with full bidirectional stream relay.
 	resp, err := s.dnsFwd.ForwardRPC(ctx, pkt.RemotePeerId, pkt.Raw)
 	if err != nil {
 		return nil, fmt.Errorf("relay DNS: %w", err)
@@ -150,7 +191,7 @@ func (s *Server) GetTransportStatus(ctx context.Context, _ *pb.Empty) (*pb.Trans
 	return &pb.TransportStatus{
 		DhtConnected:     s.dht.ConnectedPeers() > 0,
 		PeersInDht:       int32(s.dht.ConnectedPeers()),
-		DiscoveredRelays: 0,
+		DiscoveredRelays: s.discoveredRelayCount.Load(),
 		Libp2PDirect:     false,
 		Libp2PCircuit:    true,
 		DnsMode:          "normal",
