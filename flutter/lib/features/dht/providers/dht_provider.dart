@@ -27,6 +27,6 @@ class DhtStatus {
 
 final dhtStatusProvider = FutureProvider.autoDispose<DhtStatus>((ref) async {
   final client = GrpcClient();
-  final response = await client.stub.getTransportStatus(Empty());
+  final response = await client.getTransportStatus();
   return DhtStatus.fromResponse(response);
 });

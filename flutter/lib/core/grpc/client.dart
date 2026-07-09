@@ -1,4 +1,5 @@
 import 'package:grpc/grpc.dart';
+import 'relay.pb.dart';
 import 'relay.pbgrpc.dart';
 
 class GrpcClient {
@@ -36,5 +37,9 @@ class GrpcClient {
     if (!_initialized) return;
     await _channel.shutdown();
     _initialized = false;
+  }
+
+  Future<TransportStatusResponse> getTransportStatus() async {
+    return stub.getTransportStatus(Empty());
   }
 }
