@@ -27,6 +27,12 @@ import (
 //   - bootstrapAddrs: comma-separated list of libp2p bootstrap multiaddrs
 func StartDaemon(grpcPort int, relayList string, zone string, forceBlackout string, dataDir string, p2pPort int, bootstrapAddrs string) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Log panic but don't crash the host process
+				_ = r
+			}
+		}()
 		var p2pHost *p2p.P2PHost
 		var dhtClient *p2p.DHTClient
 
