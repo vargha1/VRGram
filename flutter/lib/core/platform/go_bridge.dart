@@ -34,16 +34,10 @@ class GoBridge {
         zone: zone,
       );
     }
-    // On mobile, native code (MainActivity/AppDelegate) starts the daemon
-    // before Flutter engine loads. If the Go runtime isn't embedded yet,
-    // the gRPC wait will time out quickly and the app loads without daemon.
-    // The UI handles this with "daemon not connected" state.
+    // On mobile, native code (MainActivity) starts the daemon via gomobile
+    // before Flutter engine loads. Just wait for gRPC readiness below.
 
-    if (isDesktop) {
-      // Wait for gRPC server to become ready (desktop only — mobile handles
-      // daemon start via gomobile native code before Flutter loads)
-      await _waitForGRPC(grpcPort);
-    }
+    await _waitForGRPC(grpcPort);
   }
 
   /// Stop the Go daemon.
