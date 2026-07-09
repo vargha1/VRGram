@@ -17,10 +17,10 @@ dependencies:
   jni: ^1.0.0
   protobuf: ^6.0.0
   riverpod_annotation: ^4.0.3
-  share_plus: ^13.2.0
+  share_plus: ^12.0.2
   image_picker: ^1.2.3
   record: ^7.1.1
-  file_picker: ^3.0.4
+  file_picker: ^11.0.2
   permission_handler: ^12.0.3
 
 dev_dependencies:
