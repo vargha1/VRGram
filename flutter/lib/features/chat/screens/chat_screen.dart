@@ -31,11 +31,16 @@ class ChatScreen extends ConsumerWidget {
                     ),
                   ),
           ),
-          ChatInput(onSend: (text) {
-            ref.read(sendMessageProvider(
-              SendParams(peerPubkey: peer.pubkey, text: text),
-            ));
-          }),
+          ChatInput(
+            onSend: (text) {
+              ref.read(sendMessageProvider(
+                SendParams(peerPubkey: peer.pubkey, text: text),
+              ));
+            },
+            onMediaSelected: (action) {
+              // Media handling will be implemented in Task 7
+            },
+          ),
         ],
       ),
     );

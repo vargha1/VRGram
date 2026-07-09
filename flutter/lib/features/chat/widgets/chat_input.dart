@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'media_picker.dart';
 
 class ChatInput extends StatefulWidget {
   final Function(String) onSend;
-  const ChatInput({super.key, required this.onSend});
+  final Function(MediaAction)? onMediaSelected;
+  const ChatInput({super.key, required this.onSend, this.onMediaSelected});
 
   @override
   State<ChatInput> createState() => _ChatInputState();
@@ -24,6 +26,18 @@ class _ChatInputState extends State<ChatInput> {
     _ctrl.clear();
   }
 
+  void _showMediaPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => MediaPicker(
+        onSelected: (action) {
+          widget.onMediaSelected?.call(action);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -40,6 +54,10 @@ class _ChatInputState extends State<ChatInput> {
       ),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showMediaPicker,
+          ),
           Expanded(
             child: TextField(
               controller: _ctrl,
