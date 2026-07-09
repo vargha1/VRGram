@@ -138,7 +138,7 @@ func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
 
 // sendParallel sends all chunks to all relays concurrently.
 // Semaphore caps at parallelism (15) goroutines.
-// Returns the first error after all attempts complete.
+// Cancels remaining goroutines on first error (early abort).
 func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.Chunk, relays []string) error {
 	total := len(chunks) * len(relays)
 	if total == 0 {
@@ -149,18 +149,36 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 	var wg sync.WaitGroup
 	errCh := make(chan error, total)
 
+	// Cancellable context for early abort on first error
+	sendCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	for _, chunk := range chunks {
 		for _, relay := range relays {
 			wg.Add(1)
-			chunk := chunk  // capture loop var
+			chunk := chunk // capture loop var
 			relay := relay
 			go func() {
 				defer wg.Done()
-				sem <- struct{}{}
+
+				// Respect context / cancellation before acquiring semaphore
+				select {
+				case sem <- struct{}{}:
+				case <-sendCtx.Done():
+					return
+				}
 				defer func() { <-sem }()
+
+				// Check context before sending
+				select {
+				case <-sendCtx.Done():
+					return
+				default:
+				}
 
 				if err := dns.SendChunk(relay, e.zone, chunk, false); err != nil {
 					errCh <- fmt.Errorf("send to %s: %w", relay, err)
+					cancel() // signal remaining goroutines to abort
 				}
 			}()
 		}
