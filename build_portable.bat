@@ -42,6 +42,8 @@ goto build_go_android
 
 :build_go_android
 echo Target: android/arm64
+
+REM Cross-compile relayd binary (optional, for res/raw)
 set GOOS=android
 set GOARCH=arm64
 set CGO_ENABLED=0
@@ -50,12 +52,21 @@ set GOOS=
 set GOARCH=
 set CGO_ENABLED=
 if %ERRORLEVEL% neq 0 (
-    echo ERROR: Go cross-compile for Android failed
-    echo This is expected if Android NDK is not configured.
-    echo The APK will still build but the daemon won't start automatically.
+    echo WARNING: Go cross-compile for Android failed (optional)
 ) else (
     echo relayd_android built successfully
 )
+
+REM Build gomobile AAR
+echo === Building gomobile AAR ===
+if not exist "%FLUTTER_DIR%/android/app/libs" mkdir "%FLUTTER_DIR%/android/app/libs"
+gomobile bind -target=android -o "%FLUTTER_DIR%/android/app/libs/gomobile.aar" ./mobile/
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: gomobile bind failed
+    echo Ensure gomobile is installed and Android NDK is configured.
+    exit /b 1
+)
+echo gomobile.aar built successfully
 if "%1%"=="apk" goto build_flutter_apk
 goto build_flutter_all
 
@@ -87,8 +98,7 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo === Build complete ===
 echo APK: %FLUTTER_DIR%build\app\outputs\flutter-apk\app-release.apk
-echo Note: Android requires gomobile to embed the Go daemon.
-echo See go/mobile/bridge.go for details.
+echo The app auto-starts relayd via gomobile on launch.
 goto end
 
 :build_flutter_all
