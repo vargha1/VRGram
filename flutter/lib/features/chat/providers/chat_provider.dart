@@ -19,6 +19,7 @@ class ChatMessage {
   final int? estimatedSeconds;
   final String? mediaMessageId;
   final double? mediaProgress;
+  final String? localFilePath;
 
   ChatMessage({
     required this.id,
@@ -32,6 +33,7 @@ class ChatMessage {
     this.estimatedSeconds,
     this.mediaMessageId,
     this.mediaProgress,
+    this.localFilePath,
   });
 
   ChatMessage copyWith({
@@ -46,6 +48,7 @@ class ChatMessage {
     int? estimatedSeconds,
     String? mediaMessageId,
     double? mediaProgress,
+    String? localFilePath,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -59,6 +62,7 @@ class ChatMessage {
       estimatedSeconds: estimatedSeconds ?? this.estimatedSeconds,
       mediaMessageId: mediaMessageId ?? this.mediaMessageId,
       mediaProgress: mediaProgress ?? this.mediaProgress,
+      localFilePath: localFilePath ?? this.localFilePath,
     );
   }
 }

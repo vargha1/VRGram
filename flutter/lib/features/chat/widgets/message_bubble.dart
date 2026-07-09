@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_provider.dart';
 import '../../../shared/constants.dart';
+import 'media_bubble.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -17,6 +18,8 @@ class MessageBubble extends StatelessWidget {
         return Icons.error_outline;
       case MessageStatus.received:
         return Icons.check_circle_outline;
+      case MessageStatus.sending:
+        return Icons.hourglass_top;
     }
   }
 
@@ -30,6 +33,8 @@ class MessageBubble extends StatelessWidget {
         return Colors.red;
       case MessageStatus.received:
         return AppColors.online;
+      case MessageStatus.sending:
+        return AppColors.queued;
     }
   }
 
@@ -66,7 +71,10 @@ class MessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(message.text, style: TextStyle(color: textColor)),
+                if (message.mimeType != null)
+                  MediaBubble(message: message)
+                else
+                  Text(message.text, style: TextStyle(color: textColor)),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
