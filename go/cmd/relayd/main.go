@@ -25,9 +25,9 @@ func main() {
 	clientGRPC := clientCmd.Int("grpc-port", 9876, "gRPC port")
 	clientZone := clientCmd.String("zone", "msg.local-domain", "DNS zone")
 	clientDataDir := clientCmd.String("data-dir", "", "data directory (default: ~/.config/relayd)")
-		clientForceBlackout := clientCmd.Bool("force-blackout", false, "skip network detector, use only configured relays")
-		clientP2PSocket := clientCmd.String("p2p-socket", "", "path to p2pd Unix socket")
-		clientDHTOnly := clientCmd.Bool("dht-only", false, "only use DHT-discovered relays, no fallback")
+	clientForceBlackout := clientCmd.Bool("force-blackout", false, "skip network detector, use only configured relays")
+	clientP2PSocket := clientCmd.String("p2p-socket", "", "path to p2pd Unix socket")
+	clientDHTOnly := clientCmd.Bool("dht-only", false, "only use DHT-discovered relays, no fallback")
 
 	// Relay endpoints (for client mode)
 	var clientRelays relayList
@@ -46,9 +46,9 @@ func main() {
 	case "server":
 		serverCmd.Parse(os.Args[2:])
 		runServer(*serverAddr, *serverZone, *serverDB)
-		case "client":
-			clientCmd.Parse(os.Args[2:])
-			runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout, *clientP2PSocket, *clientDHTOnly)
+	case "client":
+		clientCmd.Parse(os.Args[2:])
+		runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout, *clientP2PSocket, *clientDHTOnly)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode: %s (use 'server' or 'client')\n", os.Args[1])
 		os.Exit(1)
