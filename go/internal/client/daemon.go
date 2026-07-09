@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
+	"github.com/user/dns-transport/internal/bridge"
 	"github.com/user/dns-transport/internal/crypto"
 )
 
@@ -22,17 +24,18 @@ import (
 type Daemon struct {
 	pb.UnimplementedRelayClientServer
 
-	engine   *DNSClientEngine
-	detector *Detector
-	queue    *OfflineQueue
-	identity *crypto.KeyPair
-	peers    map[string]string // nickname -> pubkey
-	dataDir  string
+	engine    *DNSClientEngine
+	detector  *Detector
+	queue     *OfflineQueue
+	identity  *crypto.KeyPair
+	peers     map[string]string // nickname -> pubkey
+	dataDir   string
 	grpcServer *grpc.Server
+	bridgeCli *bridge.Client
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
-func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool) error {
+func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, bridgeSocket string) error {
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
@@ -66,14 +69,24 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	// Create DNS engine
 	engine := NewDNSClientEngine(relays, zone)
 
+	// Connect to bridge (optional)
+	var cli *bridge.Client
+	if bridgeSocket != "" {
+		cli, err = bridge.NewClient(bridgeSocket)
+		if err != nil {
+			slog.Warn("bridge client not available", "error", err)
+		}
+	}
+
 	// Create daemon
 	daemon := &Daemon{
-		engine:   engine,
-		detector: detector,
-		queue:    queue,
-		identity: identity,
-		peers:    make(map[string]string),
-		dataDir:  dataDir,
+		engine:    engine,
+		detector:  detector,
+		queue:     queue,
+		identity:  identity,
+		peers:     make(map[string]string),
+		dataDir:   dataDir,
+		bridgeCli: cli,
 	}
 
 	// Start gRPC server
@@ -198,6 +211,22 @@ func (d *Daemon) GetIdentity(ctx context.Context, req *pb.Empty) (*pb.IdentityIn
 func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, error) {
 	d.peers[req.Nickname] = req.Pubkey
 	return &pb.Empty{}, nil
+}
+
+// DiscoverRelays returns the relay list from bridge.
+func (d *Daemon) DiscoverRelays(ctx context.Context) ([]bridge.RelayInfo, error) {
+	if d.bridgeCli == nil {
+		return nil, fmt.Errorf("bridge not connected")
+	}
+	ch, err := d.bridgeCli.DiscoverRelays(ctx, 20, false)
+	if err != nil {
+		return nil, err
+	}
+	upd, ok := <-ch
+	if !ok {
+		return nil, fmt.Errorf("no relay updates")
+	}
+	return upd.Added, nil
 }
 
 // processQueue periodically retries sending queued messages.

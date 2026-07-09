@@ -22,10 +22,11 @@ func main() {
 
 	// Client mode flags
 	clientCmd := flag.NewFlagSet("client", flag.ExitOnError)
-	clientGRPC := clientCmd.Int("grpc-port", 9876, "gRPC port")
-	clientZone := clientCmd.String("zone", "msg.local-domain", "DNS zone")
-	clientDataDir := clientCmd.String("data-dir", "", "data directory (default: ~/.config/relayd)")
-	clientForceBlackout := clientCmd.Bool("force-blackout", false, "skip network detector, use only configured relays")
+		clientGRPC := clientCmd.Int("grpc-port", 9876, "gRPC port")
+		clientZone := clientCmd.String("zone", "msg.local-domain", "DNS zone")
+		clientDataDir := clientCmd.String("data-dir", "", "data directory (default: ~/.config/relayd)")
+		clientForceBlackout := clientCmd.Bool("force-blackout", false, "skip network detector, use only configured relays")
+		clientBridgeSocket := clientCmd.String("bridge-socket", "", "p2pd bridge Unix socket path")
 
 	// Relay endpoints (for client mode)
 	var clientRelays relayList
@@ -45,8 +46,8 @@ func main() {
 		serverCmd.Parse(os.Args[2:])
 		runServer(*serverAddr, *serverZone, *serverDB)
 	case "client":
-		clientCmd.Parse(os.Args[2:])
-		runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout)
+			clientCmd.Parse(os.Args[2:])
+			runClient(*clientGRPC, *clientZone, *clientDataDir, clientRelays, *clientForceBlackout, *clientBridgeSocket)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown mode: %s (use 'server' or 'client')\n", os.Args[1])
 		os.Exit(1)
@@ -69,7 +70,7 @@ func runServer(addr, zone, db string) {
 	}
 }
 
-func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackout bool) {
+func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackout bool, bridgeSocket string) {
 	if len(relays) == 0 {
 		slog.Warn("no relay endpoints configured, use --relay flag")
 	}
@@ -83,7 +84,7 @@ func runClient(grpcPort int, zone, dataDir string, relays []string, forceBlackou
 		dataDir = home + "/.config/relayd"
 	}
 
-	if err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout); err != nil {
+		if err := client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout, bridgeSocket); err != nil {
 		slog.Error("client daemon failed", "error", err)
 		os.Exit(1)
 	}

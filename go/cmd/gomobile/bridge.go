@@ -8,7 +8,7 @@ import (
 // Called from native platform code (Android, iOS, Windows).
 func StartGRPCServer(grpcPort int, relays []string, zone string, forceBlackout bool, dataDir string) {
 	go func() {
-		_ = client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout)
+		_ = client.RunDaemon(grpcPort, relays, zone, dataDir, forceBlackout, "")
 	}()
 }
 
