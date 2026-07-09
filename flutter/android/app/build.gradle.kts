@@ -21,12 +21,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
-        externalNativeBuild {
-            cmake {
-                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-            }
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -35,6 +30,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    implementation(files("libs/gomobile.aar"))
 }
 
 kotlin {
