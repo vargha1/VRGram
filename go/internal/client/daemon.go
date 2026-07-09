@@ -157,8 +157,8 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	// Create DNS engine
 	engine := NewDNSClientEngine(engineRelays, zone)
 
-	// Create network detector
-	detector := NewDetector(forceBlackout, dhtClient)
+		// Create network detector
+		detector := NewDetector(forceBlackout, dhtClient, len(engineRelays))
 	detector.Check() // initial check
 	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
 

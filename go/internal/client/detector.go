@@ -17,14 +17,16 @@ type Detector struct {
 	forceBlackout bool
 	mode          NetworkMode
 	dhtClient     *p2p.DHTClient
+	relayCount    int
 }
 
-// NewDetector creates a new Detector with the given forceBlackout flag and optional DHT client.
-func NewDetector(forceBlackout bool, cli *p2p.DHTClient) *Detector {
+// NewDetector creates a new Detector.
+func NewDetector(forceBlackout bool, cli *p2p.DHTClient, relayCount int) *Detector {
 	return &Detector{
 		forceBlackout: forceBlackout,
 		mode:          ModeNormal,
 		dhtClient:     cli,
+		relayCount:    relayCount,
 	}
 }
 
@@ -41,6 +43,11 @@ func (d *Detector) Check() NetworkMode {
 	if d.forceBlackout {
 		d.mode = ModeBlackout
 		return ModeBlackout
+	}
+	// If we have static relays, consider it normal mode regardless of DHT.
+	if d.relayCount > 0 {
+		d.mode = ModeNormal
+		return ModeNormal
 	}
 	if d.dhtClient == nil {
 		d.mode = ModeBlackout

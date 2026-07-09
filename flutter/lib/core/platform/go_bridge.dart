@@ -62,11 +62,10 @@ class GoBridge {
   }) async {
     try {
       debugPrint('Starting Go daemon via method channel...');
-      // p2p disabled on Android — libp2p crashes due to SELinux restrictions
       final result = await _channel.invokeMethod('startDaemon', {
         'grpcPort': grpcPort,
         'dataDir': dataDir,
-        'p2pPort': 0,
+        'p2pPort': p2pPort,
         'zone': zone,
         'relays': relays,
         'bootstrap': bootstrap,

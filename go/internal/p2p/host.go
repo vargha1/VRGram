@@ -9,6 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 type P2PHost struct {
@@ -33,15 +34,17 @@ func NewHost(cfg HostConfig) (*P2PHost, error) {
 		return nil, fmt.Errorf("load or generate key: %w", err)
 	}
 
+	// Build minimal host: TCP only, no NAT, no auto-detection.
+	// Full libp2p features (QUIC, NAT, hole-punching) crash on Android
+	// due to SELinux restrictions on netlink_route_socket access.
 	h, err := libp2p.New(
 		libp2p.Identity(privKey),
 		libp2p.ListenAddrStrings(
-			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", cfg.Port),
-			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic-v1", cfg.Port),
+			fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", cfg.Port),
 		),
-		libp2p.EnableNATService(),
-		libp2p.EnableAutoNATv2(),
-		libp2p.EnableHolePunching(),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.NoTransports,
+		libp2p.DisableRelay(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create libp2p host: %w", err)
@@ -64,7 +67,6 @@ func (h *P2PHost) Multiaddrs() []string {
 }
 
 func (h *P2PHost) Start() {
-	// libp2p host is started on creation, nothing extra needed
 	fmt.Printf("P2P host started: %s\n", h.Host.ID().String())
 }
 
