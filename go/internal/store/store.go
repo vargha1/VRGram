@@ -7,6 +7,12 @@ import (
 	"github.com/user/dns-transport/internal/encoding"
 )
 
+// DefaultTTL is the default TTL for stored chunks (7 days).
+const DefaultTTL = 7 * 24 * time.Hour
+
+// DefaultGCInterval is the default garbage collection interval.
+const DefaultGCInterval = 60 * time.Second
+
 type messageBuf struct {
 	chunks    map[uint16]*encoding.Chunk
 	total     uint16
@@ -14,24 +20,66 @@ type messageBuf struct {
 }
 
 type ChunkStore struct {
-	mu         sync.RWMutex
-	messages   map[[8]byte]*messageBuf
-	gcInterval time.Duration
-	ttl        time.Duration
-	done       chan struct{}
+	mu           sync.RWMutex
+	messages     map[[8]byte]*messageBuf
+	gcInterval   time.Duration
+	ttl          time.Duration
+	done         chan struct{}
+
+	// Per-peer storage tracking (optional)
+	peerMu       sync.RWMutex
+	peerMessages map[string]int     // peerID -> number of message buffers
+	messageOwner map[[8]byte]string // msgID -> peerID
+	maxPerPeer   int                // max message buffers per peer (0 = unlimited)
 }
 
 func NewChunkStore(gcInterval, ttl time.Duration) *ChunkStore {
 	s := &ChunkStore{
-		messages:   make(map[[8]byte]*messageBuf),
-		gcInterval: gcInterval,
-		ttl:        ttl,
-		done:       make(chan struct{}),
+		messages:     make(map[[8]byte]*messageBuf),
+		gcInterval:   gcInterval,
+		ttl:          ttl,
+		done:         make(chan struct{}),
+		peerMessages: make(map[string]int),
+		messageOwner: make(map[[8]byte]string),
+		maxPerPeer:   100,
 	}
 	if gcInterval > 0 {
 		go s.gcLoop()
 	}
 	return s
+}
+
+// SetMaxPerPeer sets the maximum number of message buffers per peer.
+// Set to 0 for unlimited.
+func (s *ChunkStore) SetMaxPerPeer(limit int) {
+	s.peerMu.Lock()
+	defer s.peerMu.Unlock()
+	s.maxPerPeer = limit
+}
+
+// SetMessageOwner associates a message ID with a peer ID for per-peer tracking.
+// This is optional and only needed when per-peer storage limits are desired.
+func (s *ChunkStore) SetMessageOwner(msgID [8]byte, peerID string) {
+	s.peerMu.Lock()
+	defer s.peerMu.Unlock()
+	if _, exists := s.messageOwner[msgID]; !exists {
+		s.messageOwner[msgID] = peerID
+		s.peerMessages[peerID]++
+	}
+}
+
+// PeerMessageCount returns the number of message buffers for a given peer.
+func (s *ChunkStore) PeerMessageCount(peerID string) int {
+	s.peerMu.RLock()
+	defer s.peerMu.RUnlock()
+	return s.peerMessages[peerID]
+}
+
+// TotalPeers returns the number of peers with stored messages.
+func (s *ChunkStore) TotalPeers() int {
+	s.peerMu.RLock()
+	defer s.peerMu.RUnlock()
+	return len(s.peerMessages)
 }
 
 func (s *ChunkStore) Store(chunk *encoding.Chunk) (bool, error) {
@@ -112,6 +160,16 @@ func (s *ChunkStore) gc() {
 	for id, buf := range s.messages {
 		if now.Sub(buf.createdAt) > s.ttl {
 			delete(s.messages, id)
+			// Clean up per-peer tracking
+			s.peerMu.Lock()
+			if peerID, ok := s.messageOwner[id]; ok {
+				s.peerMessages[peerID]--
+				if s.peerMessages[peerID] <= 0 {
+					delete(s.peerMessages, peerID)
+				}
+				delete(s.messageOwner, id)
+			}
+			s.peerMu.Unlock()
 		}
 	}
 }

@@ -2,8 +2,9 @@ package client
 
 import (
 	"context"
-	"net"
 	"time"
+
+	"github.com/user/dns-transport/internal/bridge"
 )
 
 // NetworkMode represents the current network connectivity state.
@@ -19,16 +20,16 @@ type Detector struct {
 	forceBlackout bool
 	mode          NetworkMode
 	checkInterval time.Duration
-	probeDomain   string
+	bridgeCli     *bridge.Client
 }
 
-// NewDetector creates a new Detector with the given forceBlackout flag.
-func NewDetector(forceBlackout bool) *Detector {
+// NewDetector creates a new Detector with the given forceBlackout flag and optional bridge client.
+func NewDetector(forceBlackout bool, cli *bridge.Client) *Detector {
 	return &Detector{
 		forceBlackout: forceBlackout,
 		mode:          ModeNormal,
 		checkInterval: 60 * time.Second,
-		probeDomain:   "google.com",
+		bridgeCli:     cli,
 	}
 }
 
@@ -46,10 +47,14 @@ func (d *Detector) Check() NetworkMode {
 		d.mode = ModeBlackout
 		return ModeBlackout
 	}
-	lookupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	if d.bridgeCli == nil {
+		d.mode = ModeBlackout
+		return ModeBlackout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := net.DefaultResolver.LookupHost(lookupCtx, d.probeDomain)
-	if err != nil {
+	status, err := d.bridgeCli.GetTransportStatus(ctx)
+	if err != nil || !status.DHTConnected || status.DiscoveredRelays == 0 {
 		d.mode = ModeBlackout
 	} else {
 		d.mode = ModeNormal

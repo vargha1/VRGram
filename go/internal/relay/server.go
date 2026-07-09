@@ -4,12 +4,16 @@ import (
 	"log/slog"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/user/dns-transport/internal/encoding"
 	"github.com/user/dns-transport/internal/ratelimit"
 	"github.com/user/dns-transport/internal/store"
 )
+
+// DefaultChunkTTL is the default TTL for stored chunks (7 days).
+const DefaultChunkTTL = 7 * 24 * time.Hour
 
 func RunServer(addr, zone string, s *store.ChunkStore, rl *ratelimit.IPRateLimiter) error {
 	slog.Info("relay server starting", "addr", addr, "zone", zone)

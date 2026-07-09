@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -24,18 +25,19 @@ import (
 type Daemon struct {
 	pb.UnimplementedRelayClientServer
 
-	engine    *DNSClientEngine
-	detector  *Detector
-	queue     *OfflineQueue
-	identity  *crypto.KeyPair
-	peers     map[string]string // nickname -> pubkey
-	dataDir   string
+	engine     *DNSClientEngine
+	detector   *Detector
+	queue      *OfflineQueue
+	identity   *crypto.KeyPair
+	peers      map[string]string // nickname -> pubkey
+	dataDir    string
+	dhtOnly    bool
 	grpcServer *grpc.Server
-	bridgeCli *bridge.Client
+	bridgeCli  *bridge.Client
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
-func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, bridgeSocket string) error {
+func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, bridgeSocket string, dhtOnly bool) error {
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
@@ -61,11 +63,6 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		return err
 	}
 
-	// Create network detector
-	detector := NewDetector(forceBlackout)
-	detector.Check() // initial check
-	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
-
 	// Connect to bridge (optional)
 	var cli *bridge.Client
 	if bridgeSocket != "" {
@@ -75,8 +72,34 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		}
 	}
 
+	// Determine relays based on bridge availability and dhtOnly
+	var engineRelays []string
+	if cli != nil {
+		// Bridge available — skip static relays, DHT discovery provides them
+		slog.Info("bridge connected, using DHT-discovered relays")
+		engineRelays = nil
+	} else if dhtOnly {
+		// DHT-only mode with no bridge — no relays available
+		slog.Warn("DHT-only mode but bridge not connected, no relays configured")
+		engineRelays = nil
+	} else {
+		// No bridge, not DHT-only — try config file, then command-line relays
+		engineRelays = loadRelaysFromConfig(dataDir)
+		if len(engineRelays) == 0 {
+			engineRelays = relays
+		}
+		if len(engineRelays) == 0 {
+			slog.Warn("no relay endpoints configured")
+		}
+	}
+
 	// Create DNS engine with bridge client (optional)
-	engine := NewDNSClientEngine(cli, relays, zone)
+	engine := NewDNSClientEngine(cli, engineRelays, zone)
+
+	// Create network detector
+	detector := NewDetector(forceBlackout, cli)
+	detector.Check() // initial check
+	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
 
 	// Create daemon
 	daemon := &Daemon{
@@ -86,6 +109,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		identity:  identity,
 		peers:     make(map[string]string),
 		dataDir:   dataDir,
+		dhtOnly:   dhtOnly,
 		bridgeCli: cli,
 	}
 
@@ -113,6 +137,23 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 
 	slog.Info("client daemon listening", "grpc", grpcPort, "pubkey", base64.StdEncoding.EncodeToString(identity.PublicKey))
 	return s.Serve(lis)
+}
+
+// loadRelaysFromConfig reads fallback relays from relays.json in dataDir.
+func loadRelaysFromConfig(dataDir string) []string {
+	configPath := filepath.Join(dataDir, "relays.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil
+	}
+	var cfg struct {
+		Relays []string `json:"relays"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		slog.Warn("failed to parse relays config", "path", configPath, "error", err)
+		return nil
+	}
+	return cfg.Relays
 }
 
 // SendMessage encrypts and sends a message via DNS engine, falling back to offline queue.
