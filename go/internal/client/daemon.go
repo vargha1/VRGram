@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/user/dns-transport/internal/media"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,15 +28,21 @@ import (
 type Daemon struct {
 	pb.UnimplementedRelayClientServer
 
-	engine     *DNSClientEngine
-	detector   *Detector
-	queue      *OfflineQueue
-	identity   *crypto.KeyPair
-	peers      map[string]string // nickname -> pubkey
-	dataDir    string
-	dhtOnly    bool
-	grpcServer *grpc.Server
-	bridgeCli  *bridge.Client
+	engine         *DNSClientEngine
+	detector       *Detector
+	queue          *OfflineQueue
+	identity       *crypto.KeyPair
+	peers          map[string]string // nickname -> pubkey
+	dataDir        string
+	dhtOnly        bool
+	grpcServer     *grpc.Server
+	bridgeCli      *bridge.Client
+	libp2pTransport Libp2pTransport // optional libp2p transport for media
+}
+
+// Libp2pTransport is the interface for sending files over libp2p.
+type Libp2pTransport interface {
+	SendFile(ctx context.Context, peerID string, fileName string, mimeType string, data []byte) error
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
@@ -304,6 +313,80 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 	}
 
 	return status, nil
+}
+
+// SendMedia sends media data (file, image, etc.) to a peer.
+// Chooses transport based on size and availability: DNS for small files, libp2p for larger.
+func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
+	transport := "dns"
+	estimatedSec := int32(len(req.MediaData) / 1000) // rough estimate
+
+	if req.PreferredTransport == pb.SendMediaRequest_DNS ||
+		(req.PreferredTransport == pb.SendMediaRequest_AUTO && len(req.MediaData) < media.MediaDNSSizeThreshold) {
+		// DNS path
+		var msgID [8]byte
+		rand.Read(msgID[:])
+
+		dnsTransport := media.NewDNSTransport(d.engine)
+		meta, err := dnsTransport.SendChunks(ctx, msgID, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+		if err != nil {
+			return nil, err
+		}
+
+		// Send metadata as text message to peer
+		metaBytes, err := meta.Marshal()
+		if err != nil {
+			return nil, err
+		}
+		// Encrypt and send metadata via DNS
+		peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
+		if err != nil {
+			return nil, err
+		}
+		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
+		if err != nil {
+			return nil, err
+		}
+		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
+		if err != nil {
+			return nil, err
+		}
+		if _, _, err := d.engine.SendMessage(ctx, ciphertext); err != nil {
+			return nil, err
+		}
+
+		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
+	} else if req.PreferredTransport == pb.SendMediaRequest_LIBP2P ||
+		(len(req.MediaData) >= media.MediaDNSSizeThreshold && d.libp2pTransport != nil) {
+		transport = "libp2p"
+		if d.libp2pTransport != nil {
+			peerID := req.PeerPubkey // libp2p peer ID (may differ from pubkey, using pubkey as placeholder)
+			if err := d.libp2pTransport.SendFile(ctx, peerID, req.Filename, req.MimeType, req.MediaData); err != nil {
+				return nil, err
+			}
+		}
+		estimatedSec = int32(len(req.MediaData) / (1024 * 1024)) // ~1 MB/s est
+	}
+
+	return &pb.SendMediaResponse{
+		MessageId:       fmt.Sprintf("%x", time.Now().UnixNano()),
+		EstimatedSeconds: estimatedSec,
+		Transport:       transport,
+	}, nil
+}
+
+// GetMediaStatus returns the status of a media transfer (PoC: stub).
+func (d *Daemon) GetMediaStatus(ctx context.Context, req *pb.GetMediaStatusRequest) (*pb.MediaStatusResponse, error) {
+	return &pb.MediaStatusResponse{
+		MessageId:  req.MessageId,
+		Status:     pb.MediaStatusResponse_COMPLETE,
+		ProgressPct: 100,
+	}, nil
+}
+
+// CancelSend cancels a pending send (PoC: stub, always succeeds).
+func (d *Daemon) CancelSend(ctx context.Context, req *pb.CancelSendRequest) (*pb.Empty, error) {
+	return &pb.Empty{}, nil
 }
 
 // processQueue periodically retries sending queued messages.

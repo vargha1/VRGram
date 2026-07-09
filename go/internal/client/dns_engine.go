@@ -23,6 +23,11 @@ const (
 	chunkSize      = 220
 )
 
+// DNSChunkSender is the interface for sending data as DNS chunks.
+type DNSChunkSender interface {
+	SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error)
+}
+
 // DNSClientEngine sends chunked messages over DNS with retry and failover.
 // Supports parallel sending across dynamically discovered relays via bridge client.
 type DNSClientEngine struct {

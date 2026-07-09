@@ -11,6 +11,52 @@ service RelayClient {
   rpc GetIdentity(Empty) returns (IdentityInfo);
   rpc AddPeer(PeerInfo) returns (Empty);
   rpc GetTransportStatus(Empty) returns (TransportStatusResponse);
+
+  // New media RPCs
+  rpc SendMedia(SendMediaRequest) returns (SendMediaResponse);
+  rpc GetMediaStatus(GetMediaStatusRequest) returns (MediaStatusResponse);
+  rpc CancelSend(CancelSendRequest) returns (Empty);
+}
+
+message SendMediaRequest {
+  string peer_pubkey = 1;
+  bytes media_data = 2;
+  string filename = 3;
+  string mime_type = 4;
+  enum Transport {
+    AUTO = 0;
+    DNS = 1;
+    LIBP2P = 2;
+  }
+  Transport preferred_transport = 5;
+}
+
+message SendMediaResponse {
+  string message_id = 1;
+  int32 estimated_seconds = 2;
+  string transport = 3;
+}
+
+message GetMediaStatusRequest {
+  string message_id = 1;
+}
+
+message MediaStatusResponse {
+  string message_id = 1;
+  enum Status {
+    QUEUED = 0;
+    SENDING = 1;
+    ARRIVING = 2;
+    COMPLETE = 3;
+    FAILED = 4;
+  }
+  Status status = 2;
+  int32 progress_pct = 3;
+  string error = 4;
+}
+
+message CancelSendRequest {
+  string message_id = 1;
 }
 
 message SendRequest {

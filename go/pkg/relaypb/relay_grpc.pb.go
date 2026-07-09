@@ -27,6 +27,9 @@ const (
 	RelayClient_GetIdentity_FullMethodName        = "/relaypb.RelayClient/GetIdentity"
 	RelayClient_AddPeer_FullMethodName            = "/relaypb.RelayClient/AddPeer"
 	RelayClient_GetTransportStatus_FullMethodName = "/relaypb.RelayClient/GetTransportStatus"
+	RelayClient_SendMedia_FullMethodName          = "/relaypb.RelayClient/SendMedia"
+	RelayClient_GetMediaStatus_FullMethodName     = "/relaypb.RelayClient/GetMediaStatus"
+	RelayClient_CancelSend_FullMethodName         = "/relaypb.RelayClient/CancelSend"
 )
 
 // RelayClientClient is the client API for RelayClient service.
@@ -41,6 +44,10 @@ type RelayClientClient interface {
 	GetIdentity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*IdentityInfo, error)
 	AddPeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error)
 	GetTransportStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*TransportStatusResponse, error)
+	// New media RPCs
+	SendMedia(ctx context.Context, in *SendMediaRequest, opts ...grpc.CallOption) (*SendMediaResponse, error)
+	GetMediaStatus(ctx context.Context, in *GetMediaStatusRequest, opts ...grpc.CallOption) (*MediaStatusResponse, error)
+	CancelSend(ctx context.Context, in *CancelSendRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type relayClientClient struct {
@@ -131,6 +138,36 @@ func (c *relayClientClient) GetTransportStatus(ctx context.Context, in *Empty, o
 	return out, nil
 }
 
+func (c *relayClientClient) SendMedia(ctx context.Context, in *SendMediaRequest, opts ...grpc.CallOption) (*SendMediaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendMediaResponse)
+	err := c.cc.Invoke(ctx, RelayClient_SendMedia_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) GetMediaStatus(ctx context.Context, in *GetMediaStatusRequest, opts ...grpc.CallOption) (*MediaStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MediaStatusResponse)
+	err := c.cc.Invoke(ctx, RelayClient_GetMediaStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) CancelSend(ctx context.Context, in *CancelSendRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_CancelSend_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RelayClientServer is the server API for RelayClient service.
 // All implementations must embed UnimplementedRelayClientServer
 // for forward compatibility.
@@ -143,6 +180,10 @@ type RelayClientServer interface {
 	GetIdentity(context.Context, *Empty) (*IdentityInfo, error)
 	AddPeer(context.Context, *PeerInfo) (*Empty, error)
 	GetTransportStatus(context.Context, *Empty) (*TransportStatusResponse, error)
+	// New media RPCs
+	SendMedia(context.Context, *SendMediaRequest) (*SendMediaResponse, error)
+	GetMediaStatus(context.Context, *GetMediaStatusRequest) (*MediaStatusResponse, error)
+	CancelSend(context.Context, *CancelSendRequest) (*Empty, error)
 	mustEmbedUnimplementedRelayClientServer()
 }
 
@@ -176,6 +217,15 @@ func (UnimplementedRelayClientServer) AddPeer(context.Context, *PeerInfo) (*Empt
 }
 func (UnimplementedRelayClientServer) GetTransportStatus(context.Context, *Empty) (*TransportStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTransportStatus not implemented")
+}
+func (UnimplementedRelayClientServer) SendMedia(context.Context, *SendMediaRequest) (*SendMediaResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendMedia not implemented")
+}
+func (UnimplementedRelayClientServer) GetMediaStatus(context.Context, *GetMediaStatusRequest) (*MediaStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMediaStatus not implemented")
+}
+func (UnimplementedRelayClientServer) CancelSend(context.Context, *CancelSendRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelSend not implemented")
 }
 func (UnimplementedRelayClientServer) mustEmbedUnimplementedRelayClientServer() {}
 func (UnimplementedRelayClientServer) testEmbeddedByValue()                     {}
@@ -342,6 +392,60 @@ func _RelayClient_GetTransportStatus_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_SendMedia_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendMediaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).SendMedia(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_SendMedia_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).SendMedia(ctx, req.(*SendMediaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_GetMediaStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMediaStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).GetMediaStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_GetMediaStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).GetMediaStatus(ctx, req.(*GetMediaStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_CancelSend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelSendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).CancelSend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_CancelSend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).CancelSend(ctx, req.(*CancelSendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RelayClient_ServiceDesc is the grpc.ServiceDesc for RelayClient service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -380,6 +484,18 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTransportStatus",
 			Handler:    _RelayClient_GetTransportStatus_Handler,
+		},
+		{
+			MethodName: "SendMedia",
+			Handler:    _RelayClient_SendMedia_Handler,
+		},
+		{
+			MethodName: "GetMediaStatus",
+			Handler:    _RelayClient_GetMediaStatus_Handler,
+		},
+		{
+			MethodName: "CancelSend",
+			Handler:    _RelayClient_CancelSend_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
