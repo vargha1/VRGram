@@ -6,19 +6,19 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/user/dns-transport/pkg/bridgepb"
 	"github.com/user/dns-transport/internal/p2p"
+	pb "github.com/user/dns-transport/pkg/bridgepb"
 )
 
 type Server struct {
 	pb.UnimplementedP2PBridgeServer
-	host      *p2p.P2PHost
-	dht       *p2p.DHTClient
-	zone      string
+	host *p2p.P2PHost
+	dht  *p2p.DHTClient
+	zone string
 
-	mu          sync.RWMutex
-	relaySubs   map[string]chan *pb.RelayUpdate
-	incomingCh  chan *pb.DNSPacket
+	mu         sync.RWMutex
+	relaySubs  map[string]chan *pb.RelayUpdate
+	incomingCh chan *pb.DNSPacket
 }
 
 func NewServer(host *p2p.P2PHost, dht *p2p.DHTClient, zone string) *Server {
@@ -47,9 +47,9 @@ func (s *Server) DiscoverRelays(req *pb.DiscoverRequest, stream pb.P2PBridge_Dis
 			addrs[i] = a.String()
 		}
 		update.Added = append(update.Added, &pb.RelayInfo{
-			PeerId:      p.ID.String(),
-			Multiaddrs:  addrs,
-			LastSeen:    time.Now().Unix(),
+			PeerId:     p.ID.String(),
+			Multiaddrs: addrs,
+			LastSeen:   time.Now().Unix(),
 		})
 	}
 	if err := stream.Send(update); err != nil {

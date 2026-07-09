@@ -12,10 +12,10 @@ import (
 	"strings"
 	"syscall"
 
-		"github.com/user/dns-transport/internal/bridge"
-		"github.com/user/dns-transport/internal/p2p"
-		pb "github.com/user/dns-transport/pkg/bridgepb"
-		"google.golang.org/grpc"
+	"github.com/user/dns-transport/internal/bridge"
+	"github.com/user/dns-transport/internal/p2p"
+	pb "github.com/user/dns-transport/pkg/bridgepb"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -71,8 +71,8 @@ func main() {
 
 	// Start bridge gRPC server
 	grpcServer := grpc.NewServer()
-		bridgeServer := bridge.NewServer(host, dhtClient, *zone)
-		pb.RegisterP2PBridgeServer(grpcServer, bridgeServer)
+	bridgeServer := bridge.NewServer(host, dhtClient, *zone)
+	pb.RegisterP2PBridgeServer(grpcServer, bridgeServer)
 
 	// Cleanup old socket
 	os.Remove(*socketPath)
@@ -95,6 +95,6 @@ func main() {
 
 	fmt.Println("Shutting down...")
 	grpcServer.GracefulStop()
-		host.Stop()
+	host.Stop()
 	dhtClient.Stop()
 }

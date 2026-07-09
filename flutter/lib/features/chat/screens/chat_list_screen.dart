@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/chat_provider.dart';
 import '../../peers/providers/peer_provider.dart';
 import '../../peers/screens/peer_list_screen.dart';
@@ -19,12 +20,12 @@ class ChatListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.vpn_key),
-            onPressed: () => Navigator.pushNamed(context, '/identity'),
+            onPressed: () => context.push('/identity'),
             tooltip: AppStrings.yourPublicKey,
           ),
           IconButton(
             icon: const Icon(Icons.dns),
-            onPressed: () => Navigator.pushNamed(context, '/relays'),
+            onPressed: () => context.push('/relays'),
             tooltip: 'Relay servers',
           ),
         ],
