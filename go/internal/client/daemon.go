@@ -133,26 +133,18 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		return err
 	}
 
-	// Determine relays based on DHT availability and dhtOnly
-	var engineRelays []string
-	if dhtClient != nil {
-		// DHT available — skip static relays, DHT discovery provides them
-		slog.Info("DHT connected, using DHT-discovered relays")
-		engineRelays = nil
-	} else if dhtOnly {
-		// DHT-only mode with no DHT — no relays available
-		slog.Warn("DHT-only mode but DHT not available, no relays configured")
-		engineRelays = nil
-	} else {
-		// No DHT, not DHT-only — try config file, then command-line relays
+		// Determine relays: always use configured relays, supplement with DHT.
+		var engineRelays []string
 		engineRelays = loadRelaysFromConfig(dataDir)
 		if len(engineRelays) == 0 {
 			engineRelays = relays
 		}
-		if len(engineRelays) == 0 {
-			slog.Warn("no relay endpoints configured")
+		if len(engineRelays) == 0 && dhtClient == nil {
+			slog.Warn("no relay endpoints configured and no DHT available")
 		}
-	}
+		if len(engineRelays) > 0 {
+			slog.Info("using relays", "relays", engineRelays)
+		}
 
 	// Create DNS engine
 	engine := NewDNSClientEngine(engineRelays, zone)
