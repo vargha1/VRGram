@@ -3,17 +3,23 @@
 *.test
 *.out
 go/relayd
+go/relayd.exe
+
+# Build output
+*build_output.txt
+protoc.zip
+protoc_tmp/
 
 # Flutter generated
 flutter/.dart_tool/
 flutter/.packages
 flutter/.pub/
 flutter/build/
+flutter/android/build/
 flutter/.flutter-plugins
 flutter/.flutter-plugins-dependencies
 flutter/*.iml
 flutter/pubspec.lock
-flutter/test/
 flutter/android/.gradle/
 flutter/android/local.properties
 flutter/android/key.properties
@@ -31,10 +37,11 @@ flutter/windows/relayd.*
 flutter/.idea/
 flutter/.vscode/
 
-# Go gomobile bridge
-protoc_tmp/
-
 # Temp files
 run_analyze.bat
 analyze_result.txt
 .superpowers/
+
+# OS junk
+Thumbs.db
+.DS_Store
