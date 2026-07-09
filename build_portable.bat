@@ -1,0 +1,104 @@
+@echo off
+REM Build VRGram portable Windows app (relayd + Flutter UI in one package)
+REM
+REM Prerequisites:
+REM   - Go installed and in PATH
+REM   - Flutter SDK installed and in PATH
+REM   - Android SDK + NDK for APK build (optional)
+REM
+REM Usage:
+REM   build_portable.bat windows    - Build Windows portable app
+REM   build_portable.bat apk        - Build Android APK
+REM   build_portable.bat all        - Build both
+
+setlocal enabledelayedexpansion
+
+if "%1"=="" (
+    echo Usage: build_portable ^<windows^|apk^|all^>
+    exit /b 1
+)
+
+set PROJECT_DIR=%~dp0
+set GO_DIR=%PROJECT_DIR%go
+set FLUTTER_DIR=%PROJECT_DIR%flutter
+
+:: --- Build Go relayd binary ---
+:build_go
+echo === Building relayd (Go) ===
+cd /d "%GO_DIR%"
+if "%1"=="apk" goto build_go_android
+if "%1"=="all" goto build_go_windows
+
+:build_go_windows
+echo Target: windows/amd64
+go build -o "%FLUTTER_DIR%/build/windows/x64/runner/Release/relayd.exe" ./cmd/relayd/
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Go build failed
+    exit /b 1
+)
+echo relayd.exe built successfully
+if "%1"=="windows" goto build_flutter_windows
+goto build_go_android
+
+:build_go_android
+echo Target: android/arm64
+set GOOS=android
+set GOARCH=arm64
+set CGO_ENABLED=0
+go build -o "%FLUTTER_DIR%/android/app/src/main/res/raw/relayd_android" ./cmd/relayd/
+set GOOS=
+set GOARCH=
+set CGO_ENABLED=
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Go cross-compile for Android failed
+    echo This is expected if Android NDK is not configured.
+    echo The APK will still build but the daemon won't start automatically.
+) else (
+    echo relayd_android built successfully
+)
+if "%1%"=="apk" goto build_flutter_apk
+goto build_flutter_all
+
+:: --- Build Flutter app ---
+:build_flutter_windows
+echo === Building Flutter Windows app ===
+cd /d "%FLUTTER_DIR%"
+flutter build windows --no-tree-shake-icons
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Flutter Windows build failed
+    exit /b 1
+)
+echo.
+echo === Build complete ===
+echo Windows app: %FLUTTER_DIR%build\windows\x64\runner\Release\vrgram.exe
+echo relayd:      %FLUTTER_DIR%build\windows\x64\runner\Release\relayd.exe
+echo.
+echo The app auto-starts relayd when launched.
+goto end
+
+:build_flutter_apk
+echo === Building Flutter APK ===
+cd /d "%FLUTTER_DIR%"
+flutter build apk --no-tree-shake-icons
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Flutter APK build failed
+    exit /b 1
+)
+echo.
+echo === Build complete ===
+echo APK: %FLUTTER_DIR%build\app\outputs\flutter-apk\app-release.apk
+echo Note: Android requires gomobile to embed the Go daemon.
+echo See go/mobile/bridge.go for details.
+goto end
+
+:build_flutter_all
+echo === Building Flutter Windows + APK ===
+cd /d "%FLUTTER_DIR%"
+flutter build windows --no-tree-shake-icons
+flutter build apk --no-tree-shake-icons
+echo Build complete
+goto end
+
+:end
+echo.
+echo === Done ===
