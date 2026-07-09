@@ -35,9 +35,13 @@ func NewServer(host *p2p.P2PHost, dht *p2p.DHTClient, zone string) *Server {
 	// Start polling incoming DNS packets from libp2p
 	go func() {
 		for pkt := range s.dnsFwd.IncomingPackets() {
-			s.incomingCh <- &pb.DNSPacket{
+			select {
+			case s.incomingCh <- &pb.DNSPacket{
 				Raw:          pkt.Raw,
 				RemotePeerId: pkt.RemotePeerID,
+			}:
+			default:
+				// drop if consumer slow, same as DNSForwarder
 			}
 		}
 	}()
@@ -111,7 +115,7 @@ func (s *Server) AdvertiseRelay(ctx context.Context, req *pb.AdvertiseRequest) (
 }
 
 func (s *Server) ForwardDNSPacket(ctx context.Context, pkt *pb.DNSPacket) (*pb.Empty, error) {
-	if err := s.dnsFwd.Forward(ctx, pkt.RemotePeerId, pkt.Raw); err != nil {
+	if err := s.dnsFwd.ForwardOneWay(ctx, pkt.RemotePeerId, pkt.Raw); err != nil {
 		return nil, fmt.Errorf("forward DNS: %w", err)
 	}
 	return &pb.Empty{}, nil
@@ -131,20 +135,15 @@ func (s *Server) IncomingDNS(_ *pb.Empty, stream pb.P2PBridge_IncomingDNSServer)
 }
 
 func (s *Server) RelayDNSPacket(ctx context.Context, pkt *pb.DNSPacket) (*pb.DNSPacket, error) {
-	// Send query to remote peer, get response
-	if err := s.dnsFwd.Forward(ctx, pkt.RemotePeerId, pkt.Raw); err != nil {
+	resp, err := s.dnsFwd.ForwardRPC(ctx, pkt.RemotePeerId, pkt.Raw)
+	if err != nil {
 		return nil, fmt.Errorf("relay DNS: %w", err)
 	}
 
-	// Read response from incoming stream
-	select {
-	case resp := <-s.incomingCh:
-		return resp, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("timeout waiting for DNS response")
-	}
+	return &pb.DNSPacket{
+		Raw:          resp,
+		RemotePeerId: pkt.RemotePeerId,
+	}, nil
 }
 
 func (s *Server) GetTransportStatus(ctx context.Context, _ *pb.Empty) (*pb.TransportStatus, error) {

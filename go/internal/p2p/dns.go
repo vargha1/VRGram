@@ -49,9 +49,48 @@ func (f *DNSForwarder) handleStream(s network.Stream) {
 	default:
 		// drop if buffer full
 	}
+
+	// Write ack so the caller's ReadAll in ForwardRPC completes
+	_, _ = s.Write([]byte{0})
 }
 
-func (f *DNSForwarder) Forward(ctx context.Context, peerID string, packet []byte) error {
+// ForwardRPC sends a DNS packet to a remote peer and waits for a response.
+// Closes the write side so the remote can detect EOF and reply.
+func (f *DNSForwarder) ForwardRPC(ctx context.Context, peerID string, packet []byte) ([]byte, error) {
+	pid, err := peer.Decode(peerID)
+	if err != nil {
+		return nil, fmt.Errorf("decode peer id: %w", err)
+	}
+
+	s, err := f.host.Host.NewStream(ctx, pid, dnsProtocolID)
+	if err != nil {
+		return nil, fmt.Errorf("new stream: %w", err)
+	}
+	defer s.Close()
+
+	if _, err := s.Write(packet); err != nil {
+		return nil, fmt.Errorf("write: %w", err)
+	}
+
+	// Half-close so the remote reader sees EOF
+	if err := s.CloseWrite(); err != nil {
+		return nil, fmt.Errorf("close write: %w", err)
+	}
+
+	if err := s.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
+	}
+
+	response, err := io.ReadAll(s)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	return response, nil
+}
+
+// ForwardOneWay sends a DNS packet to a remote peer without waiting for a response.
+func (f *DNSForwarder) ForwardOneWay(ctx context.Context, peerID string, packet []byte) error {
 	pid, err := peer.Decode(peerID)
 	if err != nil {
 		return fmt.Errorf("decode peer id: %w", err)
@@ -67,15 +106,8 @@ func (f *DNSForwarder) Forward(ctx context.Context, peerID string, packet []byte
 		return fmt.Errorf("write: %w", err)
 	}
 
-	// For bidirectional, read response
-	_ = s.SetReadDeadline(time.Now().Add(30 * time.Second))
-	response, err := io.ReadAll(s)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
-
-	// Store response for retrieval
-	_ = response // will be used in relayd DNS response path
+	// CloseWrite so remote knows we're done; don't wait for response
+	_ = s.CloseWrite()
 	return nil
 }
 
