@@ -19,13 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RelayClient_SendMessage_FullMethodName    = "/relaypb.RelayClient/SendMessage"
-	RelayClient_PollMessages_FullMethodName   = "/relaypb.RelayClient/PollMessages"
-	RelayClient_GetRelayStatus_FullMethodName = "/relaypb.RelayClient/GetRelayStatus"
-	RelayClient_AddRelay_FullMethodName       = "/relaypb.RelayClient/AddRelay"
-	RelayClient_RemoveRelay_FullMethodName    = "/relaypb.RelayClient/RemoveRelay"
-	RelayClient_GetIdentity_FullMethodName    = "/relaypb.RelayClient/GetIdentity"
-	RelayClient_AddPeer_FullMethodName        = "/relaypb.RelayClient/AddPeer"
+	RelayClient_SendMessage_FullMethodName        = "/relaypb.RelayClient/SendMessage"
+	RelayClient_PollMessages_FullMethodName       = "/relaypb.RelayClient/PollMessages"
+	RelayClient_GetRelayStatus_FullMethodName     = "/relaypb.RelayClient/GetRelayStatus"
+	RelayClient_AddRelay_FullMethodName           = "/relaypb.RelayClient/AddRelay"
+	RelayClient_RemoveRelay_FullMethodName        = "/relaypb.RelayClient/RemoveRelay"
+	RelayClient_GetIdentity_FullMethodName        = "/relaypb.RelayClient/GetIdentity"
+	RelayClient_AddPeer_FullMethodName            = "/relaypb.RelayClient/AddPeer"
+	RelayClient_GetTransportStatus_FullMethodName = "/relaypb.RelayClient/GetTransportStatus"
 )
 
 // RelayClientClient is the client API for RelayClient service.
@@ -39,6 +40,7 @@ type RelayClientClient interface {
 	RemoveRelay(ctx context.Context, in *RelayEndpoint, opts ...grpc.CallOption) (*Empty, error)
 	GetIdentity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*IdentityInfo, error)
 	AddPeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error)
+	GetTransportStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*TransportStatusResponse, error)
 }
 
 type relayClientClient struct {
@@ -119,6 +121,16 @@ func (c *relayClientClient) AddPeer(ctx context.Context, in *PeerInfo, opts ...g
 	return out, nil
 }
 
+func (c *relayClientClient) GetTransportStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*TransportStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransportStatusResponse)
+	err := c.cc.Invoke(ctx, RelayClient_GetTransportStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RelayClientServer is the server API for RelayClient service.
 // All implementations must embed UnimplementedRelayClientServer
 // for forward compatibility.
@@ -130,6 +142,7 @@ type RelayClientServer interface {
 	RemoveRelay(context.Context, *RelayEndpoint) (*Empty, error)
 	GetIdentity(context.Context, *Empty) (*IdentityInfo, error)
 	AddPeer(context.Context, *PeerInfo) (*Empty, error)
+	GetTransportStatus(context.Context, *Empty) (*TransportStatusResponse, error)
 	mustEmbedUnimplementedRelayClientServer()
 }
 
@@ -160,6 +173,9 @@ func (UnimplementedRelayClientServer) GetIdentity(context.Context, *Empty) (*Ide
 }
 func (UnimplementedRelayClientServer) AddPeer(context.Context, *PeerInfo) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddPeer not implemented")
+}
+func (UnimplementedRelayClientServer) GetTransportStatus(context.Context, *Empty) (*TransportStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTransportStatus not implemented")
 }
 func (UnimplementedRelayClientServer) mustEmbedUnimplementedRelayClientServer() {}
 func (UnimplementedRelayClientServer) testEmbeddedByValue()                     {}
@@ -308,6 +324,24 @@ func _RelayClient_AddPeer_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_GetTransportStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).GetTransportStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_GetTransportStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).GetTransportStatus(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RelayClient_ServiceDesc is the grpc.ServiceDesc for RelayClient service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -342,6 +376,10 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddPeer",
 			Handler:    _RelayClient_AddPeer_Handler,
+		},
+		{
+			MethodName: "GetTransportStatus",
+			Handler:    _RelayClient_GetTransportStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

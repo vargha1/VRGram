@@ -577,6 +577,82 @@ func (x *PeerInfo) GetPubkey() string {
 	return ""
 }
 
+type TransportStatusResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	DhtConnected     bool                   `protobuf:"varint,1,opt,name=dht_connected,json=dhtConnected,proto3" json:"dht_connected,omitempty"`
+	DiscoveredRelays int32                  `protobuf:"varint,2,opt,name=discovered_relays,json=discoveredRelays,proto3" json:"discovered_relays,omitempty"`
+	Libp2PDirect     bool                   `protobuf:"varint,3,opt,name=libp2p_direct,json=libp2pDirect,proto3" json:"libp2p_direct,omitempty"`
+	Libp2PCircuit    bool                   `protobuf:"varint,4,opt,name=libp2p_circuit,json=libp2pCircuit,proto3" json:"libp2p_circuit,omitempty"`
+	DnsMode          string                 `protobuf:"bytes,5,opt,name=dns_mode,json=dnsMode,proto3" json:"dns_mode,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *TransportStatusResponse) Reset() {
+	*x = TransportStatusResponse{}
+	mi := &file_proto_relay_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransportStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransportStatusResponse) ProtoMessage() {}
+
+func (x *TransportStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransportStatusResponse.ProtoReflect.Descriptor instead.
+func (*TransportStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *TransportStatusResponse) GetDhtConnected() bool {
+	if x != nil {
+		return x.DhtConnected
+	}
+	return false
+}
+
+func (x *TransportStatusResponse) GetDiscoveredRelays() int32 {
+	if x != nil {
+		return x.DiscoveredRelays
+	}
+	return 0
+}
+
+func (x *TransportStatusResponse) GetLibp2PDirect() bool {
+	if x != nil {
+		return x.Libp2PDirect
+	}
+	return false
+}
+
+func (x *TransportStatusResponse) GetLibp2PCircuit() bool {
+	if x != nil {
+		return x.Libp2PCircuit
+	}
+	return false
+}
+
+func (x *TransportStatusResponse) GetDnsMode() string {
+	if x != nil {
+		return x.DnsMode
+	}
+	return ""
+}
+
 var File_proto_relay_proto protoreflect.FileDescriptor
 
 const file_proto_relay_proto_rawDesc = "" +
@@ -618,7 +694,13 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\x06pubkey\x18\x01 \x01(\tR\x06pubkey\">\n" +
 	"\bPeerInfo\x12\x1a\n" +
 	"\bnickname\x18\x01 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06pubkey\x18\x02 \x01(\tR\x06pubkey2\x91\x03\n" +
+	"\x06pubkey\x18\x02 \x01(\tR\x06pubkey\"\xd2\x01\n" +
+	"\x17TransportStatusResponse\x12#\n" +
+	"\rdht_connected\x18\x01 \x01(\bR\fdhtConnected\x12+\n" +
+	"\x11discovered_relays\x18\x02 \x01(\x05R\x10discoveredRelays\x12#\n" +
+	"\rlibp2p_direct\x18\x03 \x01(\bR\flibp2pDirect\x12%\n" +
+	"\x0elibp2p_circuit\x18\x04 \x01(\bR\rlibp2pCircuit\x12\x19\n" +
+	"\bdns_mode\x18\x05 \x01(\tR\adnsMode2\xd9\x03\n" +
 	"\vRelayClient\x12:\n" +
 	"\vSendMessage\x12\x14.relaypb.SendRequest\x1a\x15.relaypb.SendResponse\x12;\n" +
 	"\fPollMessages\x12\x14.relaypb.PollRequest\x1a\x15.relaypb.PollResponse\x12:\n" +
@@ -626,7 +708,8 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\bAddRelay\x12\x16.relaypb.RelayEndpoint\x1a\x0e.relaypb.Empty\x125\n" +
 	"\vRemoveRelay\x12\x16.relaypb.RelayEndpoint\x1a\x0e.relaypb.Empty\x124\n" +
 	"\vGetIdentity\x12\x0e.relaypb.Empty\x1a\x15.relaypb.IdentityInfo\x12,\n" +
-	"\aAddPeer\x12\x11.relaypb.PeerInfo\x1a\x0e.relaypb.EmptyB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
+	"\aAddPeer\x12\x11.relaypb.PeerInfo\x1a\x0e.relaypb.Empty\x12F\n" +
+	"\x12GetTransportStatus\x12\x0e.relaypb.Empty\x1a .relaypb.TransportStatusResponseB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
 
 var (
 	file_proto_relay_proto_rawDescOnce sync.Once
@@ -640,19 +723,20 @@ func file_proto_relay_proto_rawDescGZIP() []byte {
 	return file_proto_relay_proto_rawDescData
 }
 
-var file_proto_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_proto_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_proto_relay_proto_goTypes = []any{
-	(*SendRequest)(nil),     // 0: relaypb.SendRequest
-	(*SendResponse)(nil),    // 1: relaypb.SendResponse
-	(*PollRequest)(nil),     // 2: relaypb.PollRequest
-	(*PollResponse)(nil),    // 3: relaypb.PollResponse
-	(*ReceivedMessage)(nil), // 4: relaypb.ReceivedMessage
-	(*Empty)(nil),           // 5: relaypb.Empty
-	(*RelayEndpoint)(nil),   // 6: relaypb.RelayEndpoint
-	(*RelayStatusList)(nil), // 7: relaypb.RelayStatusList
-	(*RelayStatus)(nil),     // 8: relaypb.RelayStatus
-	(*IdentityInfo)(nil),    // 9: relaypb.IdentityInfo
-	(*PeerInfo)(nil),        // 10: relaypb.PeerInfo
+	(*SendRequest)(nil),             // 0: relaypb.SendRequest
+	(*SendResponse)(nil),            // 1: relaypb.SendResponse
+	(*PollRequest)(nil),             // 2: relaypb.PollRequest
+	(*PollResponse)(nil),            // 3: relaypb.PollResponse
+	(*ReceivedMessage)(nil),         // 4: relaypb.ReceivedMessage
+	(*Empty)(nil),                   // 5: relaypb.Empty
+	(*RelayEndpoint)(nil),           // 6: relaypb.RelayEndpoint
+	(*RelayStatusList)(nil),         // 7: relaypb.RelayStatusList
+	(*RelayStatus)(nil),             // 8: relaypb.RelayStatus
+	(*IdentityInfo)(nil),            // 9: relaypb.IdentityInfo
+	(*PeerInfo)(nil),                // 10: relaypb.PeerInfo
+	(*TransportStatusResponse)(nil), // 11: relaypb.TransportStatusResponse
 }
 var file_proto_relay_proto_depIdxs = []int32{
 	4,  // 0: relaypb.PollResponse.messages:type_name -> relaypb.ReceivedMessage
@@ -664,15 +748,17 @@ var file_proto_relay_proto_depIdxs = []int32{
 	6,  // 6: relaypb.RelayClient.RemoveRelay:input_type -> relaypb.RelayEndpoint
 	5,  // 7: relaypb.RelayClient.GetIdentity:input_type -> relaypb.Empty
 	10, // 8: relaypb.RelayClient.AddPeer:input_type -> relaypb.PeerInfo
-	1,  // 9: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
-	3,  // 10: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
-	7,  // 11: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
-	5,  // 12: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
-	5,  // 13: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
-	9,  // 14: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
-	5,  // 15: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
-	9,  // [9:16] is the sub-list for method output_type
-	2,  // [2:9] is the sub-list for method input_type
+	5,  // 9: relaypb.RelayClient.GetTransportStatus:input_type -> relaypb.Empty
+	1,  // 10: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
+	3,  // 11: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
+	7,  // 12: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
+	5,  // 13: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
+	5,  // 14: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
+	9,  // 15: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
+	5,  // 16: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
+	11, // 17: relaypb.RelayClient.GetTransportStatus:output_type -> relaypb.TransportStatusResponse
+	10, // [10:18] is the sub-list for method output_type
+	2,  // [2:10] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -689,7 +775,7 @@ func file_proto_relay_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_relay_proto_rawDesc), len(file_proto_relay_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -270,6 +270,42 @@ func (d *Daemon) DiscoverRelays(ctx context.Context) ([]bridge.RelayInfo, error)
 	return upd.Added, nil
 }
 
+// GetTransportStatus returns the current transport layer status.
+func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.TransportStatusResponse, error) {
+	status := &pb.TransportStatusResponse{
+		DhtConnected:     false,
+		DiscoveredRelays: 0,
+		Libp2PDirect:     false,
+		Libp2PCircuit:    false,
+		DnsMode:          "unknown",
+	}
+
+	if d.bridgeCli != nil {
+		ts, err := d.bridgeCli.GetTransportStatus(ctx)
+		if err == nil {
+			status.DhtConnected = ts.DHTConnected
+			status.DiscoveredRelays = ts.DiscoveredRelays
+			status.Libp2PDirect = ts.Libp2pDirect
+			status.Libp2PCircuit = ts.Libp2pCircuit
+			if ts.DNSMode != "" {
+				status.DnsMode = ts.DNSMode
+			}
+		}
+	}
+
+	// If bridge is unavailable or returns empty, use local detector for DNS mode
+	if status.DnsMode == "unknown" {
+		mode := d.detector.CurrentMode()
+		if mode == ModeBlackout {
+			status.DnsMode = "blackout"
+		} else {
+			status.DnsMode = "normal"
+		}
+	}
+
+	return status, nil
+}
+
 // processQueue periodically retries sending queued messages.
 func (d *Daemon) processQueue() {
 	for {

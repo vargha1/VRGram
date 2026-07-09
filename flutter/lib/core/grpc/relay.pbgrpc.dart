@@ -45,6 +45,12 @@ class RelayClientClient extends Client {
     (List<int> data) => Empty.fromBuffer(data),
   );
 
+  static final _$getTransportStatus = ClientMethod<Empty, TransportStatusResponse>(
+    '/relaypb.RelayClient/GetTransportStatus',
+    (Empty data) => data.writeToBuffer(),
+    (List<int> data) => TransportStatusResponse.fromBuffer(data),
+  );
+
   RelayClientClient(ClientChannel channel, {CallOptions? options})
       : super(channel, options: options);
 
@@ -81,5 +87,10 @@ class RelayClientClient extends Client {
   ResponseFuture<Empty> addPeer(PeerInfo request,
       {CallOptions? options}) {
     return $createUnaryCall(_$addPeer, request, options: options);
+  }
+
+  ResponseFuture<TransportStatusResponse> getTransportStatus(Empty request,
+      {CallOptions? options}) {
+    return $createUnaryCall(_$getTransportStatus, request, options: options);
   }
 }

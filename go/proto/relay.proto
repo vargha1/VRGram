@@ -10,6 +10,7 @@ service RelayClient {
   rpc RemoveRelay(RelayEndpoint) returns (Empty);
   rpc GetIdentity(Empty) returns (IdentityInfo);
   rpc AddPeer(PeerInfo) returns (Empty);
+  rpc GetTransportStatus(Empty) returns (TransportStatusResponse);
 }
 
 message SendRequest {
@@ -61,4 +62,12 @@ message IdentityInfo {
 message PeerInfo {
   string nickname = 1;
   string pubkey = 2;
+}
+
+message TransportStatusResponse {
+  bool dht_connected = 1;
+  int32 discovered_relays = 2;
+  bool libp2p_direct = 3;
+  bool libp2p_circuit = 4;
+  string dns_mode = 5;
 }

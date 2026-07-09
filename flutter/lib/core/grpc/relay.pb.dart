@@ -702,6 +702,108 @@ class PeerInfo extends $pb.GeneratedMessage {
   void clearPubkey() => $_clearField(2);
 }
 
+class TransportStatusResponse extends $pb.GeneratedMessage {
+  factory TransportStatusResponse({
+    $core.bool? dhtConnected,
+    $core.int? discoveredRelays,
+    $core.bool? libp2pDirect,
+    $core.bool? libp2pCircuit,
+    $core.String? dnsMode,
+  }) {
+    final result = create();
+    if (dhtConnected != null) result.dhtConnected = dhtConnected;
+    if (discoveredRelays != null) result.discoveredRelays = discoveredRelays;
+    if (libp2pDirect != null) result.libp2pDirect = libp2pDirect;
+    if (libp2pCircuit != null) result.libp2pCircuit = libp2pCircuit;
+    if (dnsMode != null) result.dnsMode = dnsMode;
+    return result;
+  }
+
+  TransportStatusResponse._();
+
+  factory TransportStatusResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory TransportStatusResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TransportStatusResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'dhtConnected')
+    ..aI(2, _omitFieldNames ? '' : 'discoveredRelays')
+    ..aOB(3, _omitFieldNames ? '' : 'libp2pDirect')
+    ..aOB(4, _omitFieldNames ? '' : 'libp2pCircuit')
+    ..aOS(5, _omitFieldNames ? '' : 'dnsMode')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TransportStatusResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TransportStatusResponse copyWith(void Function(TransportStatusResponse) updates) =>
+      super.copyWith((message) => updates(message as TransportStatusResponse))
+          as TransportStatusResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TransportStatusResponse create() => TransportStatusResponse._();
+  @$core.override
+  TransportStatusResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static TransportStatusResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<TransportStatusResponse>(create);
+  static TransportStatusResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get dhtConnected => $_getBF(0);
+  @$pb.TagNumber(1)
+  set dhtConnected($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDhtConnected() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDhtConnected() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get discoveredRelays => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set discoveredRelays($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDiscoveredRelays() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDiscoveredRelays() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get libp2pDirect => $_getBF(2);
+  @$pb.TagNumber(3)
+  set libp2pDirect($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLibp2pDirect() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLibp2pDirect() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get libp2pCircuit => $_getBF(3);
+  @$pb.TagNumber(4)
+  set libp2pCircuit($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasLibp2pCircuit() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLibp2pCircuit() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get dnsMode => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set dnsMode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDnsMode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDnsMode() => $_clearField(5);
+}
+
 class RelayClientApi {
   final $pb.RpcClient _client;
 
@@ -732,6 +834,10 @@ class RelayClientApi {
           ctx, 'RelayClient', 'GetIdentity', request, IdentityInfo());
   $async.Future<Empty> addPeer($pb.ClientContext? ctx, PeerInfo request) =>
       _client.invoke<Empty>(ctx, 'RelayClient', 'AddPeer', request, Empty());
+  $async.Future<TransportStatusResponse> getTransportStatus(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<TransportStatusResponse>(
+          ctx, 'RelayClient', 'GetTransportStatus', request, TransportStatusResponse());
 }
 
 const $core.bool _omitFieldNames =
