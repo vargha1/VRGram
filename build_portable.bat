@@ -57,16 +57,24 @@ if %ERRORLEVEL% neq 0 (
     echo relayd_android built successfully
 )
 
-REM Build gomobile AAR
-echo === Building gomobile AAR ===
-if not exist "%FLUTTER_DIR%/android/app/libs" mkdir "%FLUTTER_DIR%/android/app/libs"
-gomobile bind -target=android -o "%FLUTTER_DIR%/android/app/libs/gomobile.aar" ./mobile/
+REM Build shared library via c-shared
+echo === Building libvrgram.so ===
+if not exist "%FLUTTER_DIR%/android/app/src/main/jniLibs/arm64-v8a" mkdir "%FLUTTER_DIR%/android/app/src/main/jniLibs/arm64-v8a"
+set GOOS=android
+set GOARCH=arm64
+set CGO_ENABLED=1
+set CC=%ANDROID_NDK_HOME%\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android21-clang
+go build -buildmode=c-shared -ldflags=-checklinkname=0 -o "%FLUTTER_DIR%/android/app/src/main/jniLibs/arm64-v8a/libvrgram.so" ./mobileso/
+set GOOS=
+set GOARCH=
+set CGO_ENABLED=
+set CC=
 if %ERRORLEVEL% neq 0 (
-    echo ERROR: gomobile bind failed
-    echo Ensure gomobile is installed and Android NDK is configured.
+    echo ERROR: c-shared build failed
+    echo Ensure Android NDK is configured.
     exit /b 1
 )
-echo gomobile.aar built successfully
+echo libvrgram.so built successfully
 if "%1%"=="apk" goto build_flutter_apk
 goto build_flutter_all
 

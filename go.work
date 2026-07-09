@@ -1,0 +1,5 @@
+go 1.26.5
+
+use ./go
+
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4cc1

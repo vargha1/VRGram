@@ -33,7 +33,6 @@ android {
 }
 
 dependencies {
-    implementation(files("libs/gomobile.aar"))
 }
 
 kotlin {

@@ -3,7 +3,6 @@ package com.example.vrgram
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import mobile.GoRelayd
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "vrgram/bridge"
@@ -11,7 +10,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         // Start Go daemon before Flutter engine loads
         val dataDir = applicationContext.filesDir.absolutePath
-        GoRelayd.startDaemon(
+        GoBridge.startDaemon(
             9876,                    // grpcPort
             "",                      // relayList (comma-separated, empty = none)
             "msg.local-domain",      // zone

@@ -1,6 +1,6 @@
 module github.com/user/dns-transport
 
-go 1.25.7
+go 1.26.5
 
 require (
 	github.com/ipfs/go-cid v0.6.1
@@ -125,3 +125,5 @@ require (
 )
 
 tool golang.org/x/mobile/cmd/gobind
+
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4cc1
