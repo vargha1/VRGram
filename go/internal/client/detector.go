@@ -1,10 +1,7 @@
 package client
 
 import (
-	"context"
-	"time"
-
-	"github.com/user/dns-transport/internal/bridge"
+	"github.com/user/dns-transport/internal/p2p"
 )
 
 // NetworkMode represents the current network connectivity state.
@@ -19,17 +16,15 @@ const (
 type Detector struct {
 	forceBlackout bool
 	mode          NetworkMode
-	checkInterval time.Duration
-	bridgeCli     *bridge.Client
+	dhtClient     *p2p.DHTClient
 }
 
-// NewDetector creates a new Detector with the given forceBlackout flag and optional bridge client.
-func NewDetector(forceBlackout bool, cli *bridge.Client) *Detector {
+// NewDetector creates a new Detector with the given forceBlackout flag and optional DHT client.
+func NewDetector(forceBlackout bool, cli *p2p.DHTClient) *Detector {
 	return &Detector{
 		forceBlackout: forceBlackout,
 		mode:          ModeNormal,
-		checkInterval: 60 * time.Second,
-		bridgeCli:     cli,
+		dhtClient:     cli,
 	}
 }
 
@@ -47,17 +42,14 @@ func (d *Detector) Check() NetworkMode {
 		d.mode = ModeBlackout
 		return ModeBlackout
 	}
-	if d.bridgeCli == nil {
+	if d.dhtClient == nil {
 		d.mode = ModeBlackout
 		return ModeBlackout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	status, err := d.bridgeCli.GetTransportStatus(ctx)
-	if err != nil || !status.DHTConnected || status.DiscoveredRelays == 0 {
-		d.mode = ModeBlackout
-	} else {
+	if d.dhtClient.ConnectedPeers() > 0 {
 		d.mode = ModeNormal
+	} else {
+		d.mode = ModeBlackout
 	}
 	return d.mode
 }

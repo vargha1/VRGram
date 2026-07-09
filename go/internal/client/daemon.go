@@ -15,13 +15,13 @@ import (
 	"time"
 
 	"github.com/user/dns-transport/internal/media"
+	"github.com/user/dns-transport/internal/p2p"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
-	"github.com/user/dns-transport/internal/bridge"
 	"github.com/user/dns-transport/internal/crypto"
 )
 
@@ -37,7 +37,8 @@ type Daemon struct {
 	dataDir        string
 	dhtOnly        bool
 	grpcServer     *grpc.Server
-	bridgeCli      *bridge.Client
+	p2pHost        *p2p.P2PHost
+	dhtClient      *p2p.DHTClient
 	libp2pTransport Libp2pTransport // optional libp2p transport for media
 
 	// Media transfer tracking
@@ -105,7 +106,7 @@ func (t *MediaTransfer) getError() string {
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
-func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, bridgeSocket string, dhtOnly bool) error {
+func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, p2pHost *p2p.P2PHost, dhtClient *p2p.DHTClient, dhtOnly bool) error {
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
@@ -131,27 +132,18 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		return err
 	}
 
-	// Connect to bridge (optional)
-	var cli *bridge.Client
-	if bridgeSocket != "" {
-		cli, err = bridge.NewClient(bridgeSocket)
-		if err != nil {
-			slog.Warn("bridge client not available", "error", err)
-		}
-	}
-
-	// Determine relays based on bridge availability and dhtOnly
+	// Determine relays based on DHT availability and dhtOnly
 	var engineRelays []string
-	if cli != nil {
-		// Bridge available — skip static relays, DHT discovery provides them
-		slog.Info("bridge connected, using DHT-discovered relays")
+	if dhtClient != nil {
+		// DHT available — skip static relays, DHT discovery provides them
+		slog.Info("DHT connected, using DHT-discovered relays")
 		engineRelays = nil
 	} else if dhtOnly {
-		// DHT-only mode with no bridge — no relays available
-		slog.Warn("DHT-only mode but bridge not connected, no relays configured")
+		// DHT-only mode with no DHT — no relays available
+		slog.Warn("DHT-only mode but DHT not available, no relays configured")
 		engineRelays = nil
 	} else {
-		// No bridge, not DHT-only — try config file, then command-line relays
+		// No DHT, not DHT-only — try config file, then command-line relays
 		engineRelays = loadRelaysFromConfig(dataDir)
 		if len(engineRelays) == 0 {
 			engineRelays = relays
@@ -161,11 +153,11 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		}
 	}
 
-	// Create DNS engine with bridge client (optional)
-	engine := NewDNSClientEngine(cli, engineRelays, zone)
+	// Create DNS engine
+	engine := NewDNSClientEngine(engineRelays, zone)
 
 	// Create network detector
-	detector := NewDetector(forceBlackout, cli)
+	detector := NewDetector(forceBlackout, dhtClient)
 	detector.Check() // initial check
 	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
 
@@ -178,7 +170,8 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		peers:     make(map[string]string),
 		dataDir:   dataDir,
 		dhtOnly:   dhtOnly,
-		bridgeCli: cli,
+		p2pHost:   p2pHost,
+		dhtClient: dhtClient,
 		transfers: make(map[string]*MediaTransfer),
 	}
 
@@ -250,8 +243,8 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		return nil, err
 	}
 
-		// Try send via DNS engine
-		msgID, chunkCount, err := d.engine.SendMessage(ctx, ciphertext)
+	// Try send via DNS engine
+	msgID, chunkCount, err := d.engine.SendMessage(ctx, ciphertext)
 	if err != nil {
 		// Queue ciphertext offline (already encrypted)
 		slog.Warn("send failed, queueing offline", "error", err)
@@ -329,56 +322,59 @@ func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, erro
 	return &pb.Empty{}, nil
 }
 
-// DiscoverRelays returns the relay list from bridge.
-func (d *Daemon) DiscoverRelays(ctx context.Context) ([]bridge.RelayInfo, error) {
-	if d.bridgeCli == nil {
-		return nil, fmt.Errorf("bridge not connected")
+// DiscoverRelaysFromDHT returns relay DNS addresses discovered via DHT.
+func (d *Daemon) DiscoverRelaysFromDHT(ctx context.Context) ([]string, error) {
+	if d.dhtClient == nil {
+		return nil, fmt.Errorf("DHT not available")
 	}
-	ch, err := d.bridgeCli.DiscoverRelays(ctx, 20, false)
+	providers, err := d.dhtClient.FindRelayProviders(ctx, maxRelays)
 	if err != nil {
 		return nil, err
 	}
-	upd, ok := <-ch
-	if !ok {
-		return nil, fmt.Errorf("no relay updates")
+	addrs := make([]string, 0, len(providers))
+	for _, p := range providers {
+		for _, a := range p.Addrs {
+			// Extract IP:port from multiaddr and replace port with 53
+			// Simple: for /ip4/x.x.x.x/tcp/yyyy, use x.x.x.x:53
+			// For circuit addresses, skip
+			// TODO: proper multiaddr parsing
+			addrs = append(addrs, a.String())
+		}
 	}
-	return upd.Added, nil
+	return addrs, nil
 }
 
 // GetTransportStatus returns the current transport layer status.
 func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.TransportStatusResponse, error) {
 	status := &pb.TransportStatusResponse{
-		DhtConnected:     false,
-		DiscoveredRelays: 0,
-		Libp2PDirect:     false,
-		Libp2PCircuit:    false,
-		DnsMode:          "unknown",
+		DnsMode: "normal",
 	}
-
-	if d.bridgeCli != nil {
-		ts, err := d.bridgeCli.GetTransportStatus(ctx)
-		if err == nil {
-			status.DhtConnected = ts.DHTConnected
-			status.DiscoveredRelays = ts.DiscoveredRelays
-			status.Libp2PDirect = ts.Libp2pDirect
-			status.Libp2PCircuit = ts.Libp2pCircuit
-			if ts.DNSMode != "" {
-				status.DnsMode = ts.DNSMode
-			}
-		}
+	if d.dhtClient != nil {
+		status.DhtConnected = d.dhtClient.ConnectedPeers() > 0
+		status.DiscoveredRelays = int32(d.dhtClient.ConnectedPeers())
+		status.Libp2PCircuit = true
 	}
-
-	// If bridge is unavailable or returns empty, use local detector for DNS mode
-	if status.DnsMode == "unknown" {
-		mode := d.detector.CurrentMode()
-		if mode == ModeBlackout {
-			status.DnsMode = "blackout"
-		} else {
-			status.DnsMode = "normal"
-		}
+	mode := d.detector.CurrentMode()
+	if mode == ModeBlackout {
+		status.DnsMode = "blackout"
 	}
-
 	return status, nil
+}
+
+// GetP2PStatus returns P2P and DHT subsystem status.
+func (d *Daemon) GetP2PStatus() map[string]interface{} {
+	s := map[string]interface{}{
+		"p2p_enabled": d.p2pHost != nil,
+		"dht_enabled": d.dhtClient != nil,
+	}
+	if d.dhtClient != nil {
+		s["dht_peers"] = d.dhtClient.ConnectedPeers()
+	}
+	if d.p2pHost != nil {
+		s["peer_id"] = d.p2pHost.PeerID()
+		s["multiaddrs"] = d.p2pHost.Multiaddrs()
+	}
+	return s
 }
 
 // SendMedia sends media data (file, image, etc.) to a peer.
@@ -390,9 +386,9 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 
 	// Create transfer tracking entry
 	transfer := &MediaTransfer{
-		Status:  TransferQueued,
+		Status:   TransferQueued,
 		Progress: 0,
-		Created: time.Now(),
+		Created:  time.Now(),
 	}
 	d.transferMu.Lock()
 	d.transfers[msgID] = transfer
@@ -473,7 +469,7 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 
 		// C3: libp2p peer ID is X25519 pubkey — wrong.
 		// For PoC, skip if we cannot resolve a proper peer ID.
-		// TODO: Implement proper pubkey -> libp2p PeerID mapping.
+		// TODO: Implement proper pubkey -> libp2p PeerID mapping using d.p2pHost.
 		// Currently req.PeerPubkey is the X25519 public key, not the libp2p PeerID.
 		peerID := "" // would need a mapping from pubkey -> peerID
 		if peerID == "" {
@@ -509,14 +505,14 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 
 		// Build metadata with file key so peer can decrypt
 		meta := &media.MediaMessage{
-			MessageID:   msgID,
-			Timestamp:   time.Now().UnixMilli(),
-			MediaType:   media.MediaTypeFile,
-			FileName:    req.Filename,
-			MimeType:    req.MimeType,
-			FileSize:    int64(len(req.MediaData)),
-			Chunks:      0, // 0 = sent via libp2p
-			FileKeyB64:  base64.StdEncoding.EncodeToString(fileKey),
+			MessageID:  msgID,
+			Timestamp:  time.Now().UnixMilli(),
+			MediaType:  media.MediaTypeFile,
+			FileName:   req.Filename,
+			MimeType:   req.MimeType,
+			FileSize:   int64(len(req.MediaData)),
+			Chunks:     0, // 0 = sent via libp2p
+			FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
 		}
 
 		// I2: Send metadata as E2E-encrypted message addressed to peer

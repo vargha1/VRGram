@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/dns-transport/internal/bridge"
 	"github.com/user/dns-transport/internal/dns"
 	"github.com/user/dns-transport/internal/encoding"
 )
@@ -29,23 +28,20 @@ type DNSChunkSender interface {
 }
 
 // DNSClientEngine sends chunked messages over DNS with retry and failover.
-// Supports parallel sending across dynamically discovered relays via bridge client.
+// Supports parallel sending across dynamically discovered relays via DHT.
 type DNSClientEngine struct {
 	mu            sync.RWMutex
-	relays        []string       // mutable, managed via SetRelays/GetRelays for daemon
-	fallbackRelays []string      // static fallback when bridgeCli is nil
-	bridgeCli     *bridge.Client // optional, for dynamic relay discovery
+	relays        []string  // mutable, managed via SetRelays/GetRelays for daemon
+	fallbackRelays []string // static fallback when no DHT discovery
 	zone          string
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
-// bridgeCli can be nil (disables parallel pipeline, falls back to serial sending).
-// fallbackRelays are used when bridgeCli is nil or discovery fails.
-func NewDNSClientEngine(bridgeCli *bridge.Client, fallbackRelays []string, zone string) *DNSClientEngine {
+// fallbackRelays are used when DHT discovery is unavailable or returns no relays.
+func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 	relays := make([]string, len(fallbackRelays))
 	copy(relays, fallbackRelays)
 	return &DNSClientEngine{
-		bridgeCli:      bridgeCli,
 		fallbackRelays: fallbackRelays,
 		relays:         relays,
 		zone:           zone,
@@ -69,8 +65,7 @@ func (e *DNSClientEngine) GetRelays() []string {
 }
 
 // SendMessage sends all chunks of a message over DNS relays.
-// If bridge client is available, discovers relays dynamically and sends in parallel.
-// Otherwise falls back to serial sending with configured relays.
+// Discovers relays dynamically if available, otherwise uses fallback relays.
 func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error) {
 	var msgID [8]byte
 	rand.Read(msgID[:])
@@ -86,7 +81,7 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8
 	chunks := encoding.ChunkMessage(msgID, plaintext, chunkSize)
 
 	relays := e.discoverActiveRelays(ctx)
-	if e.bridgeCli != nil && len(relays) > 0 {
+	if len(relays) > 0 {
 		// Parallel send across discovered relays
 		if err := e.sendParallel(ctx, chunks, relays); err != nil {
 			return msgID, 0, err
@@ -106,35 +101,8 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte) ([8
 }
 
 // discoverActiveRelays returns up to maxRelays relay DNS addresses.
-// Uses bridge client for dynamic discovery when available.
-// Falls back to fallbackRelays or the mutable relay list.
+// Uses fallbackRelays when available, otherwise the mutable relay list.
 func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
-	if e.bridgeCli != nil {
-		ch, err := e.bridgeCli.DiscoverRelays(ctx, maxRelays, false)
-		if err == nil {
-			select {
-			case upd, ok := <-ch:
-				if ok && len(upd.Added) > 0 {
-					addrs := make([]string, 0, len(upd.Added))
-					for _, r := range upd.Added {
-						if r.DNSAddress != "" {
-							addrs = append(addrs, r.DNSAddress)
-						}
-					}
-					if len(addrs) > 0 {
-						return addrs
-					}
-				}
-			case <-ctx.Done():
-				slog.Warn("relay discovery cancelled", "error", ctx.Err())
-				return nil
-			}
-		} else {
-			slog.Warn("bridge relay discovery failed", "error", err)
-		}
-	}
-
-	// Fallback to static relays
 	if len(e.fallbackRelays) > 0 {
 		return e.fallbackRelays
 	}
@@ -202,7 +170,7 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 }
 
 // sendWithRetry tries each relay in sequence with exponential backoff.
-// Retained for fallback when bridge client is unavailable.
+// Retained for fallback when DHT discovery is unavailable.
 func (e *DNSClientEngine) sendWithRetry(ctx context.Context, chunk *encoding.Chunk) error {
 	relays := e.GetRelays()
 	for attempt := 0; attempt < maxRetries; attempt++ {

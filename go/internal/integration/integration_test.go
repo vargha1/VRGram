@@ -36,7 +36,7 @@ func TestEndToEnd(t *testing.T) {
 	sharedSecret, _ := crypto.SharedSecret(alice.PrivateKey, bob.PublicKey)
 	ciphertext, _, _ := crypto.EncryptMessage(sharedSecret, plaintext)
 
-	engine := client.NewDNSClientEngine(nil, []string{"127.0.0.1:15355"}, "msg.local-domain")
+		engine := client.NewDNSClientEngine([]string{"127.0.0.1:15355"}, "msg.local-domain")
 		_, _, err := engine.SendMessage(context.Background(), ciphertext)
 	if err != nil {
 		t.Fatal(err)
