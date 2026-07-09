@@ -3,17 +3,18 @@
 package integration
 
 import (
-	"bytes"
-	"crypto/rand"
-	"testing"
-	"time"
+		"bytes"
+		"context"
+		"crypto/rand"
+		"testing"
+		"time"
 
-	"github.com/user/dns-transport/internal/client"
-	"github.com/user/dns-transport/internal/crypto"
-	"github.com/user/dns-transport/internal/ratelimit"
-	"github.com/user/dns-transport/internal/relay"
-	"github.com/user/dns-transport/internal/store"
-)
+		"github.com/user/dns-transport/internal/client"
+		"github.com/user/dns-transport/internal/crypto"
+		"github.com/user/dns-transport/internal/ratelimit"
+		"github.com/user/dns-transport/internal/relay"
+		"github.com/user/dns-transport/internal/store"
+	)
 
 func TestEndToEnd(t *testing.T) {
 	// Start relay server
@@ -35,8 +36,8 @@ func TestEndToEnd(t *testing.T) {
 	sharedSecret, _ := crypto.SharedSecret(alice.PrivateKey, bob.PublicKey)
 	ciphertext, _, _ := crypto.EncryptMessage(sharedSecret, plaintext)
 
-	engine := client.NewDNSClientEngine([]string{"127.0.0.1:15355"}, "msg.local-domain")
-	_, _, err := engine.SendMessage(ciphertext)
+	engine := client.NewDNSClientEngine(nil, []string{"127.0.0.1:15355"}, "msg.local-domain")
+		_, _, err := engine.SendMessage(context.Background(), ciphertext)
 	if err != nil {
 		t.Fatal(err)
 	}

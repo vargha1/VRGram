@@ -66,9 +66,6 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	detector.Check() // initial check
 	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
 
-	// Create DNS engine
-	engine := NewDNSClientEngine(relays, zone)
-
 	// Connect to bridge (optional)
 	var cli *bridge.Client
 	if bridgeSocket != "" {
@@ -77,6 +74,9 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 			slog.Warn("bridge client not available", "error", err)
 		}
 	}
+
+	// Create DNS engine with bridge client (optional)
+	engine := NewDNSClientEngine(cli, relays, zone)
 
 	// Create daemon
 	daemon := &Daemon{
@@ -135,7 +135,7 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 	}
 
 		// Try send via DNS engine
-		msgID, chunkCount, err := d.engine.SendMessage(ciphertext)
+		msgID, chunkCount, err := d.engine.SendMessage(ctx, ciphertext)
 	if err != nil {
 		// Queue ciphertext offline (already encrypted)
 		slog.Warn("send failed, queueing offline", "error", err)
@@ -245,7 +245,7 @@ func (d *Daemon) processQueue() {
 				continue
 			}
 			// Message already encrypted when queued — send ciphertext directly
-			_, _, err = d.engine.SendMessage(msg.Ciphertext)
+			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext)
 			if err != nil {
 				slog.Error("queue send failed", "id", msg.ID, "error", err)
 				d.queue.MarkFailed(msg.ID, err.Error())
