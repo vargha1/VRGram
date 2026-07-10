@@ -201,10 +201,16 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	m.SetQuestion(mdns.Fqdn(name), mdns.TypeTXT)
 	m.RecursionDesired = false
 
-	client := &mdns.Client{Timeout: 5 * time.Second}
+		client := &mdns.Client{Timeout: 5 * time.Second}
 	resp, _, err := client.Exchange(m, resolved)
 	if err != nil {
-		return nil, fmt.Errorf("dns exchange failed: %w", err)
+		// UDP failed (timeout/NAT on mobile). Try TCP.
+		slog.Debug("poll udp failed, trying tcp", "error", err)
+		client.Net = "tcp"
+		resp, _, err = client.Exchange(m, resolved)
+		if err != nil {
+			return nil, fmt.Errorf("dns poll failed (udp+tcp): %w", err)
+		}
 	}
 	if resp.Rcode != mdns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
