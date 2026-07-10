@@ -2,6 +2,7 @@ package dns
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -35,7 +36,13 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
-		return fmt.Errorf("dns exchange failed: %w", err)
+		// UDP failed (timeout/NAT). Retry via TCP.
+		slog.Debug("dns udp exchange failed, trying tcp", "error", err)
+		client.Net = "tcp"
+		resp, _, err = client.Exchange(m, addr)
+		if err != nil {
+			return fmt.Errorf("dns exchange failed (udp+tcp): %w", err)
+		}
 	}
 	if resp.MsgHdr.Truncated {
 		client.Net = "tcp"
@@ -62,7 +69,13 @@ func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16) (*encoding.Ch
 	client := &dns.Client{Timeout: defaultTimeout}
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
-		return nil, fmt.Errorf("dns exchange failed: %w", err)
+		// UDP failed. Retry via TCP.
+		slog.Debug("dns query udp failed, trying tcp", "error", err)
+		client.Net = "tcp"
+		resp, _, err = client.Exchange(m, addr)
+		if err != nil {
+			return nil, fmt.Errorf("dns query failed (udp+tcp): %w", err)
+		}
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)

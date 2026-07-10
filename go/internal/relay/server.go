@@ -159,13 +159,27 @@ func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.
 		go startMediaServer(mediaPort)
 	}
 
-	server := &dns.Server{
-		Addr:    addr,
-		Net:     "udp",
-		Handler: mux,
+		server := &dns.Server{
+			Addr:    addr,
+			Net:     "udp",
+			Handler: mux,
+		}
+
+		// Also listen on TCP for clients behind NAT that lose UDP responses.
+		go func() {
+			tcpServer := &dns.Server{
+				Addr:    addr,
+				Net:     "tcp",
+				Handler: mux,
+			}
+			slog.Info("relay TCP server starting", "addr", addr)
+			if err := tcpServer.ListenAndServe(); err != nil {
+				slog.Error("relay TCP server failed", "error", err)
+			}
+		}()
+
+		return server.ListenAndServe()
 	}
-	return server.ListenAndServe()
-}
 
 // startMediaServer runs the HTTP server for file upload/download.
 func startMediaServer(port string) {
