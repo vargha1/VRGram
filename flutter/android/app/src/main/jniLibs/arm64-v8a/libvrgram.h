@@ -25,16 +25,17 @@ extern const char *_GoStringPtr(_GoString_ s);
 
 #include <jni.h>
 #include <stdlib.h>
+#include <string.h>
 
-static const char* jstringToChars(JNIEnv* env, jstring js) {
-	if (js == NULL) return "";
-	return (*env)->GetStringUTFChars(env, js, NULL);
-}
-
-static void releaseChars(JNIEnv* env, jstring js, const char* cStr) {
-	if (js != NULL && cStr != NULL) {
-		(*env)->ReleaseStringUTFChars(env, js, cStr);
-	}
+// Convert Java jstring to C string and return allocated C string.
+// Caller must free the returned string.
+static char* jstringToCString(JNIEnv* env, jstring js) {
+    if (js == NULL) return strdup("");
+    const char* cStr = (*env)->GetStringUTFChars(env, js, NULL);
+    if (cStr == NULL) return strdup("");
+    char* result = strdup(cStr);
+    (*env)->ReleaseStringUTFChars(env, js, cStr);
+    return result;
 }
 
 #line 1 "cgo-generated-wrapper"

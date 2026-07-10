@@ -14,5 +14,6 @@ object GoBridge {
         dataDir: String,
         p2pPort: Int,
         bootstrapAddrs: String,
+        dnsResolver: String,
     )
 }

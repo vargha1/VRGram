@@ -26,6 +26,7 @@ class MainActivity : FlutterActivity() {
                             val zone = args["zone"] as String
                             val relays = args["relays"] as String
                             val bootstrap = args["bootstrap"] as String
+                            val dnsResolver = args["dnsResolver"] as? String ?: "8.8.8.8:53"
 
                             // Default relay if none configured
                             val defaultRelay = "31.15.17.161:53"
@@ -40,6 +41,7 @@ class MainActivity : FlutterActivity() {
                                 dataDir,
                                 p2pPort,
                                 bootstrap,
+                                dnsResolver,
                             )
                             Log.d("VRGram", "Go daemon startDaemon called")
                             result.success(true)
