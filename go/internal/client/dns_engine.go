@@ -262,9 +262,17 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage,
 
 	var messages []PolledMessage
 	for _, msgID := range msgIDs {
-		data, err := fetchAndReassemble(relays[0], e.zone, msgID)
-		if err != nil {
-			slog.Warn("fetch message failed", "msgID", msgID, "error", err)
+		var data []byte
+		var fetchErr error
+		for _, relay := range relays {
+			data, fetchErr = fetchAndReassemble(relay, e.zone, msgID)
+			if fetchErr == nil {
+				break
+			}
+			slog.Debug("fetch from relay failed, trying next", "relay", relay, "error", fetchErr)
+		}
+		if fetchErr != nil {
+			slog.Warn("fetch message failed from all relays", "msgID", msgID, "error", fetchErr)
 			continue
 		}
 		messages = append(messages, PolledMessage{MsgID: msgID, Data: data})
@@ -292,10 +300,20 @@ func fetchAndReassemble(relayAddr, zone string, msgID [8]byte) ([]byte, error) {
 }
 
 func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
+	var relays []string
 	if len(e.fallbackRelays) > 0 {
-		return e.fallbackRelays
+		relays = e.fallbackRelays
+	} else {
+		relays = e.GetRelays()
 	}
-	return e.GetRelays()
+	// Add port-5353 fallback for each relay on port 53 (carriers block port 53).
+	for _, r := range relays {
+		h, p, err := net.SplitHostPort(r)
+		if err == nil && p == "53" {
+			relays = append(relays, net.JoinHostPort(h, "5353"))
+		}
+	}
+	return relays
 }
 
 func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.Chunk, relays []string) error {

@@ -152,12 +152,12 @@ func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.
 			Txt: ackLabels,
 		})
 		w.WriteMsg(m)
-	})
+		})
 
-	// Start HTTP media server if mediaPort specified
-	if mediaPort != "" {
-		go startMediaServer(mediaPort)
-	}
+		// Start HTTP media server if mediaPort specified
+		if mediaPort != "" {
+			go startMediaServer(mediaPort)
+		}
 
 		server := &dns.Server{
 			Addr:    addr,
@@ -178,10 +178,25 @@ func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.
 			}
 		}()
 
+		// Also listen on fallback port 5353 (carriers often block port 53).
+		go func() {
+			altUDP := &dns.Server{Addr: ":5353", Net: "udp", Handler: mux}
+			slog.Info("relay fallback UDP server starting", "addr", ":5353")
+			if err := altUDP.ListenAndServe(); err != nil {
+				slog.Error("relay fallback UDP server failed", "error", err)
+			}
+		}()
+		go func() {
+			altTCP := &dns.Server{Addr: ":5353", Net: "tcp", Handler: mux}
+			slog.Info("relay fallback TCP server starting", "addr", ":5353")
+			if err := altTCP.ListenAndServe(); err != nil {
+				slog.Error("relay fallback TCP server failed", "error", err)
+			}
+		}()
+
 		return server.ListenAndServe()
 	}
 
-// startMediaServer runs the HTTP server for file upload/download.
 func startMediaServer(port string) {
 	mediaDir := filepath.Join(os.Getenv("HOME"), ".config", "relayd", "media")
 	if err := os.MkdirAll(mediaDir, 0700); err != nil {
