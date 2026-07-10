@@ -204,8 +204,14 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 		client := &mdns.Client{Timeout: 5 * time.Second}
 	resp, _, err := client.Exchange(m, resolved)
 	if err != nil {
-		// UDP failed (timeout/NAT on mobile). Try TCP.
-		slog.Debug("poll udp failed, trying tcp", "error", err)
+		// UDP failed — retry once (transient packet loss on mobile)
+		slog.Debug("poll udp failed, retrying udp", "error", err)
+		client.Net = "udp"
+		resp, _, err = client.Exchange(m, resolved)
+	}
+	if err != nil {
+		// UDP still fails (NAT/firewall). Try TCP.
+		slog.Debug("poll udp retry failed, trying tcp", "error", err)
 		client.Net = "tcp"
 		resp, _, err = client.Exchange(m, resolved)
 		if err != nil {

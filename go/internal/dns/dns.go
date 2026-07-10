@@ -36,8 +36,14 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
-		// UDP failed (timeout/NAT). Retry via TCP.
-		slog.Debug("dns udp exchange failed, trying tcp", "error", err)
+		// UDP failed — retry once (transient packet loss)
+		slog.Debug("dns udp failed, retrying udp", "error", err)
+		client.Net = "udp"
+		resp, _, err = client.Exchange(m, addr)
+	}
+	if err != nil {
+		// UDP still fails (NAT/firewall). Retry via TCP.
+		slog.Debug("dns udp retry failed, trying tcp", "error", err)
 		client.Net = "tcp"
 		resp, _, err = client.Exchange(m, addr)
 		if err != nil {
@@ -69,8 +75,14 @@ func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16) (*encoding.Ch
 	client := &dns.Client{Timeout: defaultTimeout}
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
-		// UDP failed. Retry via TCP.
-		slog.Debug("dns query udp failed, trying tcp", "error", err)
+		// UDP failed — retry once (transient packet loss)
+		slog.Debug("dns query udp failed, retrying udp", "error", err)
+		client.Net = "udp"
+		resp, _, err = client.Exchange(m, addr)
+	}
+	if err != nil {
+		// UDP still fails (NAT/firewall). Try TCP.
+		slog.Debug("dns query udp retry failed, trying tcp", "error", err)
 		client.Net = "tcp"
 		resp, _, err = client.Exchange(m, addr)
 		if err != nil {
