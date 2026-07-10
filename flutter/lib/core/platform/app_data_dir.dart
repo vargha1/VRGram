@@ -11,5 +11,10 @@ class AppDataDir {
     _path = dataDir;
   }
 
-  static File file(String name) => File('$_path/$name');
+  static File file(String name) {
+    if (_path.isEmpty) {
+      throw StateError('AppDataDir not initialized. Call AppDataDir.init() first.');
+    }
+    return File('$_path/$name');
+  }
 }

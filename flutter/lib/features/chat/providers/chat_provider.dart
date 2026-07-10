@@ -109,6 +109,7 @@ class ChatMessage {
 class ChatList extends Notifier<List<ChatMessage>> {
   Timer? _pollTimer;
   static const _fileName = 'messages.json';
+  bool _loaded = false;
 
   @override
   List<ChatMessage> build() {
@@ -122,17 +123,26 @@ class ChatList extends Notifier<List<ChatMessage>> {
       final file = AppDataDir.file(_fileName);
       if (await file.exists()) {
         final json = jsonDecode(await file.readAsString()) as List;
-        state = json
+        final loaded = json
             .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
             .toList();
-        debugPrint('[ChatList] loaded ${state.length} messages');
+        // Only replace state if no messages were added before load completed
+        if (!_loaded) {
+          state = loaded;
+          _loaded = true;
+          debugPrint('[ChatList] loaded ${state.length} messages');
+        }
+      } else {
+        _loaded = true;
       }
     } catch (e) {
       debugPrint('[ChatList] failed to load messages: $e');
+      _loaded = true;
     }
   }
 
   Future<void> _save() async {
+    if (AppDataDir.path.isEmpty) return;
     try {
       final file = AppDataDir.file(_fileName);
       await file.writeAsString(
