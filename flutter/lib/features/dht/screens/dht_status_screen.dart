@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/dht_provider.dart';
 import '../../../shared/constants.dart';
 
@@ -52,6 +53,14 @@ class DhtStatusScreen extends ConsumerWidget {
                   : AppColors.online,
             ),
             const SizedBox(height: 24),
+            Center(
+              child: FilledButton.icon(
+                onPressed: () => context.push('/relays'),
+                icon: const Icon(Icons.dns),
+                label: const Text('Relay Servers'),
+              ),
+            ),
+            const SizedBox(height: 8),
             Center(
               child: FilledButton.icon(
                 onPressed: () => ref.invalidate(dhtStatusProvider),
