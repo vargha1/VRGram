@@ -26,5 +26,9 @@ final pollMessagesProvider = StreamProvider<void>((ref) async* {
     } catch (_) {
       // gRPC error — will retry on next poll
     }
+    // Yield after each poll cycle so Riverpod keeps the stream alive.
+    // Without yield, StreamProvider stays in AsyncLoading and may be
+    // garbage-collected, stopping all polling.
+    yield null;
   }
 });

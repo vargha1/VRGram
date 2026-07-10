@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
 import '../../../core/media/media_service.dart';
+import '../../../core/platform/app_data_dir.dart';
 
 enum MessageStatus { sent, queued, failed, received, sending }
 
@@ -70,25 +71,87 @@ class ChatMessage {
       localFilePath: localFilePath ?? this.localFilePath,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'text': text,
+        'timestamp': timestamp.toIso8601String(),
+        'isSent': isSent,
+        'status': status.name,
+        'fromPeer': fromPeer,
+        'toPeer': toPeer,
+        'mimeType': mimeType,
+        'filename': filename,
+        'estimatedSeconds': estimatedSeconds,
+        'mediaMessageId': mediaMessageId,
+        'mediaProgress': mediaProgress,
+        'localFilePath': localFilePath,
+      };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+        id: json['id'] as String,
+        text: json['text'] as String,
+        timestamp: DateTime.parse(json['timestamp'] as String),
+        isSent: json['isSent'] as bool,
+        status: MessageStatus.values
+            .firstWhere((e) => e.name == json['status']),
+        fromPeer: json['fromPeer'] as String?,
+        toPeer: json['toPeer'] as String?,
+        mimeType: json['mimeType'] as String?,
+        filename: json['filename'] as String?,
+        estimatedSeconds: json['estimatedSeconds'] as int?,
+        mediaMessageId: json['mediaMessageId'] as String?,
+        mediaProgress: (json['mediaProgress'] as num?)?.toDouble(),
+        localFilePath: json['localFilePath'] as String?,
+      );
 }
 
 class ChatList extends Notifier<List<ChatMessage>> {
   Timer? _pollTimer;
+  static const _fileName = 'messages.json';
 
   @override
   List<ChatMessage> build() {
     ref.onDispose(() => _pollTimer?.cancel());
+    _load();
     return [];
+  }
+
+  Future<void> _load() async {
+    try {
+      final file = AppDataDir.file(_fileName);
+      if (await file.exists()) {
+        final json = jsonDecode(await file.readAsString()) as List;
+        state = json
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList();
+        debugPrint('[ChatList] loaded ${state.length} messages');
+      }
+    } catch (e) {
+      debugPrint('[ChatList] failed to load messages: $e');
+    }
+  }
+
+  Future<void> _save() async {
+    try {
+      final file = AppDataDir.file(_fileName);
+      await file.writeAsString(
+          jsonEncode(state.map((m) => m.toJson()).toList()));
+    } catch (e) {
+      debugPrint('[ChatList] failed to save messages: $e');
+    }
   }
 
   void addMessage(ChatMessage msg) {
     // Skip duplicates — same messageId already exists
     if (state.any((m) => m.id == msg.id)) return;
     state = [...state, msg];
+    _save();
   }
 
   void updateMessage(String id, ChatMessage updated) {
     state = state.map((m) => m.id == id ? updated : m).toList();
+    _save();
   }
 
   void updateStatus(String id, MessageStatus status) {
@@ -98,6 +161,7 @@ class ChatList extends Notifier<List<ChatMessage>> {
       }
       return m;
     }).toList();
+    _save();
   }
 
   void updateMediaProgress(String id, double progress) {
@@ -138,7 +202,8 @@ class ChatList extends Notifier<List<ChatMessage>> {
         peerPubkey: peerPubkey,
         plaintext: utf8.encode(text),
       ));
-      debugPrint('[ChatList] sendMessage OK: queued=${resp.queued} msgId=${resp.messageId}');
+      debugPrint(
+          '[ChatList] sendMessage OK: queued=${resp.queued} msgId=${resp.messageId}');
       updateStatus(
           msgId, resp.queued ? MessageStatus.queued : MessageStatus.sent);
       return true;
@@ -151,7 +216,6 @@ class ChatList extends Notifier<List<ChatMessage>> {
 
   void startMediaStatusPolling(String msgId, String mediaMessageId) {
     _pollTimer?.cancel();
-    // I6: Store client reference once instead of creating per tick
     final client = GrpcClient();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
       try {
@@ -191,7 +255,8 @@ class ChatList extends Notifier<List<ChatMessage>> {
   }
 }
 
-final chatProvider = NotifierProvider<ChatList, List<ChatMessage>>(ChatList.new);
+final chatProvider =
+    NotifierProvider<ChatList, List<ChatMessage>>(ChatList.new);
 
 final sendMediaProvider =
     FutureProvider.family<SendMediaResponse, SendMediaParams>(
@@ -213,7 +278,7 @@ final sendMediaProvider =
         toPeer: params.peerPubkey,
         mimeType: params.mimeType,
         filename: filename,
-        estimatedSeconds: null, // set after response
+        estimatedSeconds: null,
       ));
 
   try {
@@ -223,7 +288,6 @@ final sendMediaProvider =
       mimeType: params.mimeType,
     );
 
-    // Update with estimated time and messageId from server
     ref.read(chatProvider.notifier).updateMessage(
           msgId,
           ChatMessage(
@@ -240,7 +304,6 @@ final sendMediaProvider =
           ),
         );
 
-    // Start polling for transfer status
     ref.read(chatProvider.notifier).startMediaStatusPolling(
           msgId,
           resp.messageId,
