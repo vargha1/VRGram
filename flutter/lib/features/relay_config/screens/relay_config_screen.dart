@@ -61,7 +61,7 @@ class RelayConfigScreen extends ConsumerWidget {
               return const SizedBox.shrink();
             },
             loading: () => const SizedBox.shrink(),
-            error: (_) => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
           ),
           // Relay list
           Expanded(
