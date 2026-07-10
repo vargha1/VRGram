@@ -176,6 +176,10 @@ class GoBridge {
     final devPath = '${Directory.current.path}${Platform.pathSeparator}..${Platform.pathSeparator}go${Platform.pathSeparator}$name';
     if (await File(devPath).exists()) return devPath;
 
+    // Check ../ (project root, development mode)
+    final rootPath = '${Directory.current.path}${Platform.pathSeparator}..${Platform.pathSeparator}$name';
+    if (await File(rootPath).exists()) return rootPath;
+
     // Not found
     return null;
   }
