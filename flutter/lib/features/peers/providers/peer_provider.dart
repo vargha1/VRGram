@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../../../core/platform/app_data_dir.dart';
 
 class Peer {
   final String nickname;
@@ -20,18 +20,6 @@ class Peer {
 class PeerList extends Notifier<List<Peer>> {
   static const _fileName = 'peers.json';
 
-  File? _file;
-
-  File _getFile() {
-    if (_file != null) return _file!;
-    // Use current directory as fallback; on Android this is the app's working dir.
-    // The dataDir from the native side is more reliable, but for simplicity
-    // we store relative to the app's documents path.
-    final dir = Directory.current;
-    _file = File('${dir.path}/$_fileName');
-    return _file!;
-  }
-
   @override
   List<Peer> build() {
     _load();
@@ -40,7 +28,7 @@ class PeerList extends Notifier<List<Peer>> {
 
   Future<void> _load() async {
     try {
-      final file = _getFile();
+      final file = AppDataDir.file(_fileName);
       if (await file.exists()) {
         final json = jsonDecode(await file.readAsString()) as List;
         state = json.map((e) => Peer.fromJson(e as Map<String, dynamic>)).toList();
@@ -52,7 +40,7 @@ class PeerList extends Notifier<List<Peer>> {
 
   Future<void> _save() async {
     try {
-      final file = _getFile();
+      final file = AppDataDir.file(_fileName);
       await file.writeAsString(jsonEncode(state.map((p) => p.toJson()).toList()));
     } catch (e) {
       debugPrint('Failed to save peers: $e');

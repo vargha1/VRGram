@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/grpc/client.dart';
 import 'core/grpc/relay.pb.dart';
+import 'core/platform/app_data_dir.dart';
 import 'core/platform/go_bridge.dart';
 import 'shared/constants.dart';
 
@@ -19,9 +20,12 @@ void main() async {
     const channel = MethodChannel('vrgram/bridge');
     try {
       dataDir = await channel.invokeMethod('getDataDir') ?? '';
+      AppDataDir.init(dataDir);
     } catch (e) {
       debugPrint('Failed to get dataDir: $e');
     }
+  } else {
+    AppDataDir.init(Directory.current.path);
   }
 
   // Start Go daemon
@@ -30,18 +34,16 @@ void main() async {
   // Initialize gRPC client
   await GrpcClient().init();
 
-  // Sync persisted data to daemon
-  if (!GoBridge.isDesktop) {
-    await _syncPeers();
-    await _syncRelays();
-  }
+  // Sync persisted data to daemon (blocking — ensures daemon knows peers/relays)
+  await _syncPeers();
+  await _syncRelays();
 
   runApp(const ProviderScope(child: VRGramApp()));
 }
 
 /// Sync persisted peers from JSON to daemon via gRPC.
 Future<void> _syncPeers() async {
-  final file = File('${Directory.current.path}/peers.json');
+  final file = AppDataDir.file('peers.json');
   if (!await file.exists()) return;
   try {
     final json = jsonDecode(await file.readAsString()) as List;
@@ -60,7 +62,7 @@ Future<void> _syncPeers() async {
 
 /// Sync persisted relays from JSON to daemon via gRPC.
 Future<void> _syncRelays() async {
-  final file = File('${Directory.current.path}/relays.json');
+  final file = AppDataDir.file('relays.json');
   if (!await file.exists()) return;
   try {
     final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;

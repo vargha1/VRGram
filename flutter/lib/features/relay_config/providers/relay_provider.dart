@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../../../core/platform/app_data_dir.dart';
 import '../../../shared/constants.dart';
 
 class RelayConfig {
@@ -24,8 +24,6 @@ class RelayList extends Notifier<List<RelayConfig>> {
   static const _fileName = 'relays.json';
   String _defaultDnsResolver = '8.8.8.8:53';
 
-  String get _filePath => '${Directory.current.path}/$_fileName';
-
   @override
   List<RelayConfig> build() {
     _load();
@@ -34,7 +32,7 @@ class RelayList extends Notifier<List<RelayConfig>> {
 
   Future<void> _load() async {
     try {
-      final file = File(_filePath);
+      final file = AppDataDir.file(_fileName);
       if (await file.exists()) {
         final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         final relays = (json['relays'] as List? ?? [])
@@ -50,7 +48,7 @@ class RelayList extends Notifier<List<RelayConfig>> {
 
   Future<void> _save() async {
     try {
-      final file = File(_filePath);
+      final file = AppDataDir.file(_fileName);
       await file.writeAsString(jsonEncode({
         'relays': state.map((r) => r.toJson()).toList(),
         'dnsResolver': _defaultDnsResolver,
