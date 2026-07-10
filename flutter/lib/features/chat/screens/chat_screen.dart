@@ -34,9 +34,10 @@ class ChatScreen extends ConsumerWidget {
           ),
           ChatInput(
             onSend: (text) {
-              ref.read(sendMessageProvider(
-                SendParams(peerPubkey: peer.pubkey, text: text),
-              ));
+              ref.read(chatProvider.notifier).sendMessage(
+                    peer.pubkey,
+                    text,
+                  );
             },
             onMediaSelected: (action) {
               // Media handling will be implemented in Task 7

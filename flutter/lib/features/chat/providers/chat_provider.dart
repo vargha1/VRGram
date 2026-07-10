@@ -117,6 +117,34 @@ class ChatList extends Notifier<List<ChatMessage>> {
     }).toList();
   }
 
+  /// Send a text message: add optimistically, call gRPC, update status.
+  Future<bool> sendMessage(String peerPubkey, String text) async {
+    final msgId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    addMessage(ChatMessage(
+      id: msgId,
+      text: text,
+      timestamp: DateTime.now(),
+      isSent: true,
+      status: MessageStatus.sent,
+      toPeer: peerPubkey,
+    ));
+
+    try {
+      final client = GrpcClient();
+      final resp = await client.stub.sendMessage(SendRequest(
+        peerPubkey: peerPubkey,
+        plaintext: utf8.encode(text),
+      ));
+      updateStatus(
+          msgId, resp.queued ? MessageStatus.queued : MessageStatus.sent);
+      return true;
+    } catch (e) {
+      updateStatus(msgId, MessageStatus.failed);
+      return false;
+    }
+  }
+
   void startMediaStatusPolling(String msgId, String mediaMessageId) {
     _pollTimer?.cancel();
     // I6: Store client reference once instead of creating per tick
@@ -160,41 +188,6 @@ class ChatList extends Notifier<List<ChatMessage>> {
 }
 
 final chatProvider = NotifierProvider<ChatList, List<ChatMessage>>(ChatList.new);
-
-final sendMessageProvider =
-    FutureProvider.family<void, SendParams>((ref, params) async {
-  final client = GrpcClient();
-  final msgId = DateTime.now().millisecondsSinceEpoch.toString();
-
-  ref.read(chatProvider.notifier).addMessage(ChatMessage(
-        id: msgId,
-        text: params.text,
-        timestamp: DateTime.now(),
-        isSent: true,
-        status: MessageStatus.sent,
-        toPeer: params.peerPubkey,
-      ));
-
-  try {
-    final resp = await client.stub.sendMessage(SendRequest(
-      peerPubkey: params.peerPubkey,
-      plaintext: utf8.encode(params.text),
-    ));
-    ref.read(chatProvider.notifier).updateStatus(
-          msgId,
-          resp.queued ? MessageStatus.queued : MessageStatus.sent,
-        );
-  } catch (e) {
-    ref.read(chatProvider.notifier).updateStatus(msgId, MessageStatus.failed);
-    rethrow;
-  }
-});
-
-class SendParams {
-  final String peerPubkey;
-  final String text;
-  SendParams({required this.peerPubkey, required this.text});
-}
 
 final sendMediaProvider =
     FutureProvider.family<SendMediaResponse, SendMediaParams>(
