@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -266,19 +267,22 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 }
 
 // PollMessages polls relays for pending messages and returns them.
+// Each message's MessageId is the original DNS msgID (hex-encoded) for
+// client-side deduplication.
 func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.PollResponse, error) {
 	if d.identity == nil {
 		return &pb.PollResponse{}, nil
 	}
 	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	rawMessages, err := d.engine.PollMessages(myPubkey)
+	polled, err := d.engine.PollMessages(myPubkey)
 	if err != nil {
 		slog.Warn("poll messages failed", "error", err)
 		return &pb.PollResponse{}, nil
 	}
 
 	var resp pb.PollResponse
-	for _, raw := range rawMessages {
+	for _, pm := range polled {
+		raw := pm.Data
 		if len(raw) < crypto.NonceLength {
 			slog.Warn("message too short", "len", len(raw))
 			continue
@@ -319,8 +323,9 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 			continue
 		}
 
+		msgID := hex.EncodeToString(pm.MsgID[:])
 		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
-			MessageId:  fmt.Sprintf("%x", time.Now().UnixNano()),
+			MessageId:  msgID,
 			Plaintext:  decrypted,
 			FromPeer:   fromPeer,
 		})
@@ -507,21 +512,21 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 			transfer.mu.Unlock()
 			return nil, err
 		}
-		if _, _, err := d.engine.SendMessage(ctx, ciphertext, ""); err != nil {
+		if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
+				transfer.mu.Lock()
+				transfer.Status = TransferFailed
+				transfer.Error = err.Error()
+				transfer.mu.Unlock()
+				return nil, err
+			}
+
 			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
+			transfer.Status = TransferSending
+			transfer.Progress = 50
 			transfer.mu.Unlock()
-			return nil, err
-		}
 
-		transfer.mu.Lock()
-		transfer.Status = TransferSending
-		transfer.Progress = 50
-		transfer.mu.Unlock()
-
-	} else if req.PreferredTransport == pb.SendMediaRequest_LIBP2P ||
-		(len(req.MediaData) >= media.MediaDNSSizeThreshold && d.libp2pTransport != nil) {
+		} else if req.PreferredTransport == pb.SendMediaRequest_LIBP2P ||
+			(len(req.MediaData) >= media.MediaDNSSizeThreshold && d.libp2pTransport != nil) {
 
 		// C3: libp2p peer ID is X25519 pubkey — wrong.
 		// For PoC, skip if we cannot resolve a proper peer ID.
@@ -604,15 +609,15 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 			transfer.mu.Unlock()
 			return nil, err
 		}
-		if _, _, err := d.engine.SendMessage(ctx, ciphertext, ""); err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-
-		// Send encrypted file via libp2p
+			if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
+				transfer.mu.Lock()
+				transfer.Status = TransferFailed
+				transfer.Error = err.Error()
+				transfer.mu.Unlock()
+				return nil, err
+			}
+	
+			// Send encrypted file via libp2p
 		if err := d.libp2pTransport.SendFile(ctx, peerID, req.Filename, req.MimeType, encryptedData); err != nil {
 			transfer.mu.Lock()
 			transfer.Status = TransferFailed

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_provider.dart';
-import '../providers/message_list_provider.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input.dart';
 import '../../peers/providers/peer_provider.dart';
@@ -13,8 +12,6 @@ class ChatScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allMessages = ref.watch(chatProvider);
-    // Start polling for incoming messages
-    ref.watch(pollMessagesProvider);
 
     // Filter to only messages with this peer
     final messages = allMessages.where((m) =>

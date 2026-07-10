@@ -229,8 +229,15 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	return msgIDs, nil
 }
 
+// PolledMessage holds a reassembled message and its original DNS msgID.
+type PolledMessage struct {
+	MsgID [8]byte
+	Data  []byte
+}
+
 // PollMessages fetches and reassembles all pending messages for a recipient.
-func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([][]byte, error) {
+// Returns each message with its original DNS msgID for client-side dedup.
+func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage, error) {
 	msgIDs, err := e.PollRelays(recipientPubkey)
 	if err != nil || len(msgIDs) == 0 {
 		return nil, err
@@ -241,14 +248,14 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([][]byte, error)
 		return nil, fmt.Errorf("no relays to fetch from")
 	}
 
-	var messages [][]byte
+	var messages []PolledMessage
 	for _, msgID := range msgIDs {
 		data, err := fetchAndReassemble(relays[0], e.zone, msgID)
 		if err != nil {
 			slog.Warn("fetch message failed", "msgID", msgID, "error", err)
 			continue
 		}
-		messages = append(messages, data)
+		messages = append(messages, PolledMessage{MsgID: msgID, Data: data})
 	}
 	return messages, nil
 }

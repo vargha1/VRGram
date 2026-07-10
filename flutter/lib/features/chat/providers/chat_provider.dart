@@ -81,6 +81,8 @@ class ChatList extends Notifier<List<ChatMessage>> {
   }
 
   void addMessage(ChatMessage msg) {
+    // Skip duplicates — same messageId already exists
+    if (state.any((m) => m.id == msg.id)) return;
     state = [...state, msg];
   }
 
