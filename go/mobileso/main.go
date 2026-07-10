@@ -10,16 +10,17 @@ package main
 /*
 #include <jni.h>
 #include <stdlib.h>
+#include <string.h>
 
-static const char* jstringToChars(JNIEnv* env, jstring js) {
-	if (js == NULL) return "";
-	return (*env)->GetStringUTFChars(env, js, NULL);
-}
-
-static void releaseChars(JNIEnv* env, jstring js, const char* cStr) {
-	if (js != NULL && cStr != NULL) {
-		(*env)->ReleaseStringUTFChars(env, js, cStr);
-	}
+// Convert Java jstring to C string and return allocated C string.
+// Caller must free the returned string.
+static char* jstringToCString(JNIEnv* env, jstring js) {
+    if (js == NULL) return strdup("");
+    const char* cStr = (*env)->GetStringUTFChars(env, js, NULL);
+    if (cStr == NULL) return strdup("");
+    char* result = strdup(cStr);
+    (*env)->ReleaseStringUTFChars(env, js, cStr);
+    return result;
 }
 */
 import "C"
@@ -33,52 +34,27 @@ import (
 //export Java_com_example_vrgram_GoBridge_startDaemon
 func Java_com_example_vrgram_GoBridge_startDaemon(env *C.JNIEnv, clazz C.jclass, grpcPort C.int, relayList C.jstring, zone C.jstring, forceBlackout C.jstring, dataDir C.jstring, p2pPort C.int, bootstrapAddrs C.jstring, dnsResolver C.jstring) {
 	fmt.Println("[VRGram-SO] JNI function called")
-	rl := jstringToGo(env, relayList)
-	z := jstringToGo(env, zone)
-	fb := jstringToGo(env, forceBlackout)
-	dd := jstringToGo(env, dataDir)
-	ba := jstringToGo(env, bootstrapAddrs)
-	dr := jstringToGo(env, dnsResolver)
+	
+	// Convert all jstrings to Go strings in C code (properly releasing JNI refs)
+	rl := C.GoString(C.jstringToCString(env, relayList))
+	z := C.GoString(C.jstringToCString(env, zone))
+	fb := C.GoString(C.jstringToCString(env, forceBlackout))
+	dd := C.GoString(C.jstringToCString(env, dataDir))
+	ba := C.GoString(C.jstringToCString(env, bootstrapAddrs))
+	dr := C.GoString(C.jstringToCString(env, dnsResolver))
 
-	fmt.Printf("[VRGram-SO] grpcPort=%d dataDir=%s p2pPort=%d\n", int(grpcPort), dd.str, int(p2pPort))
+	fmt.Printf("[VRGram-SO] grpcPort=%d dataDir=%s p2pPort=%d dnsResolver=%s\n", int(grpcPort), dd, int(p2pPort), dr)
 
 	mobile.StartDaemon(
 		int(grpcPort),
-		rl.str,
-		z.str,
-		fb.str,
-		dd.str,
+		rl,
+		z,
+		fb,
+		dd,
 		int(p2pPort),
-		ba.str,
-		dr.str,
+		ba,
+		dr,
 	)
-
-	// Release all after StartDaemon returns (it spawns its own goroutine,
-	// but the jstring pointers are only needed for the duration of the call).
-	rl.release(env)
-	z.release(env)
-	fb.release(env)
-	dd.release(env)
-	ba.release(env)
-	dr.release(env)
-}
-
-type jstr struct {
-	str string
-	c   *C.char
-	js  C.jstring
-}
-
-func jstringToGo(env *C.JNIEnv, js C.jstring) jstr {
-	if js == 0 {
-		return jstr{}
-	}
-	cStr := C.jstringToChars(env, js)
-	return jstr{str: C.GoString(cStr), c: cStr, js: js}
-}
-
-func (j jstr) release(env *C.JNIEnv) {
-	C.releaseChars(env, j.js, j.c)
 }
 
 func main() {}

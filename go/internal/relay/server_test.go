@@ -16,7 +16,7 @@ func TestServerStoreAndQuery(t *testing.T) {
 	rl := ratelimit.NewIPRateLimiter(100, 200)
 
 	go func() {
-		if err := RunServer("127.0.0.1:5354", "msg.local-domain", s, rl); err != nil {
+		if err := RunServer("127.0.0.1:5354", "msg.local-domain", "", s, rl); err != nil {
 			t.Log(err)
 		}
 	}()
