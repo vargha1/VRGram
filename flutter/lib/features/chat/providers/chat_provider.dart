@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
@@ -120,6 +121,7 @@ class ChatList extends Notifier<List<ChatMessage>> {
   /// Send a text message: add optimistically, call gRPC, update status.
   Future<bool> sendMessage(String peerPubkey, String text) async {
     final msgId = DateTime.now().millisecondsSinceEpoch.toString();
+    debugPrint('[ChatList] sendMessage: id=$msgId to=$peerPubkey text="$text"');
 
     addMessage(ChatMessage(
       id: msgId,
@@ -136,10 +138,12 @@ class ChatList extends Notifier<List<ChatMessage>> {
         peerPubkey: peerPubkey,
         plaintext: utf8.encode(text),
       ));
+      debugPrint('[ChatList] sendMessage OK: queued=${resp.queued} msgId=${resp.messageId}');
       updateStatus(
           msgId, resp.queued ? MessageStatus.queued : MessageStatus.sent);
       return true;
     } catch (e) {
+      debugPrint('[ChatList] sendMessage FAILED: $e');
       updateStatus(msgId, MessageStatus.failed);
       return false;
     }
