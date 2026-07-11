@@ -9,7 +9,6 @@ import 'core/grpc/client.dart';
 import 'core/grpc/relay.pb.dart';
 import 'core/platform/app_data_dir.dart';
 import 'core/platform/go_bridge.dart';
-import 'shared/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,24 +96,5 @@ Future<void> _syncRelays() async {
     debugPrint('Synced ${relays.length} relays to daemon');
   } catch (e) {
     debugPrint('Failed to sync relays: $e');
-  }
-}
-
-class VRGramApp extends ConsumerWidget {
-  const VRGramApp({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-
-    return MaterialApp.router(
-      title: AppStrings.appName,
-      theme: ThemeData(
-        colorSchemeSeed: AppColors.primary,
-        useMaterial3: true,
-      ),
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
-    );
   }
 }
