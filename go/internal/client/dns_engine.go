@@ -332,20 +332,10 @@ func fetchAndReassemble(relayAddr, zone string, msgID [8]byte) ([]byte, error) {
 }
 
 func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
-	var relays []string
 	if len(e.fallbackRelays) > 0 {
-		relays = e.fallbackRelays
-	} else {
-		relays = e.GetRelays()
+		return e.fallbackRelays
 	}
-	// Add port-5353 fallback for each relay on port 53 (carriers block port 53).
-	for _, r := range relays {
-		h, p, err := net.SplitHostPort(r)
-		if err == nil && p == "53" {
-			relays = append(relays, net.JoinHostPort(h, "5353"))
-		}
-	}
-	return relays
+	return e.GetRelays()
 }
 
 func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.Chunk, relays []string) error {

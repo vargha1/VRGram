@@ -13,7 +13,7 @@ class GoBridge {
   static Process? _process;
   static bool _started = false;
   static const _channel = MethodChannel('vrgram/bridge');
-  static const defaultRelay = '31.15.17.161:53';
+  static const defaultRelay = '31.15.17.161:9876';
 
   /// Start the Go daemon and wait for gRPC server to be ready.
   static Future<void> start({
