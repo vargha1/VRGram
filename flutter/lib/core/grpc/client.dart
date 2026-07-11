@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:grpc/grpc.dart';
 import 'relay.pb.dart';
@@ -48,22 +46,16 @@ class GrpcClient {
     while (DateTime.now().isBefore(deadline)) {
       try {
         final file = AppDataDir.file('auth_token');
-        debugPrint('GrpcClient: trying auth token at ${file.path}');
         if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          if (bytes.length == 32) {
-            authToken = utf8.decode(bytes);
-            debugPrint('GrpcClient: auth token loaded (${authToken?.length} bytes)');
+          // Token stored as hex string (64 hex chars = 32 bytes)
+          final tokenStr = await file.readAsString();
+          final trimmed = tokenStr.trim();
+          if (trimmed.length == 64) {
+            authToken = trimmed;
+            debugPrint('GrpcClient: auth token loaded (${authToken?.length} chars)');
             return;
           }
-          debugPrint('GrpcClient: auth token file exists but wrong length: ${bytes.length}');
-        } else {
-          // List directory contents for debugging
-          try {
-            final dir = AppDataDir.path;
-            final listing = await Directory(dir).list().toList();
-            debugPrint('GrpcClient: files in $dir: ${listing.map((e) => e.path.split('/').last).join(', ')}');
-          } catch (_) {}
+          debugPrint('GrpcClient: auth token wrong length: ${trimmed.length} (expected 64)');
         }
       } catch (e) {
         debugPrint('GrpcClient: auth token read error: $e');

@@ -269,19 +269,25 @@ func loadRelaysFromConfig(dataDir string) []string {
 const authTokenLen = 32
 
 // loadOrGenerateAuthToken reads an existing auth token or generates a new one.
+// Token is stored as hex-encoded string (64 hex chars = 32 bytes).
 func loadOrGenerateAuthToken(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
-	if err == nil && len(data) == authTokenLen {
-		return data, nil
+	if err == nil && len(data) == authTokenLen*2 {
+		// Already hex-encoded, return as-is
+		d := make([]byte, len(data))
+		copy(d, data)
+		return d, nil
 	}
 	token := make([]byte, authTokenLen)
 	if _, err := rand.Read(token); err != nil {
 		return nil, fmt.Errorf("generate auth token: %w", err)
 	}
-	if err := os.WriteFile(path, token, 0600); err != nil {
+	// Store as hex string so it's valid UTF-8 for gRPC metadata
+	tokenHex := hex.EncodeToString(token)
+	if err := os.WriteFile(path, []byte(tokenHex), 0600); err != nil {
 		return nil, fmt.Errorf("save auth token: %w", err)
 	}
-	return token, nil
+	return []byte(tokenHex), nil
 }
 
 // authInterceptor validates the x-auth-token metadata on every gRPC call.
@@ -302,7 +308,7 @@ func (d *Daemon) authInterceptor(ctx context.Context, req interface{}, info *grp
 	if len(tokens) == 0 {
 		return nil, status.Error(codes.Unauthenticated, "missing auth token")
 	}
-	if len(tokens[0]) != authTokenLen {
+		if len(tokens[0]) != authTokenLen*2 {
 		return nil, status.Error(codes.Unauthenticated, "invalid auth token")
 	}
 	// Constant-time comparison to prevent timing attacks
