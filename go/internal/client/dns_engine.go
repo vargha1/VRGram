@@ -171,8 +171,10 @@ func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) 
 	}
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
+		fmt.Printf("[RELAYD] PollRelays: no relays configured\n")
 		return nil, nil
 	}
+	fmt.Printf("[RELAYD] PollRelays: polling %d relays for %s\n", len(relays), recipientPubkey[:min(16, len(recipientPubkey))])
 
 	hash := sha256.Sum256([]byte(recipientPubkey))
 	peerID := base32hex.EncodeToString(hash[:])
@@ -215,19 +217,23 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	tcpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
 	resp, _, err := tcpClient.Exchange(m, resolved)
 	if err == nil && resp.Rcode == mdns.RcodeSuccess {
-		return parsePollResponse(resp), nil
+		ids := parsePollResponse(resp)
+		fmt.Printf("[RELAYD] pollRelay TCP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+		return ids, nil
 	}
 
 	// TCP failed — try UDP once
-	slog.Debug("poll tcp failed, trying udp", "error", err)
+	fmt.Printf("[RELAYD] pollRelay TCP failed relay=%s err=%v trying UDP\n", resolved, err)
 	udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
 	resp, _, err = udpClient.Exchange(m, resolved)
 	if err == nil && resp.Rcode == mdns.RcodeSuccess {
-		return parsePollResponse(resp), nil
+		ids := parsePollResponse(resp)
+		fmt.Printf("[RELAYD] pollRelay UDP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+		return ids, nil
 	}
 
 	// UDP also failed — final TCP retry
-	slog.Debug("poll udp failed, final tcp retry", "error", err)
+	fmt.Printf("[RELAYD] pollRelay UDP failed relay=%s err=%v final TCP\n", resolved, err)
 	tcpClient2 := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
 	resp, _, err = tcpClient2.Exchange(m, resolved)
 	if err != nil {
@@ -236,8 +242,10 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	if resp.Rcode != mdns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
-	return parsePollResponse(resp), nil
-}
+		ids := parsePollResponse(resp)
+		fmt.Printf("[RELAYD] pollRelay final TCP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+		return ids, nil
+	}
 
 // parsePollResponse extracts msgIDs from a POLL TXT response.
 func parsePollResponse(resp *mdns.Msg) [][8]byte {
@@ -271,10 +279,10 @@ type PolledMessage struct {
 func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage, error) {
 	msgIDs, err := e.PollRelays(recipientPubkey)
 	if err != nil || len(msgIDs) == 0 {
-		slog.Debug("PollMessages: no msgIDs from relays", "count", len(msgIDs), "error", err)
+		fmt.Printf("[RELAYD] PollMessages: no msgIDs from relays count=%d err=%v\n", len(msgIDs), err)
 		return nil, err
 	}
-	slog.Debug("PollMessages: got msgIDs from relays", "count", len(msgIDs))
+	fmt.Printf("[RELAYD] PollMessages: got %d msgIDs from relays\n", len(msgIDs))
 
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
