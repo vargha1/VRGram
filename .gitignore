@@ -43,6 +43,7 @@ flutter/.vscode/
 run_analyze.bat
 analyze_result.txt
 .superpowers/
+.zcode/
 .playwright-mcp/
 
 # OS junk
