@@ -165,7 +165,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		queue:     queue,
 		identity:  identity,
 		peers:     make(map[string]string),
-		peersPath: filepath.Join(dataDir, "peers.json"),
+		peersPath: filepath.Join(dataDir, "daemon_peers.json"),
 		dataDir:   dataDir,
 		dhtOnly:   dhtOnly,
 		p2pHost:   p2pHost,
