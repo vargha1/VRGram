@@ -9,6 +9,8 @@ go/relayd.exe
 *build_output.txt
 protoc.zip
 protoc_tmp/
+flutter/android/app/src/main/res/raw/
+flutter/android/app/src/main/jniLibs/
 
 # Flutter generated
 flutter/.dart_tool/
