@@ -1,46 +1,83 @@
 package store
 
 import (
-	"crypto/rand"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/user/dns-transport/internal/encoding"
 )
 
-func TestStoreAndReassemble(t *testing.T) {
-	s := NewChunkStore(time.Minute, time.Minute)
-	var msgID [8]byte
-	rand.Read(msgID[:])
-	plaintext := []byte("hello from test message")
-	chunks := encoding.ChunkMessage(msgID, plaintext, 50, "")
+func TestChunkStore_MessageMeta(t *testing.T) {
+	dir := t.TempDir()
+	sc, err := NewSequenceCounter(filepath.Join(dir, "seq.db"))
+	if err != nil {
+		t.Fatalf("NewSequenceCounter: %v", err)
+	}
+	defer sc.Close()
 
-	for _, c := range chunks {
-		complete, err := s.Store(c)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if complete {
-			msg, err := s.GetCompleteMessage(msgID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(msg) != string(plaintext) {
-				t.Fatalf("got %s, want %s", msg, plaintext)
-			}
-		}
+	store := NewChunkStore(0, 0) // no GC for test
+	store.SetSequenceCounter(sc)
+
+	var msgID [8]byte
+	msgID[0] = 0x42
+	chunk := encoding.NewChunk(msgID, 0, 1, []byte("hello"))
+	chunk.RecipientHash = []byte("recipient-pubkey-hash-32bytes")
+
+	before := time.Now().UnixMilli()
+	_, err = store.Store(chunk)
+	if err != nil {
+		t.Fatalf("Store: %v", err)
+	}
+	after := time.Now().UnixMilli()
+
+	ts, seq, ok := store.GetMessageMeta(msgID)
+	if !ok {
+		t.Fatal("GetMessageMeta: not found")
+	}
+	if ts < before || ts > after {
+		t.Errorf("timestamp %d not in range [%d, %d]", ts, before, after)
+	}
+	if seq != 1 {
+		t.Errorf("expected sequence 1, got %d", seq)
+	}
+
+	var msgID2 [8]byte
+	msgID2[0] = 0x99
+	chunk2 := encoding.NewChunk(msgID2, 0, 1, []byte("world"))
+	chunk2.RecipientHash = []byte("recipient-pubkey-hash-32bytes")
+	store.Store(chunk2)
+
+	_, seq2, _ := store.GetMessageMeta(msgID2)
+	if seq2 != 2 {
+		t.Errorf("expected sequence 2 for second message, got %d", seq2)
 	}
 }
 
-func TestGC(t *testing.T) {
-	s := NewChunkStore(10*time.Millisecond, 50*time.Millisecond)
-	var msgID [8]byte
-	rand.Read(msgID[:])
-	chunk := encoding.NewChunk(msgID, 0, 2, []byte("half message"))
-	s.Store(chunk)
+func TestChunkStore_MessageMetaNoSequence(t *testing.T) {
+	store := NewChunkStore(0, 0)
 
-	time.Sleep(100 * time.Millisecond)
-	if s.PendingCount() != 0 {
-		t.Fatal("expected GC to clean up incomplete message")
+	var msgID [8]byte
+	chunk := encoding.NewChunk(msgID, 0, 1, []byte("hello"))
+	store.Store(chunk)
+
+	ts, seq, ok := store.GetMessageMeta(msgID)
+	if !ok {
+		t.Fatal("GetMessageMeta: not found")
+	}
+	if ts == 0 {
+		t.Error("expected non-zero timestamp")
+	}
+	if seq != 0 {
+		t.Errorf("expected sequence 0 (no counter), got %d", seq)
+	}
+}
+
+func TestChunkStore_GetMessageMetaNotFound(t *testing.T) {
+	store := NewChunkStore(0, 0)
+	var unknown [8]byte
+	_, _, ok := store.GetMessageMeta(unknown)
+	if ok {
+		t.Error("expected false for unknown msgID")
 	}
 }

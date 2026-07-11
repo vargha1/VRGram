@@ -14,9 +14,11 @@ const DefaultTTL = 7 * 24 * time.Hour
 const DefaultGCInterval = 60 * time.Second
 
 type messageBuf struct {
-	chunks    map[uint16]*encoding.Chunk
-	total     uint16
-	createdAt time.Time
+	chunks          map[uint16]*encoding.Chunk
+	total           uint16
+	createdAt       time.Time
+	serverTimestamp int64  // relay-stamped UnixMilli
+	sequenceNumber  uint64 // monotonic per-recipient
 }
 
 type ChunkStore struct {
@@ -31,6 +33,9 @@ type ChunkStore struct {
 	peerMessages map[string]int     // peerID -> number of message buffers
 	messageOwner map[[8]byte]string // msgID -> peerID
 	maxPerPeer   int                // max message buffers per peer (0 = unlimited)
+
+	// Sequence counter for monotonic per-recipient ordering
+	sequenceCounter *SequenceCounter
 }
 
 func NewChunkStore(gcInterval, ttl time.Duration) *ChunkStore {
@@ -53,6 +58,13 @@ func (s *ChunkStore) SetMaxPerPeer(limit int) {
 	s.peerMu.Lock()
 	defer s.peerMu.Unlock()
 	s.maxPerPeer = limit
+}
+
+// SetSequenceCounter attaches a BoltDB-backed sequence counter for
+// monotonic per-recipient ordering. The sequence is incremented atomically
+// when the first chunk of a message is stored.
+func (s *ChunkStore) SetSequenceCounter(sc *SequenceCounter) {
+	s.sequenceCounter = sc
 }
 
 func (s *ChunkStore) SetMessageOwner(msgID [8]byte, peerID string) {
@@ -94,10 +106,20 @@ func (s *ChunkStore) Store(chunk *encoding.Chunk) (bool, error) {
 
 	buf, ok := s.messages[chunk.MsgID]
 	if !ok {
+		now := time.Now()
 		buf = &messageBuf{
-			chunks:    make(map[uint16]*encoding.Chunk),
-			total:     chunk.TotalChunks,
-			createdAt: time.Now(),
+			chunks:          make(map[uint16]*encoding.Chunk),
+			total:           chunk.TotalChunks,
+			createdAt:       now,
+			serverTimestamp: now.UnixMilli(),
+		}
+		// Stamp with monotonic sequence number if counter is available
+		if s.sequenceCounter != nil && len(chunk.RecipientHash) > 0 {
+			peerID := PeerIDFromPubkey(string(chunk.RecipientHash))
+			seq, err := s.sequenceCounter.Next(peerID)
+			if err == nil {
+				buf.sequenceNumber = seq
+			}
 		}
 		s.messages[chunk.MsgID] = buf
 	}
@@ -108,6 +130,19 @@ func (s *ChunkStore) Store(chunk *encoding.Chunk) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// GetMessageMeta returns the relay-stamped timestamp (UnixMilli) and
+// monotonic sequence number for a stored message. Returns false if
+// the message ID is not found.
+func (s *ChunkStore) GetMessageMeta(msgID [8]byte) (timestamp int64, sequence uint64, ok bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	buf, exists := s.messages[msgID]
+	if !exists {
+		return 0, 0, false
+	}
+	return buf.serverTimestamp, buf.sequenceNumber, true
 }
 
 func (s *ChunkStore) GetChunk(msgID [8]byte, chunkIdx uint16) (*encoding.Chunk, error) {
