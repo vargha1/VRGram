@@ -161,9 +161,11 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 				slog.Info("using relays", "relays", engineRelays)
 			}
 
-	// Create DNS engine
-	engine := NewDNSClientEngine(engineRelays, zone)
-	engine.SetDNSResolver(dnsResolver)
+		// Create DNS engine
+		engine := NewDNSClientEngine(engineRelays, zone)
+		engine.SetDNSResolver(dnsResolver)
+		// Point engine to same debug log path (opened below for daemon)
+		engine.SetDebugLogPath(filepath.Join(dataDir, "relayd_debug.log"))
 
 		// Create network detector
 		detector := NewDetector(forceBlackout, dhtClient, len(engineRelays))

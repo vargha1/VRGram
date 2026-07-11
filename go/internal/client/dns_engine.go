@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,8 @@ type DNSClientEngine struct {
 
 	fetchedMu sync.Mutex
 	fetched   map[[8]byte]bool // msgIDs already downloaded, to avoid redundant fetch
+
+	debugLogPath string // path to relayd_debug.log for diagnostics
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
@@ -77,6 +80,26 @@ func (e *DNSClientEngine) SetDNSResolver(resolver string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.dnsResolver = resolver
+}
+
+// SetDebugLogPath sets the path for the debug log file.
+func (e *DNSClientEngine) SetDebugLogPath(path string) {
+	e.debugLogPath = path
+}
+
+// debugWrite appends a line to the debug log file.
+func (e *DNSClientEngine) debugWrite(format string, args ...interface{}) {
+	if e.debugLogPath == "" {
+		return
+	}
+	f, err := os.OpenFile(e.debugLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "[%s] ", time.Now().Format("15:04:05.000"))
+	fmt.Fprintf(f, format, args...)
+	fmt.Fprintf(f, "\n")
 }
 
 func (e *DNSClientEngine) GetDNSResolver() string {
@@ -171,10 +194,10 @@ func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) 
 	}
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
-		fmt.Printf("[RELAYD] PollRelays: no relays configured\n")
+		e.debugWrite("PollRelays: no relays configured")
 		return nil, nil
 	}
-	fmt.Printf("[RELAYD] PollRelays: polling %d relays for %s\n", len(relays), recipientPubkey[:min(16, len(recipientPubkey))])
+	e.debugWrite("PollRelays: polling %d relays for %s", len(relays), recipientPubkey[:min(16, len(recipientPubkey))])
 
 	hash := sha256.Sum256([]byte(recipientPubkey))
 	peerID := base32hex.EncodeToString(hash[:])
@@ -218,22 +241,22 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	resp, _, err := tcpClient.Exchange(m, resolved)
 	if err == nil && resp.Rcode == mdns.RcodeSuccess {
 		ids := parsePollResponse(resp)
-		fmt.Printf("[RELAYD] pollRelay TCP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+		e.debugWrite("pollRelay TCP OK relay=%s msgIDs=%d", resolved, len(ids))
 		return ids, nil
 	}
 
 	// TCP failed — try UDP once
-	fmt.Printf("[RELAYD] pollRelay TCP failed relay=%s err=%v trying UDP\n", resolved, err)
+	e.debugWrite("pollRelay TCP failed relay=%s err=%v trying UDP", resolved, err)
 	udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
 	resp, _, err = udpClient.Exchange(m, resolved)
 	if err == nil && resp.Rcode == mdns.RcodeSuccess {
 		ids := parsePollResponse(resp)
-		fmt.Printf("[RELAYD] pollRelay UDP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+		e.debugWrite("pollRelay UDP OK relay=%s msgIDs=%d", resolved, len(ids))
 		return ids, nil
 	}
 
 	// UDP also failed — final TCP retry
-	fmt.Printf("[RELAYD] pollRelay UDP failed relay=%s err=%v final TCP\n", resolved, err)
+	e.debugWrite("pollRelay UDP failed relay=%s err=%v final TCP", resolved, err)
 	tcpClient2 := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
 	resp, _, err = tcpClient2.Exchange(m, resolved)
 	if err != nil {
@@ -242,8 +265,8 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	if resp.Rcode != mdns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
-		ids := parsePollResponse(resp)
-		fmt.Printf("[RELAYD] pollRelay final TCP OK relay=%s msgIDs=%d\n", resolved, len(ids))
+	ids := parsePollResponse(resp)
+	e.debugWrite("pollRelay final TCP OK relay=%s msgIDs=%d", resolved, len(ids))
 		return ids, nil
 	}
 
@@ -279,10 +302,10 @@ type PolledMessage struct {
 func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage, error) {
 	msgIDs, err := e.PollRelays(recipientPubkey)
 	if err != nil || len(msgIDs) == 0 {
-		fmt.Printf("[RELAYD] PollMessages: no msgIDs from relays count=%d err=%v\n", len(msgIDs), err)
+		e.debugWrite("PollMessages: no msgIDs from relays count=%d err=%v", len(msgIDs), err)
 		return nil, err
 	}
-	fmt.Printf("[RELAYD] PollMessages: got %d msgIDs from relays\n", len(msgIDs))
+	e.debugWrite("PollMessages: got %d msgIDs from relays", len(msgIDs))
 
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
