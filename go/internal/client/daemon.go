@@ -108,10 +108,14 @@ func (t *MediaTransfer) getError() string {
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
 func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, dnsResolver string) error {
+	t0 := time.Now()
+	slog.Info("daemon startup: begin")
+
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
 	}
+	slog.Info("daemon startup: data dir ready", "elapsed", time.Since(t0))
 
 	// Load or create identity
 	identityPath := filepath.Join(dataDir, "identity.key")
@@ -126,6 +130,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 			return err
 		}
 	}
+	slog.Info("daemon startup: identity ready", "elapsed", time.Since(t0))
 
 	// Generate or load auth token for gRPC
 	authTokenPath := filepath.Join(dataDir, "auth_token")
@@ -133,13 +138,14 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	if err != nil {
 		return fmt.Errorf("auth token: %w", err)
 	}
-	slog.Info("auth token loaded", "path", authTokenPath)
+	slog.Info("daemon startup: auth token ready", "elapsed", time.Since(t0))
 
 	// Open offline queue
 	queue, err := NewOfflineQueue(filepath.Join(dataDir, "queue.db"))
 	if err != nil {
 		return err
 	}
+	slog.Info("daemon startup: queue ready", "elapsed", time.Since(t0))
 
 	// Determine relays: merge file relays with method-channel relays, deduplicate.
 	var engineRelays []string
@@ -163,11 +169,13 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	if len(engineRelays) > 0 {
 		slog.Info("using relays", "relays", engineRelays)
 	}
+	slog.Info("daemon startup: relays merged", "elapsed", time.Since(t0))
 
 	// Create DNS engine
 	engine := NewDNSClientEngine(engineRelays, zone)
 	engine.SetDNSResolver(dnsResolver)
 	engine.SetDebugLogPath(filepath.Join(dataDir, "relayd_debug.log"))
+	slog.Info("daemon startup: DNS engine ready", "elapsed", time.Since(t0))
 
 	// Create network detector
 	detector := NewDetector(forceBlackout, len(engineRelays))
@@ -193,12 +201,14 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		daemon.debugLog = dl
 	}
 	daemon.loadPeers()
+	slog.Info("daemon startup: struct ready", "elapsed", time.Since(t0))
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(grpcPort)))
 	if err != nil {
 		return err
 	}
+	slog.Info("daemon startup: gRPC listener ready", "elapsed", time.Since(t0))
 
 	s := grpc.NewServer(
 		grpc.MaxRecvMsgSize(100*1024*1024), // 100 MB max receive
@@ -223,7 +233,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	// Start transfer cleanup goroutine (every 5 minutes)
 	go daemon.cleanupTransfers()
 
-	slog.Info("client daemon listening", "grpc", grpcPort, "pubkey", base64.StdEncoding.EncodeToString(identity.PublicKey))
+	slog.Info("client daemon listening", "grpc", grpcPort, "pubkey", base64.StdEncoding.EncodeToString(identity.PublicKey), "elapsed", time.Since(t0))
 	return s.Serve(lis)
 }
 
