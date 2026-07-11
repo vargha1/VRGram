@@ -124,9 +124,14 @@ func (e *DNSClientEngine) resolveAddr(addr string) (string, error) {
 	return "", fmt.Errorf("no A record for %s", host)
 }
 
-// SendMessage sends all chunks over DNS relays. recipientPubkey is used for
-// server-side recipient indexing so the recipient can poll for messages.
+// SendMessage sends all chunks over DNS relays with a 10s deadline.
+// recipientPubkey is used for server-side recipient indexing so the
+// recipient can poll for messages.
 func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, recipientPubkey string) ([8]byte, int, error) {
+	// Overall deadline: 10s for all chunks across all relays
+	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	var msgID [8]byte
 	rand.Read(msgID[:])
 
@@ -140,14 +145,14 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, rec
 
 	chunks := encoding.ChunkMessage(msgID, plaintext, chunkSize, recipientPubkey)
 
-	relays := e.discoverActiveRelays(ctx)
+	relays := e.discoverActiveRelays(sendCtx)
 	if len(relays) > 0 {
-		if err := e.sendParallel(ctx, chunks, relays); err != nil {
+		if err := e.sendParallel(sendCtx, chunks, relays); err != nil {
 			return msgID, 0, err
 		}
 	} else {
 		for _, chunk := range chunks {
-			if err := e.sendWithRetry(ctx, chunk); err != nil {
+			if err := e.sendWithRetry(sendCtx, chunk); err != nil {
 				return msgID, 0, err
 			}
 			jitter := time.Duration(float64(500) * (1 + (randFloat64()-0.5)*2*maxJitter))
@@ -351,6 +356,9 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 	chunkDelivered := make([]bool, len(chunks))
 	var mu sync.Mutex
 
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 
@@ -364,12 +372,12 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 				defer wg.Done()
 				select {
 				case sem <- struct{}{}:
-				case <-ctx.Done():
+				case <-childCtx.Done():
 					return
 				}
 				defer func() { <-sem }()
 				select {
-				case <-ctx.Done():
+				case <-childCtx.Done():
 					return
 				default:
 				}
@@ -384,19 +392,60 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 		}
 	}
 
-	wg.Wait()
+	// Monitor: cancel early when all chunks delivered
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	// Fail if any chunk never reached any relay
-	var undelivered []int
-	for i, ok := range chunkDelivered {
-		if !ok {
-			undelivered = append(undelivered, i)
+	// Poll delivery status periodically
+	ticker := time.NewTicker(300 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			// All goroutines finished — check delivery
+			var undelivered []int
+			for i, ok := range chunkDelivered {
+				if !ok {
+					undelivered = append(undelivered, i)
+				}
+			}
+			if len(undelivered) > 0 {
+				return fmt.Errorf("%d chunks undelivered to any relay: %v", len(undelivered), undelivered)
+			}
+			return nil
+		case <-childCtx.Done():
+			// Parent cancelled (timeout from SendMessage) — wait for in-flight, then fail
+			<-done
+			var undelivered []int
+			for i, ok := range chunkDelivered {
+				if !ok {
+					undelivered = append(undelivered, i)
+				}
+			}
+			return fmt.Errorf("send timeout: %d/%d chunks delivered",
+				len(chunks)-len(undelivered), len(chunks))
+		case <-ticker.C:
+			// Check if all chunks delivered early — cancel to wake up blocked goroutines
+			mu.Lock()
+			all := true
+			for _, ok := range chunkDelivered {
+				if !ok {
+					all = false
+					break
+				}
+			}
+			mu.Unlock()
+			if all {
+				cancel()
+				<-done
+				return nil
+			}
 		}
 	}
-	if len(undelivered) > 0 {
-		return fmt.Errorf("%d chunks undelivered to any relay: %v", len(undelivered), undelivered)
-	}
-	return nil
 }
 
 func (e *DNSClientEngine) sendWithRetry(ctx context.Context, chunk *encoding.Chunk) error {
