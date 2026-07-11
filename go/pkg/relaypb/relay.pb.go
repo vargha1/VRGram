@@ -418,11 +418,12 @@ func (x *CancelSendRequest) GetMessageId() string {
 }
 
 type SendRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PeerPubkey    string                 `protobuf:"bytes,1,opt,name=peer_pubkey,json=peerPubkey,proto3" json:"peer_pubkey,omitempty"`
-	Plaintext     []byte                 `protobuf:"bytes,2,opt,name=plaintext,proto3" json:"plaintext,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	PeerPubkey        string                 `protobuf:"bytes,1,opt,name=peer_pubkey,json=peerPubkey,proto3" json:"peer_pubkey,omitempty"`
+	Plaintext         []byte                 `protobuf:"bytes,2,opt,name=plaintext,proto3" json:"plaintext,omitempty"`
+	ClientTimestampMs uint64                 `protobuf:"varint,3,opt,name=client_timestamp_ms,json=clientTimestampMs,proto3" json:"client_timestamp_ms,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SendRequest) Reset() {
@@ -467,6 +468,13 @@ func (x *SendRequest) GetPlaintext() []byte {
 		return x.Plaintext
 	}
 	return nil
+}
+
+func (x *SendRequest) GetClientTimestampMs() uint64 {
+	if x != nil {
+		return x.ClientTimestampMs
+	}
+	return 0
 }
 
 type SendResponse struct {
@@ -610,13 +618,15 @@ func (x *PollResponse) GetMessages() []*ReceivedMessage {
 }
 
 type ReceivedMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FromPeer      string                 `protobuf:"bytes,1,opt,name=from_peer,json=fromPeer,proto3" json:"from_peer,omitempty"`
-	MessageId     string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
-	Plaintext     []byte                 `protobuf:"bytes,3,opt,name=plaintext,proto3" json:"plaintext,omitempty"`
-	Timestamp     int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	FromPeer          string                 `protobuf:"bytes,1,opt,name=from_peer,json=fromPeer,proto3" json:"from_peer,omitempty"`
+	MessageId         string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Plaintext         []byte                 `protobuf:"bytes,3,opt,name=plaintext,proto3" json:"plaintext,omitempty"`
+	Timestamp         int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	ServerTimestampMs uint64                 `protobuf:"varint,5,opt,name=server_timestamp_ms,json=serverTimestampMs,proto3" json:"server_timestamp_ms,omitempty"`
+	SequenceNumber    uint64                 `protobuf:"varint,6,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ReceivedMessage) Reset() {
@@ -673,6 +683,20 @@ func (x *ReceivedMessage) GetPlaintext() []byte {
 func (x *ReceivedMessage) GetTimestamp() int64 {
 	if x != nil {
 		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *ReceivedMessage) GetServerTimestampMs() uint64 {
+	if x != nil {
+		return x.ServerTimestampMs
+	}
+	return 0
+}
+
+func (x *ReceivedMessage) GetSequenceNumber() uint64 {
+	if x != nil {
+		return x.SequenceNumber
 	}
 	return 0
 }
@@ -1091,11 +1115,12 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\x06FAILED\x10\x04\"2\n" +
 	"\x11CancelSendRequest\x12\x1d\n" +
 	"\n" +
-	"message_id\x18\x01 \x01(\tR\tmessageId\"L\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\"|\n" +
 	"\vSendRequest\x12\x1f\n" +
 	"\vpeer_pubkey\x18\x01 \x01(\tR\n" +
 	"peerPubkey\x12\x1c\n" +
-	"\tplaintext\x18\x02 \x01(\fR\tplaintext\"f\n" +
+	"\tplaintext\x18\x02 \x01(\fR\tplaintext\x12.\n" +
+	"\x13client_timestamp_ms\x18\x03 \x01(\x04R\x11clientTimestampMs\"f\n" +
 	"\fSendResponse\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n" +
@@ -1104,13 +1129,15 @@ const file_proto_relay_proto_rawDesc = "" +
 	"chunkCount\"\r\n" +
 	"\vPollRequest\"D\n" +
 	"\fPollResponse\x124\n" +
-	"\bmessages\x18\x01 \x03(\v2\x18.relaypb.ReceivedMessageR\bmessages\"\x89\x01\n" +
+	"\bmessages\x18\x01 \x03(\v2\x18.relaypb.ReceivedMessageR\bmessages\"\xe2\x01\n" +
 	"\x0fReceivedMessage\x12\x1b\n" +
 	"\tfrom_peer\x18\x01 \x01(\tR\bfromPeer\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x02 \x01(\tR\tmessageId\x12\x1c\n" +
 	"\tplaintext\x18\x03 \x01(\fR\tplaintext\x12\x1c\n" +
-	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\"\a\n" +
+	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\x12.\n" +
+	"\x13server_timestamp_ms\x18\x05 \x01(\x04R\x11serverTimestampMs\x12'\n" +
+	"\x0fsequence_number\x18\x06 \x01(\x04R\x0esequenceNumber\"\a\n" +
 	"\x05Empty\")\n" +
 	"\rRelayEndpoint\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\"E\n" +

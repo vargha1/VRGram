@@ -1,141 +1,341 @@
-// Manually written gRPC client stub for RelayClient service (grpc 5.x API).
-import 'package:grpc/grpc.dart';
-import 'relay.pb.dart';
-import 'client.dart';
+// This is a generated file - do not edit.
+//
+// Generated from relay.proto.
 
-class RelayClientClient extends Client {
-  static final _$sendMessage = ClientMethod<SendRequest, SendResponse>(
-    '/relaypb.RelayClient/SendMessage',
-    (SendRequest data) => data.writeToBuffer(),
-    (List<int> data) => SendResponse.fromBuffer(data),
-  );
+// @dart = 3.3
 
-  static final _$pollMessages = ClientMethod<PollRequest, PollResponse>(
-    '/relaypb.RelayClient/PollMessages',
-    (PollRequest data) => data.writeToBuffer(),
-    (List<int> data) => PollResponse.fromBuffer(data),
-  );
+// ignore_for_file: annotate_overrides, camel_case_types, comment_references
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
-  static final _$getRelayStatus = ClientMethod<Empty, RelayStatusList>(
-    '/relaypb.RelayClient/GetRelayStatus',
-    (Empty data) => data.writeToBuffer(),
-    (List<int> data) => RelayStatusList.fromBuffer(data),
-  );
+import 'dart:async' as $async;
+import 'dart:core' as $core;
 
-  static final _$addRelay = ClientMethod<RelayEndpoint, Empty>(
-    '/relaypb.RelayClient/AddRelay',
-    (RelayEndpoint data) => data.writeToBuffer(),
-    (List<int> data) => Empty.fromBuffer(data),
-  );
+import 'package:grpc/service_api.dart' as $grpc;
+import 'package:protobuf/protobuf.dart' as $pb;
 
-  static final _$removeRelay = ClientMethod<RelayEndpoint, Empty>(
-    '/relaypb.RelayClient/RemoveRelay',
-    (RelayEndpoint data) => data.writeToBuffer(),
-    (List<int> data) => Empty.fromBuffer(data),
-  );
+import 'relay.pb.dart' as $0;
 
-  static final _$getIdentity = ClientMethod<Empty, IdentityInfo>(
-    '/relaypb.RelayClient/GetIdentity',
-    (Empty data) => data.writeToBuffer(),
-    (List<int> data) => IdentityInfo.fromBuffer(data),
-  );
+export 'relay.pb.dart';
 
-  static final _$addPeer = ClientMethod<PeerInfo, Empty>(
-    '/relaypb.RelayClient/AddPeer',
-    (PeerInfo data) => data.writeToBuffer(),
-    (List<int> data) => Empty.fromBuffer(data),
-  );
+@$pb.GrpcServiceName('relaypb.RelayClient')
+class RelayClient extends $grpc.Client {
+  /// The hostname for this service.
+  static const $core.String defaultHost = '';
 
-  static final _$getTransportStatus = ClientMethod<Empty, TransportStatusResponse>(
-    '/relaypb.RelayClient/GetTransportStatus',
-    (Empty data) => data.writeToBuffer(),
-    (List<int> data) => TransportStatusResponse.fromBuffer(data),
-  );
+  /// OAuth scopes needed for the client.
+  static const $core.List<$core.String> oauthScopes = [
+    '',
+  ];
 
-  static final _$sendMedia = ClientMethod<SendMediaRequest, SendMediaResponse>(
-    '/relaypb.RelayClient/SendMedia',
-    (SendMediaRequest data) => data.writeToBuffer(),
-    (List<int> data) => SendMediaResponse.fromBuffer(data),
-  );
+  RelayClient(super.channel, {super.options, super.interceptors});
 
-  static final _$getMediaStatus = ClientMethod<GetMediaStatusRequest, MediaStatusResponse>(
-    '/relaypb.RelayClient/GetMediaStatus',
-    (GetMediaStatusRequest data) => data.writeToBuffer(),
-    (List<int> data) => MediaStatusResponse.fromBuffer(data),
-  );
-
-  static final _$cancelSend = ClientMethod<CancelSendRequest, Empty>(
-    '/relaypb.RelayClient/CancelSend',
-    (CancelSendRequest data) => data.writeToBuffer(),
-    (List<int> data) => Empty.fromBuffer(data),
-  );
-
-  RelayClientClient(ClientChannel channel, {CallOptions? options})
-      : super(channel, options: options);
-
-  /// Merges [options] with auth token metadata when available.
-  CallOptions _withAuth(CallOptions? options) {
-    if (GrpcClient.authToken == null) {
-      return options ?? CallOptions();
-    }
-    final base = options ?? CallOptions();
-    return base.mergedWith(CallOptions(
-      metadata: {'x-auth-token': GrpcClient.authToken!},
-    ));
+  $grpc.ResponseFuture<$0.SendResponse> sendMessage(
+    $0.SendRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$sendMessage, request, options: options);
   }
 
-  ResponseFuture<SendResponse> sendMessage(SendRequest request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$sendMessage, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.PollResponse> pollMessages(
+    $0.PollRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$pollMessages, request, options: options);
   }
 
-  ResponseFuture<PollResponse> pollMessages(PollRequest request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$pollMessages, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.RelayStatusList> getRelayStatus(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getRelayStatus, request, options: options);
   }
 
-  ResponseFuture<RelayStatusList> getRelayStatus(Empty request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$getRelayStatus, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.Empty> addRelay(
+    $0.RelayEndpoint request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$addRelay, request, options: options);
   }
 
-  ResponseFuture<Empty> addRelay(RelayEndpoint request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$addRelay, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.Empty> removeRelay(
+    $0.RelayEndpoint request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$removeRelay, request, options: options);
   }
 
-  ResponseFuture<Empty> removeRelay(RelayEndpoint request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$removeRelay, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.IdentityInfo> getIdentity(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getIdentity, request, options: options);
   }
 
-  ResponseFuture<IdentityInfo> getIdentity(Empty request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$getIdentity, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.Empty> addPeer(
+    $0.PeerInfo request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$addPeer, request, options: options);
   }
 
-  ResponseFuture<Empty> addPeer(PeerInfo request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$addPeer, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.TransportStatusResponse> getTransportStatus(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getTransportStatus, request, options: options);
   }
 
-  ResponseFuture<TransportStatusResponse> getTransportStatus(Empty request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$getTransportStatus, request, options: _withAuth(options));
+  /// New media RPCs
+  $grpc.ResponseFuture<$0.SendMediaResponse> sendMedia(
+    $0.SendMediaRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$sendMedia, request, options: options);
   }
 
-  ResponseFuture<SendMediaResponse> sendMedia(SendMediaRequest request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$sendMedia, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.MediaStatusResponse> getMediaStatus(
+    $0.GetMediaStatusRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getMediaStatus, request, options: options);
   }
 
-  ResponseFuture<MediaStatusResponse> getMediaStatus(GetMediaStatusRequest request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$getMediaStatus, request, options: _withAuth(options));
+  $grpc.ResponseFuture<$0.Empty> cancelSend(
+    $0.CancelSendRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$cancelSend, request, options: options);
   }
 
-  ResponseFuture<Empty> cancelSend(CancelSendRequest request,
-      {CallOptions? options}) {
-    return $createUnaryCall(_$cancelSend, request, options: _withAuth(options));
+  // method descriptors
+
+  static final _$sendMessage =
+      $grpc.ClientMethod<$0.SendRequest, $0.SendResponse>(
+          '/relaypb.RelayClient/SendMessage',
+          ($0.SendRequest value) => value.writeToBuffer(),
+          $0.SendResponse.fromBuffer);
+  static final _$pollMessages =
+      $grpc.ClientMethod<$0.PollRequest, $0.PollResponse>(
+          '/relaypb.RelayClient/PollMessages',
+          ($0.PollRequest value) => value.writeToBuffer(),
+          $0.PollResponse.fromBuffer);
+  static final _$getRelayStatus =
+      $grpc.ClientMethod<$0.Empty, $0.RelayStatusList>(
+          '/relaypb.RelayClient/GetRelayStatus',
+          ($0.Empty value) => value.writeToBuffer(),
+          $0.RelayStatusList.fromBuffer);
+  static final _$addRelay = $grpc.ClientMethod<$0.RelayEndpoint, $0.Empty>(
+      '/relaypb.RelayClient/AddRelay',
+      ($0.RelayEndpoint value) => value.writeToBuffer(),
+      $0.Empty.fromBuffer);
+  static final _$removeRelay = $grpc.ClientMethod<$0.RelayEndpoint, $0.Empty>(
+      '/relaypb.RelayClient/RemoveRelay',
+      ($0.RelayEndpoint value) => value.writeToBuffer(),
+      $0.Empty.fromBuffer);
+  static final _$getIdentity = $grpc.ClientMethod<$0.Empty, $0.IdentityInfo>(
+      '/relaypb.RelayClient/GetIdentity',
+      ($0.Empty value) => value.writeToBuffer(),
+      $0.IdentityInfo.fromBuffer);
+  static final _$addPeer = $grpc.ClientMethod<$0.PeerInfo, $0.Empty>(
+      '/relaypb.RelayClient/AddPeer',
+      ($0.PeerInfo value) => value.writeToBuffer(),
+      $0.Empty.fromBuffer);
+  static final _$getTransportStatus =
+      $grpc.ClientMethod<$0.Empty, $0.TransportStatusResponse>(
+          '/relaypb.RelayClient/GetTransportStatus',
+          ($0.Empty value) => value.writeToBuffer(),
+          $0.TransportStatusResponse.fromBuffer);
+  static final _$sendMedia =
+      $grpc.ClientMethod<$0.SendMediaRequest, $0.SendMediaResponse>(
+          '/relaypb.RelayClient/SendMedia',
+          ($0.SendMediaRequest value) => value.writeToBuffer(),
+          $0.SendMediaResponse.fromBuffer);
+  static final _$getMediaStatus =
+      $grpc.ClientMethod<$0.GetMediaStatusRequest, $0.MediaStatusResponse>(
+          '/relaypb.RelayClient/GetMediaStatus',
+          ($0.GetMediaStatusRequest value) => value.writeToBuffer(),
+          $0.MediaStatusResponse.fromBuffer);
+  static final _$cancelSend =
+      $grpc.ClientMethod<$0.CancelSendRequest, $0.Empty>(
+          '/relaypb.RelayClient/CancelSend',
+          ($0.CancelSendRequest value) => value.writeToBuffer(),
+          $0.Empty.fromBuffer);
+}
+
+@$pb.GrpcServiceName('relaypb.RelayClient')
+abstract class RelayClientServiceBase extends $grpc.Service {
+  $core.String get $name => 'relaypb.RelayClient';
+
+  RelayClientServiceBase() {
+    $addMethod($grpc.ServiceMethod<$0.SendRequest, $0.SendResponse>(
+        'SendMessage',
+        sendMessage_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SendRequest.fromBuffer(value),
+        ($0.SendResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PollRequest, $0.PollResponse>(
+        'PollMessages',
+        pollMessages_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PollRequest.fromBuffer(value),
+        ($0.PollResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.RelayStatusList>(
+        'GetRelayStatus',
+        getRelayStatus_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.RelayStatusList value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RelayEndpoint, $0.Empty>(
+        'AddRelay',
+        addRelay_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.RelayEndpoint.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RelayEndpoint, $0.Empty>(
+        'RemoveRelay',
+        removeRelay_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.RelayEndpoint.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.IdentityInfo>(
+        'GetIdentity',
+        getIdentity_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.IdentityInfo value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PeerInfo, $0.Empty>(
+        'AddPeer',
+        addPeer_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PeerInfo.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.TransportStatusResponse>(
+        'GetTransportStatus',
+        getTransportStatus_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.TransportStatusResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SendMediaRequest, $0.SendMediaResponse>(
+        'SendMedia',
+        sendMedia_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SendMediaRequest.fromBuffer(value),
+        ($0.SendMediaResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetMediaStatusRequest, $0.MediaStatusResponse>(
+            'GetMediaStatus',
+            getMediaStatus_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetMediaStatusRequest.fromBuffer(value),
+            ($0.MediaStatusResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.CancelSendRequest, $0.Empty>(
+        'CancelSend',
+        cancelSend_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.CancelSendRequest.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
   }
+
+  $async.Future<$0.SendResponse> sendMessage_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.SendRequest> $request) async {
+    return sendMessage($call, await $request);
+  }
+
+  $async.Future<$0.SendResponse> sendMessage(
+      $grpc.ServiceCall call, $0.SendRequest request);
+
+  $async.Future<$0.PollResponse> pollMessages_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PollRequest> $request) async {
+    return pollMessages($call, await $request);
+  }
+
+  $async.Future<$0.PollResponse> pollMessages(
+      $grpc.ServiceCall call, $0.PollRequest request);
+
+  $async.Future<$0.RelayStatusList> getRelayStatus_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return getRelayStatus($call, await $request);
+  }
+
+  $async.Future<$0.RelayStatusList> getRelayStatus(
+      $grpc.ServiceCall call, $0.Empty request);
+
+  $async.Future<$0.Empty> addRelay_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.RelayEndpoint> $request) async {
+    return addRelay($call, await $request);
+  }
+
+  $async.Future<$0.Empty> addRelay(
+      $grpc.ServiceCall call, $0.RelayEndpoint request);
+
+  $async.Future<$0.Empty> removeRelay_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.RelayEndpoint> $request) async {
+    return removeRelay($call, await $request);
+  }
+
+  $async.Future<$0.Empty> removeRelay(
+      $grpc.ServiceCall call, $0.RelayEndpoint request);
+
+  $async.Future<$0.IdentityInfo> getIdentity_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return getIdentity($call, await $request);
+  }
+
+  $async.Future<$0.IdentityInfo> getIdentity(
+      $grpc.ServiceCall call, $0.Empty request);
+
+  $async.Future<$0.Empty> addPeer_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PeerInfo> $request) async {
+    return addPeer($call, await $request);
+  }
+
+  $async.Future<$0.Empty> addPeer($grpc.ServiceCall call, $0.PeerInfo request);
+
+  $async.Future<$0.TransportStatusResponse> getTransportStatus_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return getTransportStatus($call, await $request);
+  }
+
+  $async.Future<$0.TransportStatusResponse> getTransportStatus(
+      $grpc.ServiceCall call, $0.Empty request);
+
+  $async.Future<$0.SendMediaResponse> sendMedia_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SendMediaRequest> $request) async {
+    return sendMedia($call, await $request);
+  }
+
+  $async.Future<$0.SendMediaResponse> sendMedia(
+      $grpc.ServiceCall call, $0.SendMediaRequest request);
+
+  $async.Future<$0.MediaStatusResponse> getMediaStatus_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetMediaStatusRequest> $request) async {
+    return getMediaStatus($call, await $request);
+  }
+
+  $async.Future<$0.MediaStatusResponse> getMediaStatus(
+      $grpc.ServiceCall call, $0.GetMediaStatusRequest request);
+
+  $async.Future<$0.Empty> cancelSend_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.CancelSendRequest> $request) async {
+    return cancelSend($call, await $request);
+  }
+
+  $async.Future<$0.Empty> cancelSend(
+      $grpc.ServiceCall call, $0.CancelSendRequest request);
 }

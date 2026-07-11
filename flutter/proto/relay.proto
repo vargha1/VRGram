@@ -10,11 +10,59 @@ service RelayClient {
   rpc RemoveRelay(RelayEndpoint) returns (Empty);
   rpc GetIdentity(Empty) returns (IdentityInfo);
   rpc AddPeer(PeerInfo) returns (Empty);
+  rpc GetTransportStatus(Empty) returns (TransportStatusResponse);
+
+  // New media RPCs
+  rpc SendMedia(SendMediaRequest) returns (SendMediaResponse);
+  rpc GetMediaStatus(GetMediaStatusRequest) returns (MediaStatusResponse);
+  rpc CancelSend(CancelSendRequest) returns (Empty);
+}
+
+message SendMediaRequest {
+  string peer_pubkey = 1;
+  bytes media_data = 2;
+  string filename = 3;
+  string mime_type = 4;
+  enum Transport {
+    AUTO = 0;
+    DNS = 1;
+    LIBP2P = 2;
+  }
+  Transport preferred_transport = 5;
+}
+
+message SendMediaResponse {
+  string message_id = 1;
+  int32 estimated_seconds = 2;
+  string transport = 3;
+}
+
+message GetMediaStatusRequest {
+  string message_id = 1;
+}
+
+message MediaStatusResponse {
+  string message_id = 1;
+  enum Status {
+    QUEUED = 0;
+    SENDING = 1;
+    ARRIVING = 2;
+    COMPLETE = 3;
+    FAILED = 4;
+  }
+  Status status = 2;
+  int32 progress_pct = 3;
+  string error = 4;
+}
+
+message CancelSendRequest {
+  string message_id = 1;
 }
 
 message SendRequest {
   string peer_pubkey = 1;
   bytes plaintext = 2;
+  uint64 client_timestamp_ms = 3;
 }
 
 message SendResponse {
@@ -34,6 +82,8 @@ message ReceivedMessage {
   string message_id = 2;
   bytes plaintext = 3;
   int64 timestamp = 4;
+  uint64 server_timestamp_ms = 5;
+  uint64 sequence_number = 6;
 }
 
 message Empty {}
@@ -61,4 +111,12 @@ message IdentityInfo {
 message PeerInfo {
   string nickname = 1;
   string pubkey = 2;
+}
+
+message TransportStatusResponse {
+  bool dht_connected = 1;
+  int32 discovered_relays = 2;
+  bool libp2p_direct = 3;
+  bool libp2p_circuit = 4;
+  string dns_mode = 5;
 }

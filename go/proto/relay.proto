@@ -62,6 +62,7 @@ message CancelSendRequest {
 message SendRequest {
   string peer_pubkey = 1;
   bytes plaintext = 2;
+  uint64 client_timestamp_ms = 3;
 }
 
 message SendResponse {
@@ -81,6 +82,8 @@ message ReceivedMessage {
   string message_id = 2;
   bytes plaintext = 3;
   int64 timestamp = 4;
+  uint64 server_timestamp_ms = 5;
+  uint64 sequence_number = 6;
 }
 
 message Empty {}
