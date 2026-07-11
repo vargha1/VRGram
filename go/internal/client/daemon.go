@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
-	"github.com/user/dns-transport/internal/crypto"
+		"github.com/user/dns-transport/internal/crypto"
 )
 
 // Daemon implements the RelayClient gRPC service.
@@ -34,9 +34,11 @@ type Daemon struct {
 	engine         *DNSClientEngine
 	detector       *Detector
 	queue          *OfflineQueue
-	identity       *crypto.KeyPair
-	peers          map[string]string // nickname -> pubkey
-	dataDir        string
+		identity       *crypto.KeyPair
+		peers          map[string]string // nickname -> pubkey
+		peersMu        sync.RWMutex
+		peersPath      string            // path to peers.json
+		dataDir        string
 	dhtOnly        bool
 	grpcServer     *grpc.Server
 	p2pHost        *p2p.P2PHost
@@ -163,12 +165,14 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		queue:     queue,
 		identity:  identity,
 		peers:     make(map[string]string),
+		peersPath: filepath.Join(dataDir, "peers.json"),
 		dataDir:   dataDir,
 		dhtOnly:   dhtOnly,
 		p2pHost:   p2pHost,
 		dhtClient: dhtClient,
 		transfers: make(map[string]*MediaTransfer),
 	}
+	daemon.loadPeers()
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(grpcPort)))
@@ -291,9 +295,15 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 		ciphertext := raw[crypto.NonceLength:]
 
 		// Try to decrypt with each peer's shared secret
-		var decrypted []byte
-		var fromPeer string
-		for nickname, pubkeyStr := range d.peers {
+			var decrypted []byte
+			var fromPeer string
+			d.peersMu.RLock()
+			peersSnapshot := make(map[string]string, len(d.peers))
+			for k, v := range d.peers {
+				peersSnapshot[k] = v
+			}
+			d.peersMu.RUnlock()
+			for nickname, pubkeyStr := range peersSnapshot {
 			pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
 			if err != nil {
 				continue
@@ -377,10 +387,49 @@ func (d *Daemon) GetIdentity(ctx context.Context, req *pb.Empty) (*pb.IdentityIn
 	}, nil
 }
 
-// AddPeer stores a peer mapping in memory (PoC: not persisted).
+// AddPeer stores a peer mapping and persists to disk.
 func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, error) {
+	d.peersMu.Lock()
 	d.peers[req.Nickname] = req.Pubkey
+	d.peersMu.Unlock()
+	d.savePeers()
 	return &pb.Empty{}, nil
+}
+
+// loadPeers reads peers from JSON file into memory.
+func (d *Daemon) loadPeers() {
+	data, err := os.ReadFile(d.peersPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("failed to read peers file", "path", d.peersPath, "error", err)
+		}
+		return
+	}
+	var loaded map[string]string
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		slog.Warn("failed to parse peers file", "error", err)
+		return
+	}
+	d.peersMu.Lock()
+	for k, v := range loaded {
+		d.peers[k] = v
+	}
+	d.peersMu.Unlock()
+	slog.Info("loaded peers from disk", "count", len(loaded))
+}
+
+// savePeers writes the peers map to JSON file.
+func (d *Daemon) savePeers() {
+	d.peersMu.RLock()
+	data, err := json.MarshalIndent(d.peers, "", "  ")
+	d.peersMu.RUnlock()
+	if err != nil {
+		slog.Warn("failed to marshal peers", "error", err)
+		return
+	}
+	if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
+		slog.Warn("failed to save peers file", "error", err)
+	}
 }
 
 // DiscoverRelaysFromDHT returns relay DNS addresses discovered via DHT.
@@ -751,13 +800,13 @@ func (d *Daemon) processQueue() {
 				d.queue.Remove(msg.ID)
 				continue
 			}
-			// Message already encrypted when queued — send ciphertext directly
-			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, "")
-			if err != nil {
-				slog.Error("queue send failed", "id", msg.ID, "error", err)
-				d.queue.MarkFailed(msg.ID, err.Error())
-				continue
-			}
+		// Message already encrypted when queued — send ciphertext directly
+				_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, msg.PeerKey)
+				if err != nil {
+					slog.Error("queue send failed", "id", msg.ID, "error", err)
+					d.queue.MarkFailed(msg.ID, err.Error())
+					continue
+				}
 			slog.Info("queue message sent", "id", msg.ID)
 			d.queue.Remove(msg.ID)
 		}

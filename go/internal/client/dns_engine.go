@@ -41,6 +41,9 @@ type DNSClientEngine struct {
 	fallbackRelays []string
 	zone           string
 	dnsResolver    string // custom DNS resolver for domain relay addresses (e.g., "8.8.8.8:53")
+
+	fetchedMu sync.Mutex
+	fetched   map[[8]byte]bool // msgIDs already downloaded, to avoid redundant fetch
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
@@ -52,6 +55,7 @@ func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 		relays:         relays,
 		zone:           zone,
 		dnsResolver:    "8.8.8.8:53",
+		fetched:        make(map[[8]byte]bool),
 	}
 }
 
@@ -262,6 +266,14 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage,
 
 	var messages []PolledMessage
 	for _, msgID := range msgIDs {
+		// Skip already-fetched messages (dedup)
+		e.fetchedMu.Lock()
+		if e.fetched[msgID] {
+			e.fetchedMu.Unlock()
+			continue
+		}
+		e.fetchedMu.Unlock()
+
 		var data []byte
 		var fetchErr error
 		for _, relay := range relays {
@@ -275,6 +287,11 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage,
 			slog.Warn("fetch message failed from all relays", "msgID", msgID, "error", fetchErr)
 			continue
 		}
+		// Mark as fetched to avoid re-download
+		e.fetchedMu.Lock()
+		e.fetched[msgID] = true
+		e.fetchedMu.Unlock()
+
 		messages = append(messages, PolledMessage{MsgID: msgID, Data: data})
 	}
 	return messages, nil
@@ -317,51 +334,58 @@ func (e *DNSClientEngine) discoverActiveRelays(ctx context.Context) []string {
 }
 
 func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.Chunk, relays []string) error {
-	total := len(chunks) * len(relays)
-	if total == 0 {
+	if len(chunks) == 0 || len(relays) == 0 {
 		return nil
 	}
 
+	// Track per-chunk delivery: true if at least one relay accepted it
+	chunkDelivered := make([]bool, len(chunks))
+	var mu sync.Mutex
+
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
-	errCh := make(chan error, total)
 
-	sendCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	for _, chunk := range chunks {
+	for i, chunk := range chunks {
 		for _, relay := range relays {
 			wg.Add(1)
+			i := i
 			chunk := chunk
 			relay := relay
 			go func() {
 				defer wg.Done()
 				select {
 				case sem <- struct{}{}:
-				case <-sendCtx.Done():
+				case <-ctx.Done():
 					return
 				}
 				defer func() { <-sem }()
 				select {
-				case <-sendCtx.Done():
+				case <-ctx.Done():
 					return
 				default:
 				}
 				if err := dns.SendChunk(relay, e.zone, chunk, false); err != nil {
-					errCh <- fmt.Errorf("send to %s: %w", relay, err)
-					cancel()
+					slog.Debug("send chunk failed", "relay", relay, "chunk", i, "error", err)
+					return
 				}
+				mu.Lock()
+				chunkDelivered[i] = true
+				mu.Unlock()
 			}()
 		}
 	}
 
 	wg.Wait()
-	close(errCh)
 
-	for err := range errCh {
-		if err != nil {
-			return err
+	// Fail if any chunk never reached any relay
+	var undelivered []int
+	for i, ok := range chunkDelivered {
+		if !ok {
+			undelivered = append(undelivered, i)
 		}
+	}
+	if len(undelivered) > 0 {
+		return fmt.Errorf("%d chunks undelivered to any relay: %v", len(undelivered), undelivered)
 	}
 	return nil
 }
