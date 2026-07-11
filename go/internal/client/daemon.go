@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -56,8 +57,9 @@ type Daemon struct {
 		pendingHellosMu sync.Mutex
 
 	// Media transfer tracking
-	transfers  map[string]*MediaTransfer // messageID -> transfer
-	transferMu sync.Mutex
+	transfers      map[string]*MediaTransfer // messageID -> transfer
+	transferMu     sync.Mutex
+	transferStore  *media.TransferStore
 
 	// Auth token for gRPC
 	authToken     []byte
@@ -102,11 +104,13 @@ const (
 
 // MediaTransfer tracks the progress and state of a media transfer.
 type MediaTransfer struct {
-	mu       sync.Mutex
-	Status   TransferStatus
-	Progress int32 // 0-100
-	Error    string
-	Created  time.Time
+	mu         sync.Mutex
+	Status     TransferStatus
+	Progress   int32 // 0-100
+	ChunksSent int32
+	TotalChunks int32
+	Error      string
+	Created    time.Time
 }
 
 // toProtoStatus converts internal status to protobuf status enum value.
@@ -252,6 +256,13 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	}
 	daemon.loadPeers()
 	daemon.loadGroups()
+	// Open transfer store for resume support
+	ts, err := media.NewTransferStore(filepath.Join(dataDir, "media_transfers.db"))
+	if err != nil {
+		slog.Warn("failed to open transfer store, resume disabled", "error", err)
+	} else {
+		daemon.transferStore = ts
+	}
 	startupLog("struct ready")
 
 	// Start gRPC server
@@ -1302,6 +1313,294 @@ func (d *Daemon) CancelSend(ctx context.Context, req *pb.CancelSendRequest) (*pb
 
 	t.Status = TransferCancelled
 	return &pb.Empty{}, nil
+}
+
+// SendMediaStream handles client-streaming upload of media data.
+// First chunk data should be JSON with peer_pubkey, file_name, mime_type.
+// Subsequent chunks are raw binary file data.
+func (d *Daemon) SendMediaStream(stream pb.RelayClient_SendMediaStreamServer) error {
+	var transferID string
+	var tempFile *os.File
+	var totalSize int64
+	var peerPubkey string
+	var fileName string
+	var mimeType string
+	chunkCount := int32(0)
+
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if transferID != "" {
+				d.transferMu.Lock()
+				if t, ok := d.transfers[transferID]; ok {
+					t.mu.Lock()
+					t.Status = TransferFailed
+					t.Error = err.Error()
+					t.mu.Unlock()
+				}
+				d.transferMu.Unlock()
+				if d.transferStore != nil {
+					d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+				}
+			}
+			return err
+		}
+
+		if transferID == "" {
+			transferID = chunk.TransferId
+			// Parse JSON metadata from first chunk data
+			var header struct {
+				PeerPubkey string `json:"peer_pubkey"`
+				FileName   string `json:"file_name"`
+				MimeType   string `json:"mime_type"`
+			}
+			if err := json.Unmarshal(chunk.Data, &header); err == nil {
+				peerPubkey = header.PeerPubkey
+				fileName = header.FileName
+				mimeType = header.MimeType
+			}
+
+			tempFile, err = os.CreateTemp("", "media-upload-*")
+			if err != nil {
+				return status.Error(codes.Internal, "create temp file failed")
+			}
+
+			// Create transfer tracking
+			transfer := &MediaTransfer{
+				Status:   TransferQueued,
+				Progress: 0,
+				Created:  time.Now(),
+			}
+			d.transferMu.Lock()
+			d.transfers[transferID] = transfer
+			d.transferMu.Unlock()
+
+			if d.transferStore != nil {
+				d.transferStore.Create(&media.TransferEntry{
+					ID:         transferID,
+					PeerPubkey: peerPubkey,
+					FileName:   fileName,
+					MimeType:   mimeType,
+					Status:     media.TransferQueued,
+					CreatedAt:  time.Now().UnixMilli(),
+				})
+			}
+
+			// If metadata was detected in first chunk, skip writing to temp file
+			if peerPubkey == "" {
+				// No JSON metadata header — treat data as file content
+				n, _ := tempFile.Write(chunk.Data)
+				totalSize += int64(n)
+			}
+			chunkCount++
+			continue
+		}
+
+		// Write data to temp file
+		n, _ := tempFile.Write(chunk.Data)
+		totalSize += int64(n)
+		chunkCount++
+
+		// Enforce size limit
+		if totalSize > media.MediaMaxHardCap {
+			tempFile.Close()
+			os.Remove(tempFile.Name())
+			return status.Errorf(codes.InvalidArgument, "file too large (max %d bytes)", media.MediaMaxHardCap)
+		}
+
+		// Update progress estimate
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferSending
+			t.Progress = int32(chunkCount * 100 / 1000)
+			t.ChunksSent = chunkCount
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+	}
+
+	if tempFile == nil {
+		return status.Error(codes.InvalidArgument, "no data received")
+	}
+	tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	// Read assembled file from temp
+	fileData, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		return status.Error(codes.Internal, "read temp file failed")
+	}
+
+	// Choose transport and send
+	transport := "dns"
+	var meta *media.MediaMessage
+	var mid [8]byte
+	rand.Read(mid[:])
+
+	if peerPubkey == "" {
+		slog.Warn("SendMediaStream: no peer pubkey, file assembled but metadata not sent", "transferID", transferID)
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferComplete, 100, chunkCount)
+		}
+		estimatedSec := media.EstimateSeconds(totalSize, false)
+		return stream.SendAndClose(&pb.SendMediaResponse{
+			MessageId:       transferID,
+			EstimatedSeconds: estimatedSec,
+			Transport:       transport,
+		})
+	}
+
+	if len(fileData) < media.MediaDNSSizeThreshold {
+		// DNS path
+		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{
+			Engine:          d.engine,
+			RecipientPubkey: peerPubkey,
+		})
+		meta, err = dnsTransport.SendChunks(stream.Context(), mid, fileData, fileName, mimeType, media.MediaTypeFile)
+		if err != nil {
+			d.transferMu.Lock()
+			if t, ok := d.transfers[transferID]; ok {
+				t.mu.Lock()
+				t.Status = TransferFailed
+				t.Error = err.Error()
+				t.mu.Unlock()
+			}
+			d.transferMu.Unlock()
+			if d.transferStore != nil {
+				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+			}
+			return err
+		}
+	} else {
+		// TCP path — requires relay HTTP media server
+		relays := d.engine.GetRelays()
+		if len(relays) == 0 {
+			d.transferMu.Lock()
+			if t, ok := d.transfers[transferID]; ok {
+				t.mu.Lock()
+				t.Status = TransferFailed
+				t.Error = "no relays configured for TCP upload"
+				t.mu.Unlock()
+			}
+			d.transferMu.Unlock()
+			if d.transferStore != nil {
+				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+			}
+			return status.Error(codes.FailedPrecondition, "no relays configured for TCP upload")
+		}
+		tcpTransport := media.NewTCPTransport(relays[0])
+		meta, err = tcpTransport.SendChunks(stream.Context(), mid, fileData, fileName, mimeType, media.MediaTypeFile)
+		if err != nil {
+			d.transferMu.Lock()
+			if t, ok := d.transfers[transferID]; ok {
+				t.mu.Lock()
+				t.Status = TransferFailed
+				t.Error = err.Error()
+				t.mu.Unlock()
+			}
+			d.transferMu.Unlock()
+			if d.transferStore != nil {
+				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+			}
+			return err
+		}
+		transport = "tcp"
+	}
+
+	// Update status to confirming
+	if d.transferStore != nil {
+		d.transferStore.Update(transferID, media.TransferConfirming, 90, chunkCount)
+	}
+
+	// Send metadata as encrypted message addressed to peer
+	meta.Timestamp = time.Now().UnixMilli()
+	meta.MessageID = transferID
+	metaBytes, err := meta.Marshal()
+	if err != nil {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = err.Error()
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+		}
+		return err
+	}
+
+	peerPubkeyBytes, err := base64.StdEncoding.DecodeString(peerPubkey)
+	if err != nil {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = err.Error()
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+		}
+		return status.Error(codes.InvalidArgument, "invalid peer pubkey")
+	}
+	sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkeyBytes)
+	if err != nil {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = err.Error()
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+		}
+		return err
+	}
+	ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
+	if err != nil {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = err.Error()
+			t.mu.Unlock()
+		}
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+		}
+		return err
+	}
+	d.engine.SendMessage(stream.Context(), ciphertext, peerPubkey)
+
+	// Mark complete
+	d.transferMu.Lock()
+	if t, ok := d.transfers[transferID]; ok {
+		t.mu.Lock()
+		t.Status = TransferComplete
+		t.Progress = 100
+		t.mu.Unlock()
+	}
+	d.transferMu.Unlock()
+	if d.transferStore != nil {
+		d.transferStore.Update(transferID, media.TransferComplete, 100, chunkCount)
+	}
+
+	estimatedSec := media.EstimateSeconds(totalSize, transport == "tcp")
+	return stream.SendAndClose(&pb.SendMediaResponse{
+		MessageId:       transferID,
+		EstimatedSeconds: estimatedSec,
+		Transport:       transport,
+	})
 }
 
 // cleanupTransfers periodically removes old completed transfers from the map.
