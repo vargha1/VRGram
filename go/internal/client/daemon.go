@@ -29,6 +29,13 @@ import (
 	"github.com/user/dns-transport/internal/dns"
 )
 
+type helloEntry struct {
+	nonce     []byte
+	pubkey    string
+	nickname  string
+	createdAt time.Time
+}
+
 // Daemon implements the RelayClient gRPC service.
 type Daemon struct {
 	pb.UnimplementedRelayClientServer
@@ -37,11 +44,13 @@ type Daemon struct {
 	detector    *Detector
 	queue       *OfflineQueue
 	identity    *crypto.KeyPair
-	peers       map[string]string // nickname -> pubkey
-	peersMu     sync.RWMutex
-	peersPath   string // path to peers.json
-	dataDir     string
-	grpcServer  *grpc.Server
+		peers           map[string]*PeerInfoEntry // pubkey -> PeerInfo
+		peersMu         sync.RWMutex
+		peersPath       string // path to peers.json
+		dataDir         string
+		grpcServer      *grpc.Server
+		pendingHellos   map[string]*helloEntry
+		pendingHellosMu sync.Mutex
 
 	// Media transfer tracking
 	transfers  map[string]*MediaTransfer // messageID -> transfer
@@ -52,6 +61,12 @@ type Daemon struct {
 	authTokenPath string
 
 	debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
+}
+
+// PeerInfoEntry holds a peer's nickname and pubkey, keyed by pubkey.
+type PeerInfoEntry struct {
+	Nickname string `json:"nickname"`
+	Pubkey   string `json:"pubkey"`
 }
 
 // TransferStatus represents the state of a media transfer.
@@ -200,12 +215,13 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		detector:      detector,
 		queue:         queue,
 		identity:      identity,
-		peers:         make(map[string]string),
+		peers:         make(map[string]*PeerInfoEntry),
 		peersPath:     filepath.Join(dataDir, "daemon_peers.json"),
 		dataDir:       dataDir,
 		transfers:     make(map[string]*MediaTransfer),
 		authToken:     authToken,
 		authTokenPath: authTokenPath,
+		pendingHellos: make(map[string]*helloEntry),
 	}
 	// Open debug log (append, create if missing)
 	dl, err := os.OpenFile(filepath.Join(dataDir, "relayd_debug.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -413,26 +429,26 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 		var decrypted []byte
 		var fromPeer string
 		d.peersMu.RLock()
-		peersSnapshot := make(map[string]string, len(d.peers))
+		peersSnapshot := make(map[string]*PeerInfoEntry, len(d.peers))
 		for k, v := range d.peers {
 			peersSnapshot[k] = v
 		}
 		d.peersMu.RUnlock()
 		d.debugWrite("PollMessages: decrypt trying %d peers msgID=%x", len(peersSnapshot), pm.MsgID)
-		for nickname, pubkeyStr := range peersSnapshot {
+		for pubkeyStr, peerInfo := range peersSnapshot {
 			pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
 			if err != nil {
-				d.debugWrite("PollMessages: bad pubkey for peer %s", nickname)
+				d.debugWrite("PollMessages: bad pubkey for peer %s", peerInfo.Nickname)
 				continue
 			}
 			ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
 			if err != nil {
-				d.debugWrite("PollMessages: shared secret failed for peer %s", nickname)
+				d.debugWrite("PollMessages: shared secret failed for peer %s", peerInfo.Nickname)
 				continue
 			}
 			plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
 			if err != nil {
-				d.debugWrite("PollMessages: decrypt failed for peer %s err=%v", nickname, err)
+				d.debugWrite("PollMessages: decrypt failed for peer %s err=%v", peerInfo.Nickname, err)
 				continue
 			}
 			// Verify and parse signed payload
@@ -453,6 +469,41 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 			}
 			d.debugWrite("PollMessages: decrypted OK from peer=%s text_len=%d", fromPeer, len(decrypted))
 			break
+		}
+		// If decryption failed for all known peers, try pending hello keys
+		if decrypted == nil {
+			d.pendingHellosMu.Lock()
+			for nonceHex, entry := range d.pendingHellos {
+				if time.Since(entry.createdAt) > 24*time.Hour {
+					delete(d.pendingHellos, nonceHex)
+					continue
+				}
+				helloKey := crypto.DeriveHelloKey(entry.nonce)
+				plaintext, err := crypto.DecryptHello(helloKey, raw)
+				if err != nil {
+					continue
+				}
+				var hello struct {
+					Type     string `json:"type"`
+					Pubkey   string `json:"pubkey"`
+					Nickname string `json:"nickname"`
+				}
+				if json.Unmarshal(plaintext, &hello) == nil && hello.Type == "hello" && hello.Pubkey != "" {
+					nick := hello.Nickname
+					if nick == "" {
+						nick = "Unknown"
+					}
+					d.peersMu.Lock()
+					d.peers[hello.Pubkey] = &PeerInfoEntry{Nickname: nick, Pubkey: hello.Pubkey}
+					d.peersMu.Unlock()
+					d.savePeers()
+					decrypted = plaintext
+					fromPeer = hello.Pubkey
+					delete(d.pendingHellos, nonceHex)
+					d.debugWrite("PollMessages: auto-added peer via hello %s", hello.Pubkey[:min(16, len(hello.Pubkey))])
+				}
+			}
+			d.pendingHellosMu.Unlock()
 		}
 			if decrypted == nil {
 				d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
@@ -628,9 +679,73 @@ func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, erro
 	}
 
 	d.peersMu.Lock()
-	d.peers[req.Nickname] = req.Pubkey
+	d.peers[req.Pubkey] = &PeerInfoEntry{Nickname: req.Nickname, Pubkey: req.Pubkey}
 	d.peersMu.Unlock()
 	d.savePeers()
+	return &pb.Empty{}, nil
+}
+
+// RemovePeer removes a peer from the peers map and persists.
+func (d *Daemon) RemovePeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, error) {
+	d.peersMu.Lock()
+	delete(d.peers, req.Pubkey)
+	d.peersMu.Unlock()
+	d.savePeers()
+	return &pb.Empty{}, nil
+}
+
+// GenerateInviteCode creates an invite code that can be shared with another user.
+func (d *Daemon) GenerateInviteCode(ctx context.Context, req *pb.GenerateInviteCodeRequest) (*pb.GenerateInviteCodeResponse, error) {
+	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	nickname := req.Nickname
+	if nickname == "" {
+		nickname = "Unknown"
+	}
+	code, nonce, err := crypto.GenerateInviteCode(d.identity.PublicKey, nickname)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	d.pendingHellosMu.Lock()
+	d.pendingHellos[hex.EncodeToString(nonce)] = &helloEntry{
+		nonce:     nonce,
+		pubkey:    myPubkey,
+		nickname:  nickname,
+		createdAt: time.Now(),
+	}
+	d.pendingHellosMu.Unlock()
+	return &pb.GenerateInviteCodeResponse{Code: code}, nil
+}
+
+// JoinViaCode parses an invite code, adds the inviter as a peer, and sends a hello message.
+func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*pb.Empty, error) {
+	remotePubkey, nonce, nickname, err := crypto.ParseInviteCode(req.Code)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid invite code: %v", err)
+	}
+	remotePubkeyB64 := base64.StdEncoding.EncodeToString(remotePubkey)
+
+	// Add remote as a peer
+	d.peersMu.Lock()
+	d.peers[remotePubkeyB64] = &PeerInfoEntry{Nickname: nickname, Pubkey: remotePubkeyB64}
+	d.peersMu.Unlock()
+	d.savePeers()
+
+	// Derive hello key from nonce and send hello message
+	helloKey := crypto.DeriveHelloKey(nonce)
+	myPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	myNickname := "Me" // Could look up from somewhere
+	helloPayload := fmt.Sprintf(`{"type":"hello","pubkey":"%s","nickname":"%s"}`, myPubkeyB64, myNickname)
+	encryptedHello, err := crypto.EncryptHello(helloKey, []byte(helloPayload))
+	if err != nil {
+		return nil, status.Error(codes.Internal, "encrypt hello failed")
+	}
+
+	// Send via relay (plaintext = encrypted hello, no ECDH wrapper)
+	_, _, err = d.engine.SendMessage(ctx, encryptedHello, remotePubkeyB64)
+	if err != nil {
+		d.queue.Enqueue(remotePubkeyB64, encryptedHello)
+	}
+
 	return &pb.Empty{}, nil
 }
 
@@ -639,11 +754,11 @@ func (d *Daemon) loadPeers() {
 	data, err := os.ReadFile(d.peersPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			slog.Warn("failed to read peers file", "path", d.peersPath, "error", err)
+			slog.Warn("failed to read peers file", "error", err)
 		}
 		return
 	}
-	var loaded map[string]string
+	var loaded map[string]*PeerInfoEntry
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		slog.Warn("failed to parse peers file", "error", err)
 		return
