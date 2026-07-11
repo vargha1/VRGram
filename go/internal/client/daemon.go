@@ -43,12 +43,14 @@ type Daemon struct {
 	grpcServer     *grpc.Server
 	p2pHost        *p2p.P2PHost
 	dhtClient      *p2p.DHTClient
-	libp2pTransport Libp2pTransport // optional libp2p transport for media
+		libp2pTransport Libp2pTransport // optional libp2p transport for media
 
-	// Media transfer tracking
-	transfers   map[string]*MediaTransfer // messageID -> transfer
-	transferMu  sync.Mutex
-}
+		// Media transfer tracking
+		transfers   map[string]*MediaTransfer // messageID -> transfer
+		transferMu  sync.Mutex
+
+		debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
+	}
 
 // Libp2pTransport is the interface for sending files over libp2p.
 type Libp2pTransport interface {
@@ -172,6 +174,11 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		dhtClient: dhtClient,
 		transfers: make(map[string]*MediaTransfer),
 	}
+	// Open debug log (append, create if missing)
+	dl, err := os.OpenFile(filepath.Join(dataDir, "relayd_debug.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		daemon.debugLog = dl
+	}
 	daemon.loadPeers()
 
 	// Start gRPC server
@@ -223,11 +230,22 @@ func loadRelaysFromConfig(dataDir string) []string {
 	return cfg.Relays
 }
 
+// debugWrite writes a line to the debug log file (if open).
+func (d *Daemon) debugWrite(format string, args ...interface{}) {
+	if d.debugLog == nil {
+		return
+	}
+	fmt.Fprintf(d.debugLog, "[%s] ", time.Now().Format("15:04:05.000"))
+	fmt.Fprintf(d.debugLog, format, args...)
+	fmt.Fprintf(d.debugLog, "\n")
+}
+
 // SendMessage encrypts and sends a message via DNS engine, falling back to offline queue.
 func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.SendResponse, error) {
 	if d.identity == nil {
 		return nil, status.Error(codes.FailedPrecondition, "identity not initialized")
 	}
+	d.debugWrite("SendMessage start peer_pubkey=%s text_len=%d", req.PeerPubkey[:min(16, len(req.PeerPubkey))], len(req.Plaintext))
 	// Decrypt peer pubkey
 	peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
 	if err != nil {
@@ -251,6 +269,7 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		msgID, chunkCount, err := d.engine.SendMessage(ctx, transportPayload, req.PeerPubkey)
 		if err != nil {
 			// Queue ciphertext offline (already encrypted)
+			d.debugWrite("SendMessage DNS FAILED: %v -- queueing offline", err)
 			slog.Warn("send failed, queueing offline", "error", err)
 			_, qErr := d.queue.Enqueue(req.PeerPubkey, transportPayload)
 		if qErr != nil {
@@ -263,6 +282,7 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		}, nil
 	}
 
+	d.debugWrite("SendMessage DNS OK chunk_count=%d", chunkCount)
 	return &pb.SendResponse{
 		MessageId:  base64.StdEncoding.EncodeToString(msgID[:]),
 		Queued:     false,
