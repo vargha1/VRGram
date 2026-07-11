@@ -47,6 +47,9 @@ type Daemon struct {
 		peers           map[string]*PeerInfoEntry // pubkey -> PeerInfo
 		peersMu         sync.RWMutex
 		peersPath       string // path to peers.json
+		groups          map[string]*Group // groupID -> Group
+		groupsMu        sync.RWMutex
+		groupsPath      string
 		dataDir         string
 		grpcServer      *grpc.Server
 		pendingHellos   map[string]*helloEntry
@@ -67,6 +70,23 @@ type Daemon struct {
 type PeerInfoEntry struct {
 	Nickname string `json:"nickname"`
 	Pubkey   string `json:"pubkey"`
+}
+
+// Group represents a chat group with epoch-based key rotation.
+type Group struct {
+	GroupID     string                  `json:"group_id"`
+	Name        string                  `json:"name"`
+	AdminPubkey string                 `json:"admin_pubkey"`
+	Members     map[string]*GroupMember `json:"members"` // pubkey -> member
+	GroupKey    []byte                  `json:"group_key"`
+	KeyEpoch    uint64                  `json:"key_epoch"`
+}
+
+// GroupMember represents a member of a group.
+type GroupMember struct {
+	Pubkey   string `json:"pubkey"`
+	Nickname string `json:"nickname"`
+	Role     string `json:"role"` // "admin" | "member"
 }
 
 // TransferStatus represents the state of a media transfer.
@@ -216,8 +236,10 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		queue:         queue,
 		identity:      identity,
 		peers:         make(map[string]*PeerInfoEntry),
-		peersPath:     filepath.Join(dataDir, "daemon_peers.json"),
-		dataDir:       dataDir,
+			peersPath:     filepath.Join(dataDir, "daemon_peers.json"),
+			groups:        make(map[string]*Group),
+			groupsPath:    filepath.Join(dataDir, "daemon_groups.json"),
+			dataDir:       dataDir,
 		transfers:     make(map[string]*MediaTransfer),
 		authToken:     authToken,
 		authTokenPath: authTokenPath,
@@ -229,6 +251,7 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		daemon.debugLog = dl
 	}
 	daemon.loadPeers()
+	daemon.loadGroups()
 	startupLog("struct ready")
 
 	// Start gRPC server
@@ -357,6 +380,34 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 		return nil, status.Error(codes.FailedPrecondition, "identity not initialized")
 	}
 	d.debugWrite("SendMessage start peer_pubkey=%s text_len=%d", req.PeerPubkey[:min(16, len(req.PeerPubkey))], len(req.Plaintext))
+
+	// If group_id is set, handle as group message
+	if req.GroupId != "" {
+		d.groupsMu.RLock()
+		group, ok := d.groups[req.GroupId]
+		d.groupsMu.RUnlock()
+		if !ok {
+			return nil, status.Errorf(codes.NotFound, "group not found: %s", req.GroupId)
+		}
+		// Encrypt plaintext with group key
+		ciphertext, err := crypto.EncryptGroupMessage(group.GroupKey, req.Plaintext)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "encrypt group message failed")
+		}
+		// Wrap in group message envelope
+		groupPayload := fmt.Sprintf(`{"g":"%s","e":%d,"m":"%s"}`,
+			req.GroupId, group.KeyEpoch, base64.StdEncoding.EncodeToString(ciphertext))
+		// Send to each member individually
+		myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+		for pubkey := range group.Members {
+			if pubkey == myPubkey {
+				continue
+			}
+			d.engine.SendMessage(ctx, []byte(groupPayload), pubkey)
+		}
+		return &pb.SendResponse{MessageId: "group:" + req.GroupId, Queued: false, ChunkCount: 0}, nil
+	}
+
 	// Decrypt peer pubkey
 	peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
 	if err != nil {
@@ -504,13 +555,73 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 				}
 			}
 			d.pendingHellosMu.Unlock()
-		}
-			if decrypted == nil {
-				d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
-				continue
 			}
+				if decrypted == nil {
+					d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
+					continue
+				}
 
-			// Check if this is media metadata JSON — download chunks and save file
+				// Check for group key distribution message
+				if len(decrypted) > 10 && decrypted[0] == '{' {
+					var keyDist struct {
+						Type        string `json:"type"`
+						GroupID     string `json:"group_id"`
+						GroupKeyB64 string `json:"group_key_b64"`
+						KeyEpoch    uint64 `json:"key_epoch"`
+						Name        string `json:"name"`
+					}
+					if json.Unmarshal(decrypted, &keyDist) == nil && keyDist.Type == "group_key" && keyDist.GroupKeyB64 != "" {
+						groupKey, _ := base64.StdEncoding.DecodeString(keyDist.GroupKeyB64)
+						d.groupsMu.Lock()
+						if _, exists := d.groups[keyDist.GroupID]; !exists {
+							d.groups[keyDist.GroupID] = &Group{
+								GroupID:     keyDist.GroupID,
+								Name:        keyDist.Name,
+								AdminPubkey: "",
+								Members:     make(map[string]*GroupMember),
+								GroupKey:    groupKey,
+								KeyEpoch:    keyDist.KeyEpoch,
+							}
+						} else {
+							d.groups[keyDist.GroupID].GroupKey = groupKey
+							d.groups[keyDist.GroupID].KeyEpoch = keyDist.KeyEpoch
+						}
+						d.groupsMu.Unlock()
+						d.saveGroups()
+						continue // Don't add as a text message
+					}
+				}
+
+				// Check for group message format: {"g":"group_id","e":epoch,"m":"base64_ciphertext"}
+				groupID := ""
+				if len(decrypted) > 10 && decrypted[0] == '{' {
+					var groupMeta struct {
+						G    string `json:"g"`
+						E    uint64 `json:"e"`
+						MB64 string `json:"m"`
+					}
+					if json.Unmarshal(decrypted, &groupMeta) == nil && groupMeta.G != "" && groupMeta.MB64 != "" {
+						d.groupsMu.RLock()
+						group, hasGroup := d.groups[groupMeta.G]
+						d.groupsMu.RUnlock()
+						if hasGroup {
+							if groupMeta.E < group.KeyEpoch {
+								d.debugWrite("PollMessages: ignoring stale group message (epoch %d < %d)", groupMeta.E, group.KeyEpoch)
+								continue
+							}
+							msgBytes, err := base64.StdEncoding.DecodeString(groupMeta.MB64)
+							if err == nil {
+								msgPlaintext, err := crypto.DecryptGroupMessage(group.GroupKey, msgBytes)
+								if err == nil {
+									decrypted = msgPlaintext
+									groupID = groupMeta.G
+								}
+							}
+						}
+					}
+				}
+
+				// Check if this is media metadata JSON — download chunks and save file
 			if len(decrypted) > 20 && decrypted[0] == '{' {
 				var maybeMeta struct {
 					FileKeyB64  string   `json:"file_key_b64"`
@@ -607,10 +718,11 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 
 		msgID := hex.EncodeToString(pm.MsgID[:])
 		received := &pb.ReceivedMessage{
-			MessageId: msgID,
-			Plaintext: decrypted,
-			FromPeer:  fromPeer,
-		}
+				MessageId: msgID,
+				Plaintext: decrypted,
+				FromPeer:  fromPeer,
+				GroupId:   groupID,
+			}
 		// Populate relay-stamped metadata if available
 		if pm.Timestamp > 0 {
 			received.ServerTimestampMs = uint64(pm.Timestamp)
@@ -749,6 +861,171 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 	return &pb.Empty{}, nil
 }
 
+// CreateGroup creates a new chat group, generates a group key, and distributes it to all members.
+func (d *Daemon) CreateGroup(ctx context.Context, req *pb.CreateGroupRequest) (*pb.CreateGroupResponse, error) {
+	groupKey, err := crypto.GenerateGroupKey()
+	if err != nil {
+		return nil, status.Error(codes.Internal, "generate group key failed")
+	}
+
+	groupID := fmt.Sprintf("g%d", time.Now().UnixNano())
+	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+
+	members := make(map[string]*GroupMember)
+	members[myPubkey] = &GroupMember{Pubkey: myPubkey, Nickname: req.Name + "_admin", Role: "admin"}
+	for _, mpk := range req.MemberPubkeys {
+		members[mpk] = &GroupMember{Pubkey: mpk, Nickname: "", Role: "member"}
+	}
+
+	group := &Group{
+		GroupID:     groupID,
+		Name:        req.Name,
+		AdminPubkey: myPubkey,
+		Members:     members,
+		GroupKey:    groupKey,
+		KeyEpoch:    1,
+	}
+	d.groupsMu.Lock()
+	d.groups[groupID] = group
+	d.groupsMu.Unlock()
+	d.saveGroups()
+
+	// Distribute group key to each member via pairwise ECDH
+	for pubkeyB64 := range members {
+		if pubkeyB64 == myPubkey {
+			continue
+		}
+		pubkey, err := base64.StdEncoding.DecodeString(pubkeyB64)
+		if err != nil {
+			continue
+		}
+		ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+		if err != nil {
+			continue
+		}
+		distribution := fmt.Sprintf(`{"type":"group_key","group_id":"%s","group_key_b64":"%s","key_epoch":%d,"name":"%s"}`,
+			groupID, base64.StdEncoding.EncodeToString(groupKey), uint64(1), req.Name)
+		ciphertext, _, _ := crypto.EncryptMessage(ss, []byte(distribution))
+		d.engine.SendMessage(context.Background(), ciphertext, pubkeyB64)
+	}
+
+	return &pb.CreateGroupResponse{GroupId: groupID}, nil
+}
+
+// ListGroups returns all groups this node is a member of.
+func (d *Daemon) ListGroups(ctx context.Context, req *pb.Empty) (*pb.ListGroupsResponse, error) {
+	d.groupsMu.RLock()
+	defer d.groupsMu.RUnlock()
+	var pbGroups []*pb.GroupInfo
+	for _, g := range d.groups {
+		var pbMembers []*pb.GroupMember
+		for _, m := range g.Members {
+			pbMembers = append(pbMembers, &pb.GroupMember{
+				Pubkey:   m.Pubkey,
+				Nickname: m.Nickname,
+				Role:     m.Role,
+			})
+		}
+		pbGroups = append(pbGroups, &pb.GroupInfo{
+			GroupId:     g.GroupID,
+			Name:        g.Name,
+			AdminPubkey: g.AdminPubkey,
+			Members:     pbMembers,
+			KeyEpoch:    g.KeyEpoch,
+		})
+	}
+	return &pb.ListGroupsResponse{Groups: pbGroups}, nil
+}
+
+// LeaveGroup removes the current node from a group. If admin leaves, reassigns admin.
+// If no members remain, the group is deleted.
+func (d *Daemon) LeaveGroup(ctx context.Context, req *pb.LeaveGroupRequest) (*pb.Empty, error) {
+	d.groupsMu.Lock()
+	group, ok := d.groups[req.GroupId]
+	if !ok {
+		d.groupsMu.Unlock()
+		return nil, status.Errorf(codes.NotFound, "group not found: %s", req.GroupId)
+	}
+	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	delete(group.Members, myPubkey)
+	// If admin leaves, reassign admin to first remaining member
+	if group.AdminPubkey == myPubkey && len(group.Members) > 0 {
+		for pubkey := range group.Members {
+			group.AdminPubkey = pubkey
+			group.Members[pubkey].Role = "admin"
+			break
+		}
+	}
+	// If no members left, delete the group
+	if len(group.Members) == 0 {
+		delete(d.groups, req.GroupId)
+	}
+	d.groupsMu.Unlock()
+	d.saveGroups()
+	return &pb.Empty{}, nil
+}
+
+// RemoveGroupMember removes a member from a group (admin only). Rotates group key.
+func (d *Daemon) RemoveGroupMember(ctx context.Context, req *pb.RemoveGroupMemberRequest) (*pb.Empty, error) {
+	d.groupsMu.Lock()
+	group, ok := d.groups[req.GroupId]
+	if !ok {
+		d.groupsMu.Unlock()
+		return nil, status.Errorf(codes.NotFound, "group not found: %s", req.GroupId)
+	}
+	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	if group.AdminPubkey != myPubkey {
+		d.groupsMu.Unlock()
+		return nil, status.Error(codes.PermissionDenied, "only admin can remove members")
+	}
+	if _, exists := group.Members[req.MemberPubkey]; !exists {
+		d.groupsMu.Unlock()
+		return nil, status.Errorf(codes.NotFound, "member not in group")
+	}
+	delete(group.Members, req.MemberPubkey)
+	// Rotate group key since membership changed
+	newKey, err := crypto.RotateGroupKey(group.GroupKey)
+	if err == nil {
+		group.GroupKey = newKey
+		group.KeyEpoch++
+	}
+	d.groupsMu.Unlock()
+	d.saveGroups()
+	// Distribute new key to remaining members
+	d.distributeGroupKey(group.GroupID)
+	return &pb.Empty{}, nil
+}
+
+// distributeGroupKey sends the current group key to all members via pairwise ECDH.
+func (d *Daemon) distributeGroupKey(groupID string) {
+	d.groupsMu.RLock()
+	group, ok := d.groups[groupID]
+	d.groupsMu.RUnlock()
+	if !ok {
+		return
+	}
+
+	myPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	for pubkeyB64, member := range group.Members {
+		if pubkeyB64 == myPubkeyB64 {
+			continue
+		}
+		pubkey, err := base64.StdEncoding.DecodeString(pubkeyB64)
+		if err != nil {
+			continue
+		}
+		ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+		if err != nil {
+			continue
+		}
+		distribution := fmt.Sprintf(`{"type":"group_key","group_id":"%s","group_key_b64":"%s","key_epoch":%d}`,
+			groupID, base64.StdEncoding.EncodeToString(group.GroupKey), group.KeyEpoch)
+		ciphertext, _, _ := crypto.EncryptMessage(ss, []byte(distribution))
+		d.engine.SendMessage(context.Background(), ciphertext, pubkeyB64)
+		_ = member
+	}
+}
+
 // loadPeers reads peers from JSON file into memory.
 func (d *Daemon) loadPeers() {
 	data, err := os.ReadFile(d.peersPath)
@@ -781,8 +1058,44 @@ func (d *Daemon) savePeers() {
 		return
 	}
 	if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
-		slog.Warn("failed to save peers file", "error", err)
+			slog.Warn("failed to save peers file", "error", err)
+		}
 	}
+
+// saveGroups writes the groups map to JSON file.
+func (d *Daemon) saveGroups() {
+	d.groupsMu.RLock()
+	data, err := json.MarshalIndent(d.groups, "", "  ")
+	d.groupsMu.RUnlock()
+	if err != nil {
+		slog.Warn("failed to marshal groups", "error", err)
+		return
+	}
+	if err := os.WriteFile(d.groupsPath, data, 0600); err != nil {
+		slog.Warn("failed to save groups file", "error", err)
+	}
+}
+
+// loadGroups reads groups from JSON file into memory.
+func (d *Daemon) loadGroups() {
+	data, err := os.ReadFile(d.groupsPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("failed to read groups file", "error", err)
+		}
+		return
+	}
+	var loaded map[string]*Group
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		slog.Warn("failed to parse groups file", "error", err)
+		return
+	}
+	d.groupsMu.Lock()
+	for k, v := range loaded {
+		d.groups[k] = v
+	}
+	d.groupsMu.Unlock()
+	slog.Info("loaded groups from disk", "count", len(loaded))
 }
 
 // GetTransportStatus returns the current transport layer status.
