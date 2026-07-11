@@ -15,19 +15,151 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use sendMediaRequestDescriptor instead')
+const SendMediaRequest$json = {
+  '1': 'SendMediaRequest',
+  '2': [
+    {'1': 'peer_pubkey', '3': 1, '4': 1, '5': 9, '10': 'peerPubkey'},
+    {'1': 'media_data', '3': 2, '4': 1, '5': 12, '10': 'mediaData'},
+    {'1': 'filename', '3': 3, '4': 1, '5': 9, '10': 'filename'},
+    {'1': 'mime_type', '3': 4, '4': 1, '5': 9, '10': 'mimeType'},
+    {
+      '1': 'preferred_transport',
+      '3': 5,
+      '4': 1,
+      '5': 14,
+      '6': '.relaypb.SendMediaRequest.Transport',
+      '10': 'preferredTransport'
+    },
+  ],
+  '4': [SendMediaRequest_Transport$json],
+};
+
+@$core.Deprecated('Use sendMediaRequestDescriptor instead')
+const SendMediaRequest_Transport$json = {
+  '1': 'Transport',
+  '2': [
+    {'1': 'AUTO', '2': 0},
+    {'1': 'DNS', '2': 1},
+    {'1': 'LIBP2P', '2': 2},
+  ],
+};
+
+/// Descriptor for `SendMediaRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sendMediaRequestDescriptor = $convert.base64Decode(
+    'ChBTZW5kTWVkaWFSZXF1ZXN0Eh8KC3BlZXJfcHVia2V5GAEgASgJUgpwZWVyUHVia2V5Eh0KCm'
+    '1lZGlhX2RhdGEYAiABKAxSCW1lZGlhRGF0YRIaCghmaWxlbmFtZRgDIAEoCVIIZmlsZW5hbWUS'
+    'GwoJbWltZV90eXBlGAQgASgJUghtaW1lVHlwZRJUChNwcmVmZXJyZWRfdHJhbnNwb3J0GAUgAS'
+    'gOMiMucmVsYXlwYi5TZW5kTWVkaWFSZXF1ZXN0LlRyYW5zcG9ydFIScHJlZmVycmVkVHJhbnNw'
+    'b3J0IioKCVRyYW5zcG9ydBIICgRBVVRPEAASBwoDRE5TEAESCgoGTElCUDJQEAI=');
+
+@$core.Deprecated('Use sendMediaResponseDescriptor instead')
+const SendMediaResponse$json = {
+  '1': 'SendMediaResponse',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {
+      '1': 'estimated_seconds',
+      '3': 2,
+      '4': 1,
+      '5': 5,
+      '10': 'estimatedSeconds'
+    },
+    {'1': 'transport', '3': 3, '4': 1, '5': 9, '10': 'transport'},
+  ],
+};
+
+/// Descriptor for `SendMediaResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sendMediaResponseDescriptor = $convert.base64Decode(
+    'ChFTZW5kTWVkaWFSZXNwb25zZRIdCgptZXNzYWdlX2lkGAEgASgJUgltZXNzYWdlSWQSKwoRZX'
+    'N0aW1hdGVkX3NlY29uZHMYAiABKAVSEGVzdGltYXRlZFNlY29uZHMSHAoJdHJhbnNwb3J0GAMg'
+    'ASgJUgl0cmFuc3BvcnQ=');
+
+@$core.Deprecated('Use getMediaStatusRequestDescriptor instead')
+const GetMediaStatusRequest$json = {
+  '1': 'GetMediaStatusRequest',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+  ],
+};
+
+/// Descriptor for `GetMediaStatusRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMediaStatusRequestDescriptor = $convert.base64Decode(
+    'ChVHZXRNZWRpYVN0YXR1c1JlcXVlc3QSHQoKbWVzc2FnZV9pZBgBIAEoCVIJbWVzc2FnZUlk');
+
+@$core.Deprecated('Use mediaStatusResponseDescriptor instead')
+const MediaStatusResponse$json = {
+  '1': 'MediaStatusResponse',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+    {
+      '1': 'status',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.relaypb.MediaStatusResponse.Status',
+      '10': 'status'
+    },
+    {'1': 'progress_pct', '3': 3, '4': 1, '5': 5, '10': 'progressPct'},
+    {'1': 'error', '3': 4, '4': 1, '5': 9, '10': 'error'},
+  ],
+  '4': [MediaStatusResponse_Status$json],
+};
+
+@$core.Deprecated('Use mediaStatusResponseDescriptor instead')
+const MediaStatusResponse_Status$json = {
+  '1': 'Status',
+  '2': [
+    {'1': 'QUEUED', '2': 0},
+    {'1': 'SENDING', '2': 1},
+    {'1': 'ARRIVING', '2': 2},
+    {'1': 'COMPLETE', '2': 3},
+    {'1': 'FAILED', '2': 4},
+  ],
+};
+
+/// Descriptor for `MediaStatusResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mediaStatusResponseDescriptor = $convert.base64Decode(
+    'ChNNZWRpYVN0YXR1c1Jlc3BvbnNlEh0KCm1lc3NhZ2VfaWQYASABKAlSCW1lc3NhZ2VJZBI7Cg'
+    'ZzdGF0dXMYAiABKA4yIy5yZWxheXBiLk1lZGlhU3RhdHVzUmVzcG9uc2UuU3RhdHVzUgZzdGF0'
+    'dXMSIQoMcHJvZ3Jlc3NfcGN0GAMgASgFUgtwcm9ncmVzc1BjdBIUCgVlcnJvchgEIAEoCVIFZX'
+    'Jyb3IiSQoGU3RhdHVzEgoKBlFVRVVFRBAAEgsKB1NFTkRJTkcQARIMCghBUlJJVklORxACEgwK'
+    'CENPTVBMRVRFEAMSCgoGRkFJTEVEEAQ=');
+
+@$core.Deprecated('Use cancelSendRequestDescriptor instead')
+const CancelSendRequest$json = {
+  '1': 'CancelSendRequest',
+  '2': [
+    {'1': 'message_id', '3': 1, '4': 1, '5': 9, '10': 'messageId'},
+  ],
+};
+
+/// Descriptor for `CancelSendRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cancelSendRequestDescriptor = $convert.base64Decode(
+    'ChFDYW5jZWxTZW5kUmVxdWVzdBIdCgptZXNzYWdlX2lkGAEgASgJUgltZXNzYWdlSWQ=');
+
 @$core.Deprecated('Use sendRequestDescriptor instead')
 const SendRequest$json = {
   '1': 'SendRequest',
   '2': [
     {'1': 'peer_pubkey', '3': 1, '4': 1, '5': 9, '10': 'peerPubkey'},
     {'1': 'plaintext', '3': 2, '4': 1, '5': 12, '10': 'plaintext'},
+    {
+      '1': 'client_timestamp_ms',
+      '3': 3,
+      '4': 1,
+      '5': 4,
+      '10': 'clientTimestampMs'
+    },
+    {'1': 'group_id', '3': 4, '4': 1, '5': 9, '10': 'groupId'},
   ],
 };
 
 /// Descriptor for `SendRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List sendRequestDescriptor = $convert.base64Decode(
     'CgtTZW5kUmVxdWVzdBIfCgtwZWVyX3B1YmtleRgBIAEoCVIKcGVlclB1YmtleRIcCglwbGFpbn'
-    'RleHQYAiABKAxSCXBsYWludGV4dA==');
+    'RleHQYAiABKAxSCXBsYWludGV4dBIuChNjbGllbnRfdGltZXN0YW1wX21zGAMgASgEUhFjbGll'
+    'bnRUaW1lc3RhbXBNcxIZCghncm91cF9pZBgEIAEoCVIHZ3JvdXBJZA==');
 
 @$core.Deprecated('Use sendResponseDescriptor instead')
 const SendResponse$json = {
@@ -81,6 +213,15 @@ const ReceivedMessage$json = {
     {'1': 'message_id', '3': 2, '4': 1, '5': 9, '10': 'messageId'},
     {'1': 'plaintext', '3': 3, '4': 1, '5': 12, '10': 'plaintext'},
     {'1': 'timestamp', '3': 4, '4': 1, '5': 3, '10': 'timestamp'},
+    {
+      '1': 'server_timestamp_ms',
+      '3': 5,
+      '4': 1,
+      '5': 4,
+      '10': 'serverTimestampMs'
+    },
+    {'1': 'sequence_number', '3': 6, '4': 1, '5': 4, '10': 'sequenceNumber'},
+    {'1': 'group_id', '3': 7, '4': 1, '5': 9, '10': 'groupId'},
   ],
 };
 
@@ -88,7 +229,9 @@ const ReceivedMessage$json = {
 final $typed_data.Uint8List receivedMessageDescriptor = $convert.base64Decode(
     'Cg9SZWNlaXZlZE1lc3NhZ2USGwoJZnJvbV9wZWVyGAEgASgJUghmcm9tUGVlchIdCgptZXNzYW'
     'dlX2lkGAIgASgJUgltZXNzYWdlSWQSHAoJcGxhaW50ZXh0GAMgASgMUglwbGFpbnRleHQSHAoJ'
-    'dGltZXN0YW1wGAQgASgDUgl0aW1lc3RhbXA=');
+    'dGltZXN0YW1wGAQgASgDUgl0aW1lc3RhbXASLgoTc2VydmVyX3RpbWVzdGFtcF9tcxgFIAEoBF'
+    'IRc2VydmVyVGltZXN0YW1wTXMSJwoPc2VxdWVuY2VfbnVtYmVyGAYgASgEUg5zZXF1ZW5jZU51'
+    'bWJlchIZCghncm91cF9pZBgHIAEoCVIHZ3JvdXBJZA==');
 
 @$core.Deprecated('Use emptyDescriptor instead')
 const Empty$json = {
@@ -176,54 +319,181 @@ final $typed_data.Uint8List peerInfoDescriptor = $convert.base64Decode(
     'CghQZWVySW5mbxIaCghuaWNrbmFtZRgBIAEoCVIIbmlja25hbWUSFgoGcHVia2V5GAIgASgJUg'
     'ZwdWJrZXk=');
 
-const $core.Map<$core.String, $core.dynamic> RelayClientServiceBase$json = {
-  '1': 'RelayClient',
+@$core.Deprecated('Use generateInviteCodeRequestDescriptor instead')
+const GenerateInviteCodeRequest$json = {
+  '1': 'GenerateInviteCodeRequest',
   '2': [
-    {
-      '1': 'SendMessage',
-      '2': '.relaypb.SendRequest',
-      '3': '.relaypb.SendResponse'
-    },
-    {
-      '1': 'PollMessages',
-      '2': '.relaypb.PollRequest',
-      '3': '.relaypb.PollResponse'
-    },
-    {
-      '1': 'GetRelayStatus',
-      '2': '.relaypb.Empty',
-      '3': '.relaypb.RelayStatusList'
-    },
-    {'1': 'AddRelay', '2': '.relaypb.RelayEndpoint', '3': '.relaypb.Empty'},
-    {'1': 'RemoveRelay', '2': '.relaypb.RelayEndpoint', '3': '.relaypb.Empty'},
-    {'1': 'GetIdentity', '2': '.relaypb.Empty', '3': '.relaypb.IdentityInfo'},
-    {'1': 'AddPeer', '2': '.relaypb.PeerInfo', '3': '.relaypb.Empty'},
+    {'1': 'nickname', '3': 1, '4': 1, '5': 9, '10': 'nickname'},
   ],
 };
 
-@$core.Deprecated('Use relayClientServiceDescriptor instead')
-const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
-    RelayClientServiceBase$messageJson = {
-  '.relaypb.SendRequest': SendRequest$json,
-  '.relaypb.SendResponse': SendResponse$json,
-  '.relaypb.PollRequest': PollRequest$json,
-  '.relaypb.PollResponse': PollResponse$json,
-  '.relaypb.ReceivedMessage': ReceivedMessage$json,
-  '.relaypb.Empty': Empty$json,
-  '.relaypb.RelayStatusList': RelayStatusList$json,
-  '.relaypb.RelayStatus': RelayStatus$json,
-  '.relaypb.RelayEndpoint': RelayEndpoint$json,
-  '.relaypb.IdentityInfo': IdentityInfo$json,
-  '.relaypb.PeerInfo': PeerInfo$json,
+/// Descriptor for `GenerateInviteCodeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateInviteCodeRequestDescriptor =
+    $convert.base64Decode(
+        'ChlHZW5lcmF0ZUludml0ZUNvZGVSZXF1ZXN0EhoKCG5pY2tuYW1lGAEgASgJUghuaWNrbmFtZQ'
+        '==');
+
+@$core.Deprecated('Use generateInviteCodeResponseDescriptor instead')
+const GenerateInviteCodeResponse$json = {
+  '1': 'GenerateInviteCodeResponse',
+  '2': [
+    {'1': 'code', '3': 1, '4': 1, '5': 9, '10': 'code'},
+  ],
 };
 
-/// Descriptor for `RelayClient`. Decode as a `google.protobuf.ServiceDescriptorProto`.
-final $typed_data.Uint8List relayClientServiceDescriptor = $convert.base64Decode(
-    'CgtSZWxheUNsaWVudBI6CgtTZW5kTWVzc2FnZRIULnJlbGF5cGIuU2VuZFJlcXVlc3QaFS5yZW'
-    'xheXBiLlNlbmRSZXNwb25zZRI7CgxQb2xsTWVzc2FnZXMSFC5yZWxheXBiLlBvbGxSZXF1ZXN0'
-    'GhUucmVsYXlwYi5Qb2xsUmVzcG9uc2USOgoOR2V0UmVsYXlTdGF0dXMSDi5yZWxheXBiLkVtcH'
-    'R5GhgucmVsYXlwYi5SZWxheVN0YXR1c0xpc3QSMgoIQWRkUmVsYXkSFi5yZWxheXBiLlJlbGF5'
-    'RW5kcG9pbnQaDi5yZWxheXBiLkVtcHR5EjUKC1JlbW92ZVJlbGF5EhYucmVsYXlwYi5SZWxheU'
-    'VuZHBvaW50Gg4ucmVsYXlwYi5FbXB0eRI0CgtHZXRJZGVudGl0eRIOLnJlbGF5cGIuRW1wdHka'
-    'FS5yZWxheXBiLklkZW50aXR5SW5mbxIsCgdBZGRQZWVyEhEucmVsYXlwYi5QZWVySW5mbxoOLn'
-    'JlbGF5cGIuRW1wdHk=');
+/// Descriptor for `GenerateInviteCodeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List generateInviteCodeResponseDescriptor =
+    $convert.base64Decode(
+        'ChpHZW5lcmF0ZUludml0ZUNvZGVSZXNwb25zZRISCgRjb2RlGAEgASgJUgRjb2Rl');
+
+@$core.Deprecated('Use joinViaCodeRequestDescriptor instead')
+const JoinViaCodeRequest$json = {
+  '1': 'JoinViaCodeRequest',
+  '2': [
+    {'1': 'code', '3': 1, '4': 1, '5': 9, '10': 'code'},
+  ],
+};
+
+/// Descriptor for `JoinViaCodeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List joinViaCodeRequestDescriptor = $convert
+    .base64Decode('ChJKb2luVmlhQ29kZVJlcXVlc3QSEgoEY29kZRgBIAEoCVIEY29kZQ==');
+
+@$core.Deprecated('Use createGroupRequestDescriptor instead')
+const CreateGroupRequest$json = {
+  '1': 'CreateGroupRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'member_pubkeys', '3': 2, '4': 3, '5': 9, '10': 'memberPubkeys'},
+  ],
+};
+
+/// Descriptor for `CreateGroupRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createGroupRequestDescriptor = $convert.base64Decode(
+    'ChJDcmVhdGVHcm91cFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRIlCg5tZW1iZXJfcHVia2'
+    'V5cxgCIAMoCVINbWVtYmVyUHVia2V5cw==');
+
+@$core.Deprecated('Use createGroupResponseDescriptor instead')
+const CreateGroupResponse$json = {
+  '1': 'CreateGroupResponse',
+  '2': [
+    {'1': 'group_id', '3': 1, '4': 1, '5': 9, '10': 'groupId'},
+  ],
+};
+
+/// Descriptor for `CreateGroupResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createGroupResponseDescriptor =
+    $convert.base64Decode(
+        'ChNDcmVhdGVHcm91cFJlc3BvbnNlEhkKCGdyb3VwX2lkGAEgASgJUgdncm91cElk');
+
+@$core.Deprecated('Use leaveGroupRequestDescriptor instead')
+const LeaveGroupRequest$json = {
+  '1': 'LeaveGroupRequest',
+  '2': [
+    {'1': 'group_id', '3': 1, '4': 1, '5': 9, '10': 'groupId'},
+  ],
+};
+
+/// Descriptor for `LeaveGroupRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List leaveGroupRequestDescriptor = $convert.base64Decode(
+    'ChFMZWF2ZUdyb3VwUmVxdWVzdBIZCghncm91cF9pZBgBIAEoCVIHZ3JvdXBJZA==');
+
+@$core.Deprecated('Use removeGroupMemberRequestDescriptor instead')
+const RemoveGroupMemberRequest$json = {
+  '1': 'RemoveGroupMemberRequest',
+  '2': [
+    {'1': 'group_id', '3': 1, '4': 1, '5': 9, '10': 'groupId'},
+    {'1': 'member_pubkey', '3': 2, '4': 1, '5': 9, '10': 'memberPubkey'},
+  ],
+};
+
+/// Descriptor for `RemoveGroupMemberRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List removeGroupMemberRequestDescriptor =
+    $convert.base64Decode(
+        'ChhSZW1vdmVHcm91cE1lbWJlclJlcXVlc3QSGQoIZ3JvdXBfaWQYASABKAlSB2dyb3VwSWQSIw'
+        'oNbWVtYmVyX3B1YmtleRgCIAEoCVIMbWVtYmVyUHVia2V5');
+
+@$core.Deprecated('Use listGroupsResponseDescriptor instead')
+const ListGroupsResponse$json = {
+  '1': 'ListGroupsResponse',
+  '2': [
+    {
+      '1': 'groups',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.relaypb.GroupInfo',
+      '10': 'groups'
+    },
+  ],
+};
+
+/// Descriptor for `ListGroupsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listGroupsResponseDescriptor = $convert.base64Decode(
+    'ChJMaXN0R3JvdXBzUmVzcG9uc2USKgoGZ3JvdXBzGAEgAygLMhIucmVsYXlwYi5Hcm91cEluZm'
+    '9SBmdyb3Vwcw==');
+
+@$core.Deprecated('Use groupInfoDescriptor instead')
+const GroupInfo$json = {
+  '1': 'GroupInfo',
+  '2': [
+    {'1': 'group_id', '3': 1, '4': 1, '5': 9, '10': 'groupId'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'admin_pubkey', '3': 3, '4': 1, '5': 9, '10': 'adminPubkey'},
+    {
+      '1': 'members',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.relaypb.GroupMember',
+      '10': 'members'
+    },
+    {'1': 'key_epoch', '3': 5, '4': 1, '5': 4, '10': 'keyEpoch'},
+  ],
+};
+
+/// Descriptor for `GroupInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List groupInfoDescriptor = $convert.base64Decode(
+    'CglHcm91cEluZm8SGQoIZ3JvdXBfaWQYASABKAlSB2dyb3VwSWQSEgoEbmFtZRgCIAEoCVIEbm'
+    'FtZRIhCgxhZG1pbl9wdWJrZXkYAyABKAlSC2FkbWluUHVia2V5Ei4KB21lbWJlcnMYBCADKAsy'
+    'FC5yZWxheXBiLkdyb3VwTWVtYmVyUgdtZW1iZXJzEhsKCWtleV9lcG9jaBgFIAEoBFIIa2V5RX'
+    'BvY2g=');
+
+@$core.Deprecated('Use groupMemberDescriptor instead')
+const GroupMember$json = {
+  '1': 'GroupMember',
+  '2': [
+    {'1': 'pubkey', '3': 1, '4': 1, '5': 9, '10': 'pubkey'},
+    {'1': 'nickname', '3': 2, '4': 1, '5': 9, '10': 'nickname'},
+    {'1': 'role', '3': 3, '4': 1, '5': 9, '10': 'role'},
+  ],
+};
+
+/// Descriptor for `GroupMember`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List groupMemberDescriptor = $convert.base64Decode(
+    'CgtHcm91cE1lbWJlchIWCgZwdWJrZXkYASABKAlSBnB1YmtleRIaCghuaWNrbmFtZRgCIAEoCV'
+    'IIbmlja25hbWUSEgoEcm9sZRgDIAEoCVIEcm9sZQ==');
+
+@$core.Deprecated('Use transportStatusResponseDescriptor instead')
+const TransportStatusResponse$json = {
+  '1': 'TransportStatusResponse',
+  '2': [
+    {'1': 'dht_connected', '3': 1, '4': 1, '5': 8, '10': 'dhtConnected'},
+    {
+      '1': 'discovered_relays',
+      '3': 2,
+      '4': 1,
+      '5': 5,
+      '10': 'discoveredRelays'
+    },
+    {'1': 'libp2p_direct', '3': 3, '4': 1, '5': 8, '10': 'libp2pDirect'},
+    {'1': 'libp2p_circuit', '3': 4, '4': 1, '5': 8, '10': 'libp2pCircuit'},
+    {'1': 'dns_mode', '3': 5, '4': 1, '5': 9, '10': 'dnsMode'},
+  ],
+};
+
+/// Descriptor for `TransportStatusResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List transportStatusResponseDescriptor = $convert.base64Decode(
+    'ChdUcmFuc3BvcnRTdGF0dXNSZXNwb25zZRIjCg1kaHRfY29ubmVjdGVkGAEgASgIUgxkaHRDb2'
+    '5uZWN0ZWQSKwoRZGlzY292ZXJlZF9yZWxheXMYAiABKAVSEGRpc2NvdmVyZWRSZWxheXMSIwoN'
+    'bGlicDJwX2RpcmVjdBgDIAEoCFIMbGlicDJwRGlyZWN0EiUKDmxpYnAycF9jaXJjdWl0GAQgAS'
+    'gIUg1saWJwMnBDaXJjdWl0EhkKCGRuc19tb2RlGAUgASgJUgdkbnNNb2Rl');

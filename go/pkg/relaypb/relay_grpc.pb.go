@@ -30,6 +30,13 @@ const (
 	RelayClient_SendMedia_FullMethodName          = "/relaypb.RelayClient/SendMedia"
 	RelayClient_GetMediaStatus_FullMethodName     = "/relaypb.RelayClient/GetMediaStatus"
 	RelayClient_CancelSend_FullMethodName         = "/relaypb.RelayClient/CancelSend"
+	RelayClient_GenerateInviteCode_FullMethodName = "/relaypb.RelayClient/GenerateInviteCode"
+	RelayClient_JoinViaCode_FullMethodName        = "/relaypb.RelayClient/JoinViaCode"
+	RelayClient_RemovePeer_FullMethodName         = "/relaypb.RelayClient/RemovePeer"
+	RelayClient_CreateGroup_FullMethodName        = "/relaypb.RelayClient/CreateGroup"
+	RelayClient_ListGroups_FullMethodName         = "/relaypb.RelayClient/ListGroups"
+	RelayClient_LeaveGroup_FullMethodName         = "/relaypb.RelayClient/LeaveGroup"
+	RelayClient_RemoveGroupMember_FullMethodName  = "/relaypb.RelayClient/RemoveGroupMember"
 )
 
 // RelayClientClient is the client API for RelayClient service.
@@ -48,6 +55,13 @@ type RelayClientClient interface {
 	SendMedia(ctx context.Context, in *SendMediaRequest, opts ...grpc.CallOption) (*SendMediaResponse, error)
 	GetMediaStatus(ctx context.Context, in *GetMediaStatusRequest, opts ...grpc.CallOption) (*MediaStatusResponse, error)
 	CancelSend(ctx context.Context, in *CancelSendRequest, opts ...grpc.CallOption) (*Empty, error)
+	GenerateInviteCode(ctx context.Context, in *GenerateInviteCodeRequest, opts ...grpc.CallOption) (*GenerateInviteCodeResponse, error)
+	JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*Empty, error)
+	RemovePeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error)
+	CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error)
+	ListGroups(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListGroupsResponse, error)
+	LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*Empty, error)
+	RemoveGroupMember(ctx context.Context, in *RemoveGroupMemberRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type relayClientClient struct {
@@ -168,6 +182,76 @@ func (c *relayClientClient) CancelSend(ctx context.Context, in *CancelSendReques
 	return out, nil
 }
 
+func (c *relayClientClient) GenerateInviteCode(ctx context.Context, in *GenerateInviteCodeRequest, opts ...grpc.CallOption) (*GenerateInviteCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateInviteCodeResponse)
+	err := c.cc.Invoke(ctx, RelayClient_GenerateInviteCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_JoinViaCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) RemovePeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_RemovePeer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateGroupResponse)
+	err := c.cc.Invoke(ctx, RelayClient_CreateGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) ListGroups(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListGroupsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGroupsResponse)
+	err := c.cc.Invoke(ctx, RelayClient_ListGroups_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_LeaveGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) RemoveGroupMember(ctx context.Context, in *RemoveGroupMemberRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_RemoveGroupMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RelayClientServer is the server API for RelayClient service.
 // All implementations must embed UnimplementedRelayClientServer
 // for forward compatibility.
@@ -184,6 +268,13 @@ type RelayClientServer interface {
 	SendMedia(context.Context, *SendMediaRequest) (*SendMediaResponse, error)
 	GetMediaStatus(context.Context, *GetMediaStatusRequest) (*MediaStatusResponse, error)
 	CancelSend(context.Context, *CancelSendRequest) (*Empty, error)
+	GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error)
+	JoinViaCode(context.Context, *JoinViaCodeRequest) (*Empty, error)
+	RemovePeer(context.Context, *PeerInfo) (*Empty, error)
+	CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error)
+	ListGroups(context.Context, *Empty) (*ListGroupsResponse, error)
+	LeaveGroup(context.Context, *LeaveGroupRequest) (*Empty, error)
+	RemoveGroupMember(context.Context, *RemoveGroupMemberRequest) (*Empty, error)
 	mustEmbedUnimplementedRelayClientServer()
 }
 
@@ -226,6 +317,27 @@ func (UnimplementedRelayClientServer) GetMediaStatus(context.Context, *GetMediaS
 }
 func (UnimplementedRelayClientServer) CancelSend(context.Context, *CancelSendRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelSend not implemented")
+}
+func (UnimplementedRelayClientServer) GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateInviteCode not implemented")
+}
+func (UnimplementedRelayClientServer) JoinViaCode(context.Context, *JoinViaCodeRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method JoinViaCode not implemented")
+}
+func (UnimplementedRelayClientServer) RemovePeer(context.Context, *PeerInfo) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemovePeer not implemented")
+}
+func (UnimplementedRelayClientServer) CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateGroup not implemented")
+}
+func (UnimplementedRelayClientServer) ListGroups(context.Context, *Empty) (*ListGroupsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGroups not implemented")
+}
+func (UnimplementedRelayClientServer) LeaveGroup(context.Context, *LeaveGroupRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method LeaveGroup not implemented")
+}
+func (UnimplementedRelayClientServer) RemoveGroupMember(context.Context, *RemoveGroupMemberRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveGroupMember not implemented")
 }
 func (UnimplementedRelayClientServer) mustEmbedUnimplementedRelayClientServer() {}
 func (UnimplementedRelayClientServer) testEmbeddedByValue()                     {}
@@ -446,6 +558,132 @@ func _RelayClient_CancelSend_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_GenerateInviteCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateInviteCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).GenerateInviteCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_GenerateInviteCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).GenerateInviteCode(ctx, req.(*GenerateInviteCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_JoinViaCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinViaCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).JoinViaCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_JoinViaCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).JoinViaCode(ctx, req.(*JoinViaCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_RemovePeer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PeerInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).RemovePeer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_RemovePeer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).RemovePeer(ctx, req.(*PeerInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_CreateGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).CreateGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_CreateGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).CreateGroup(ctx, req.(*CreateGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_ListGroups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).ListGroups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_ListGroups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).ListGroups(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_LeaveGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).LeaveGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_LeaveGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).LeaveGroup(ctx, req.(*LeaveGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_RemoveGroupMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveGroupMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).RemoveGroupMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_RemoveGroupMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).RemoveGroupMember(ctx, req.(*RemoveGroupMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RelayClient_ServiceDesc is the grpc.ServiceDesc for RelayClient service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -496,6 +734,34 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelSend",
 			Handler:    _RelayClient_CancelSend_Handler,
+		},
+		{
+			MethodName: "GenerateInviteCode",
+			Handler:    _RelayClient_GenerateInviteCode_Handler,
+		},
+		{
+			MethodName: "JoinViaCode",
+			Handler:    _RelayClient_JoinViaCode_Handler,
+		},
+		{
+			MethodName: "RemovePeer",
+			Handler:    _RelayClient_RemovePeer_Handler,
+		},
+		{
+			MethodName: "CreateGroup",
+			Handler:    _RelayClient_CreateGroup_Handler,
+		},
+		{
+			MethodName: "ListGroups",
+			Handler:    _RelayClient_ListGroups_Handler,
+		},
+		{
+			MethodName: "LeaveGroup",
+			Handler:    _RelayClient_LeaveGroup_Handler,
+		},
+		{
+			MethodName: "RemoveGroupMember",
+			Handler:    _RelayClient_RemoveGroupMember_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -422,6 +422,7 @@ type SendRequest struct {
 	PeerPubkey        string                 `protobuf:"bytes,1,opt,name=peer_pubkey,json=peerPubkey,proto3" json:"peer_pubkey,omitempty"`
 	Plaintext         []byte                 `protobuf:"bytes,2,opt,name=plaintext,proto3" json:"plaintext,omitempty"`
 	ClientTimestampMs uint64                 `protobuf:"varint,3,opt,name=client_timestamp_ms,json=clientTimestampMs,proto3" json:"client_timestamp_ms,omitempty"`
+	GroupId           string                 `protobuf:"bytes,4,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -475,6 +476,13 @@ func (x *SendRequest) GetClientTimestampMs() uint64 {
 		return x.ClientTimestampMs
 	}
 	return 0
+}
+
+func (x *SendRequest) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
 }
 
 type SendResponse struct {
@@ -625,6 +633,7 @@ type ReceivedMessage struct {
 	Timestamp         int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	ServerTimestampMs uint64                 `protobuf:"varint,5,opt,name=server_timestamp_ms,json=serverTimestampMs,proto3" json:"server_timestamp_ms,omitempty"`
 	SequenceNumber    uint64                 `protobuf:"varint,6,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
+	GroupId           string                 `protobuf:"bytes,7,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -699,6 +708,13 @@ func (x *ReceivedMessage) GetSequenceNumber() uint64 {
 		return x.SequenceNumber
 	}
 	return 0
+}
+
+func (x *ReceivedMessage) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
 }
 
 type Empty struct {
@@ -997,6 +1013,510 @@ func (x *PeerInfo) GetPubkey() string {
 	return ""
 }
 
+type GenerateInviteCodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nickname      string                 `protobuf:"bytes,1,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateInviteCodeRequest) Reset() {
+	*x = GenerateInviteCodeRequest{}
+	mi := &file_proto_relay_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateInviteCodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateInviteCodeRequest) ProtoMessage() {}
+
+func (x *GenerateInviteCodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateInviteCodeRequest.ProtoReflect.Descriptor instead.
+func (*GenerateInviteCodeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GenerateInviteCodeRequest) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+type GenerateInviteCodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateInviteCodeResponse) Reset() {
+	*x = GenerateInviteCodeResponse{}
+	mi := &file_proto_relay_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateInviteCodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateInviteCodeResponse) ProtoMessage() {}
+
+func (x *GenerateInviteCodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateInviteCodeResponse.ProtoReflect.Descriptor instead.
+func (*GenerateInviteCodeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GenerateInviteCodeResponse) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type JoinViaCodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinViaCodeRequest) Reset() {
+	*x = JoinViaCodeRequest{}
+	mi := &file_proto_relay_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinViaCodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinViaCodeRequest) ProtoMessage() {}
+
+func (x *JoinViaCodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinViaCodeRequest.ProtoReflect.Descriptor instead.
+func (*JoinViaCodeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *JoinViaCodeRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type CreateGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	MemberPubkeys []string               `protobuf:"bytes,2,rep,name=member_pubkeys,json=memberPubkeys,proto3" json:"member_pubkeys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateGroupRequest) Reset() {
+	*x = CreateGroupRequest{}
+	mi := &file_proto_relay_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGroupRequest) ProtoMessage() {}
+
+func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGroupRequest.ProtoReflect.Descriptor instead.
+func (*CreateGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *CreateGroupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateGroupRequest) GetMemberPubkeys() []string {
+	if x != nil {
+		return x.MemberPubkeys
+	}
+	return nil
+}
+
+type CreateGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupId       string                 `protobuf:"bytes,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateGroupResponse) Reset() {
+	*x = CreateGroupResponse{}
+	mi := &file_proto_relay_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGroupResponse) ProtoMessage() {}
+
+func (x *CreateGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGroupResponse.ProtoReflect.Descriptor instead.
+func (*CreateGroupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CreateGroupResponse) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+type LeaveGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupId       string                 `protobuf:"bytes,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveGroupRequest) Reset() {
+	*x = LeaveGroupRequest{}
+	mi := &file_proto_relay_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveGroupRequest) ProtoMessage() {}
+
+func (x *LeaveGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveGroupRequest.ProtoReflect.Descriptor instead.
+func (*LeaveGroupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *LeaveGroupRequest) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+type RemoveGroupMemberRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupId       string                 `protobuf:"bytes,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	MemberPubkey  string                 `protobuf:"bytes,2,opt,name=member_pubkey,json=memberPubkey,proto3" json:"member_pubkey,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveGroupMemberRequest) Reset() {
+	*x = RemoveGroupMemberRequest{}
+	mi := &file_proto_relay_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveGroupMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveGroupMemberRequest) ProtoMessage() {}
+
+func (x *RemoveGroupMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveGroupMemberRequest.ProtoReflect.Descriptor instead.
+func (*RemoveGroupMemberRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RemoveGroupMemberRequest) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+func (x *RemoveGroupMemberRequest) GetMemberPubkey() string {
+	if x != nil {
+		return x.MemberPubkey
+	}
+	return ""
+}
+
+type ListGroupsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Groups        []*GroupInfo           `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGroupsResponse) Reset() {
+	*x = ListGroupsResponse{}
+	mi := &file_proto_relay_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGroupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGroupsResponse) ProtoMessage() {}
+
+func (x *ListGroupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGroupsResponse.ProtoReflect.Descriptor instead.
+func (*ListGroupsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ListGroupsResponse) GetGroups() []*GroupInfo {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+type GroupInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupId       string                 `protobuf:"bytes,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	AdminPubkey   string                 `protobuf:"bytes,3,opt,name=admin_pubkey,json=adminPubkey,proto3" json:"admin_pubkey,omitempty"`
+	Members       []*GroupMember         `protobuf:"bytes,4,rep,name=members,proto3" json:"members,omitempty"`
+	KeyEpoch      uint64                 `protobuf:"varint,5,opt,name=key_epoch,json=keyEpoch,proto3" json:"key_epoch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GroupInfo) Reset() {
+	*x = GroupInfo{}
+	mi := &file_proto_relay_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GroupInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GroupInfo) ProtoMessage() {}
+
+func (x *GroupInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GroupInfo.ProtoReflect.Descriptor instead.
+func (*GroupInfo) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GroupInfo) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
+func (x *GroupInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GroupInfo) GetAdminPubkey() string {
+	if x != nil {
+		return x.AdminPubkey
+	}
+	return ""
+}
+
+func (x *GroupInfo) GetMembers() []*GroupMember {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+func (x *GroupInfo) GetKeyEpoch() uint64 {
+	if x != nil {
+		return x.KeyEpoch
+	}
+	return 0
+}
+
+type GroupMember struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pubkey        string                 `protobuf:"bytes,1,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
+	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GroupMember) Reset() {
+	*x = GroupMember{}
+	mi := &file_proto_relay_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GroupMember) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GroupMember) ProtoMessage() {}
+
+func (x *GroupMember) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GroupMember.ProtoReflect.Descriptor instead.
+func (*GroupMember) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GroupMember) GetPubkey() string {
+	if x != nil {
+		return x.Pubkey
+	}
+	return ""
+}
+
+func (x *GroupMember) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *GroupMember) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
 type TransportStatusResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	DhtConnected     bool                   `protobuf:"varint,1,opt,name=dht_connected,json=dhtConnected,proto3" json:"dht_connected,omitempty"`
@@ -1010,7 +1530,7 @@ type TransportStatusResponse struct {
 
 func (x *TransportStatusResponse) Reset() {
 	*x = TransportStatusResponse{}
-	mi := &file_proto_relay_proto_msgTypes[16]
+	mi := &file_proto_relay_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +1542,7 @@ func (x *TransportStatusResponse) String() string {
 func (*TransportStatusResponse) ProtoMessage() {}
 
 func (x *TransportStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_relay_proto_msgTypes[16]
+	mi := &file_proto_relay_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +1555,7 @@ func (x *TransportStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransportStatusResponse.ProtoReflect.Descriptor instead.
 func (*TransportStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_relay_proto_rawDescGZIP(), []int{16}
+	return file_proto_relay_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *TransportStatusResponse) GetDhtConnected() bool {
@@ -1115,12 +1635,13 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\x06FAILED\x10\x04\"2\n" +
 	"\x11CancelSendRequest\x12\x1d\n" +
 	"\n" +
-	"message_id\x18\x01 \x01(\tR\tmessageId\"|\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\"\x97\x01\n" +
 	"\vSendRequest\x12\x1f\n" +
 	"\vpeer_pubkey\x18\x01 \x01(\tR\n" +
 	"peerPubkey\x12\x1c\n" +
 	"\tplaintext\x18\x02 \x01(\fR\tplaintext\x12.\n" +
-	"\x13client_timestamp_ms\x18\x03 \x01(\x04R\x11clientTimestampMs\"f\n" +
+	"\x13client_timestamp_ms\x18\x03 \x01(\x04R\x11clientTimestampMs\x12\x19\n" +
+	"\bgroup_id\x18\x04 \x01(\tR\agroupId\"f\n" +
 	"\fSendResponse\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x16\n" +
@@ -1129,7 +1650,7 @@ const file_proto_relay_proto_rawDesc = "" +
 	"chunkCount\"\r\n" +
 	"\vPollRequest\"D\n" +
 	"\fPollResponse\x124\n" +
-	"\bmessages\x18\x01 \x03(\v2\x18.relaypb.ReceivedMessageR\bmessages\"\xe2\x01\n" +
+	"\bmessages\x18\x01 \x03(\v2\x18.relaypb.ReceivedMessageR\bmessages\"\xfd\x01\n" +
 	"\x0fReceivedMessage\x12\x1b\n" +
 	"\tfrom_peer\x18\x01 \x01(\tR\bfromPeer\x12\x1d\n" +
 	"\n" +
@@ -1137,7 +1658,8 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\tplaintext\x18\x03 \x01(\fR\tplaintext\x12\x1c\n" +
 	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\x12.\n" +
 	"\x13server_timestamp_ms\x18\x05 \x01(\x04R\x11serverTimestampMs\x12'\n" +
-	"\x0fsequence_number\x18\x06 \x01(\x04R\x0esequenceNumber\"\a\n" +
+	"\x0fsequence_number\x18\x06 \x01(\x04R\x0esequenceNumber\x12\x19\n" +
+	"\bgroup_id\x18\a \x01(\tR\agroupId\"\a\n" +
 	"\x05Empty\")\n" +
 	"\rRelayEndpoint\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\"E\n" +
@@ -1155,13 +1677,41 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\x06pubkey\x18\x01 \x01(\tR\x06pubkey\">\n" +
 	"\bPeerInfo\x12\x1a\n" +
 	"\bnickname\x18\x01 \x01(\tR\bnickname\x12\x16\n" +
-	"\x06pubkey\x18\x02 \x01(\tR\x06pubkey\"\xd2\x01\n" +
+	"\x06pubkey\x18\x02 \x01(\tR\x06pubkey\"7\n" +
+	"\x19GenerateInviteCodeRequest\x12\x1a\n" +
+	"\bnickname\x18\x01 \x01(\tR\bnickname\"0\n" +
+	"\x1aGenerateInviteCodeResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"(\n" +
+	"\x12JoinViaCodeRequest\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"O\n" +
+	"\x12CreateGroupRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
+	"\x0emember_pubkeys\x18\x02 \x03(\tR\rmemberPubkeys\"0\n" +
+	"\x13CreateGroupResponse\x12\x19\n" +
+	"\bgroup_id\x18\x01 \x01(\tR\agroupId\".\n" +
+	"\x11LeaveGroupRequest\x12\x19\n" +
+	"\bgroup_id\x18\x01 \x01(\tR\agroupId\"Z\n" +
+	"\x18RemoveGroupMemberRequest\x12\x19\n" +
+	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12#\n" +
+	"\rmember_pubkey\x18\x02 \x01(\tR\fmemberPubkey\"@\n" +
+	"\x12ListGroupsResponse\x12*\n" +
+	"\x06groups\x18\x01 \x03(\v2\x12.relaypb.GroupInfoR\x06groups\"\xaa\x01\n" +
+	"\tGroupInfo\x12\x19\n" +
+	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\fadmin_pubkey\x18\x03 \x01(\tR\vadminPubkey\x12.\n" +
+	"\amembers\x18\x04 \x03(\v2\x14.relaypb.GroupMemberR\amembers\x12\x1b\n" +
+	"\tkey_epoch\x18\x05 \x01(\x04R\bkeyEpoch\"U\n" +
+	"\vGroupMember\x12\x16\n" +
+	"\x06pubkey\x18\x01 \x01(\tR\x06pubkey\x12\x1a\n" +
+	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\"\xd2\x01\n" +
 	"\x17TransportStatusResponse\x12#\n" +
 	"\rdht_connected\x18\x01 \x01(\bR\fdhtConnected\x12+\n" +
 	"\x11discovered_relays\x18\x02 \x01(\x05R\x10discoveredRelays\x12#\n" +
 	"\rlibp2p_direct\x18\x03 \x01(\bR\flibp2pDirect\x12%\n" +
 	"\x0elibp2p_circuit\x18\x04 \x01(\bR\rlibp2pCircuit\x12\x19\n" +
-	"\bdns_mode\x18\x05 \x01(\tR\adnsMode2\xa7\x05\n" +
+	"\bdns_mode\x18\x05 \x01(\tR\adnsMode2\xfa\b\n" +
 	"\vRelayClient\x12:\n" +
 	"\vSendMessage\x12\x14.relaypb.SendRequest\x1a\x15.relaypb.SendResponse\x12;\n" +
 	"\fPollMessages\x12\x14.relaypb.PollRequest\x1a\x15.relaypb.PollResponse\x12:\n" +
@@ -1174,7 +1724,17 @@ const file_proto_relay_proto_rawDesc = "" +
 	"\tSendMedia\x12\x19.relaypb.SendMediaRequest\x1a\x1a.relaypb.SendMediaResponse\x12N\n" +
 	"\x0eGetMediaStatus\x12\x1e.relaypb.GetMediaStatusRequest\x1a\x1c.relaypb.MediaStatusResponse\x128\n" +
 	"\n" +
-	"CancelSend\x12\x1a.relaypb.CancelSendRequest\x1a\x0e.relaypb.EmptyB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
+	"CancelSend\x12\x1a.relaypb.CancelSendRequest\x1a\x0e.relaypb.Empty\x12]\n" +
+	"\x12GenerateInviteCode\x12\".relaypb.GenerateInviteCodeRequest\x1a#.relaypb.GenerateInviteCodeResponse\x12:\n" +
+	"\vJoinViaCode\x12\x1b.relaypb.JoinViaCodeRequest\x1a\x0e.relaypb.Empty\x12/\n" +
+	"\n" +
+	"RemovePeer\x12\x11.relaypb.PeerInfo\x1a\x0e.relaypb.Empty\x12H\n" +
+	"\vCreateGroup\x12\x1b.relaypb.CreateGroupRequest\x1a\x1c.relaypb.CreateGroupResponse\x129\n" +
+	"\n" +
+	"ListGroups\x12\x0e.relaypb.Empty\x1a\x1b.relaypb.ListGroupsResponse\x128\n" +
+	"\n" +
+	"LeaveGroup\x12\x1a.relaypb.LeaveGroupRequest\x1a\x0e.relaypb.Empty\x12F\n" +
+	"\x11RemoveGroupMember\x12!.relaypb.RemoveGroupMemberRequest\x1a\x0e.relaypb.EmptyB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
 
 var (
 	file_proto_relay_proto_rawDescOnce sync.Once
@@ -1189,60 +1749,86 @@ func file_proto_relay_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_relay_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_proto_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_proto_relay_proto_goTypes = []any{
-	(SendMediaRequest_Transport)(0), // 0: relaypb.SendMediaRequest.Transport
-	(MediaStatusResponse_Status)(0), // 1: relaypb.MediaStatusResponse.Status
-	(*SendMediaRequest)(nil),        // 2: relaypb.SendMediaRequest
-	(*SendMediaResponse)(nil),       // 3: relaypb.SendMediaResponse
-	(*GetMediaStatusRequest)(nil),   // 4: relaypb.GetMediaStatusRequest
-	(*MediaStatusResponse)(nil),     // 5: relaypb.MediaStatusResponse
-	(*CancelSendRequest)(nil),       // 6: relaypb.CancelSendRequest
-	(*SendRequest)(nil),             // 7: relaypb.SendRequest
-	(*SendResponse)(nil),            // 8: relaypb.SendResponse
-	(*PollRequest)(nil),             // 9: relaypb.PollRequest
-	(*PollResponse)(nil),            // 10: relaypb.PollResponse
-	(*ReceivedMessage)(nil),         // 11: relaypb.ReceivedMessage
-	(*Empty)(nil),                   // 12: relaypb.Empty
-	(*RelayEndpoint)(nil),           // 13: relaypb.RelayEndpoint
-	(*RelayStatusList)(nil),         // 14: relaypb.RelayStatusList
-	(*RelayStatus)(nil),             // 15: relaypb.RelayStatus
-	(*IdentityInfo)(nil),            // 16: relaypb.IdentityInfo
-	(*PeerInfo)(nil),                // 17: relaypb.PeerInfo
-	(*TransportStatusResponse)(nil), // 18: relaypb.TransportStatusResponse
+	(SendMediaRequest_Transport)(0),    // 0: relaypb.SendMediaRequest.Transport
+	(MediaStatusResponse_Status)(0),    // 1: relaypb.MediaStatusResponse.Status
+	(*SendMediaRequest)(nil),           // 2: relaypb.SendMediaRequest
+	(*SendMediaResponse)(nil),          // 3: relaypb.SendMediaResponse
+	(*GetMediaStatusRequest)(nil),      // 4: relaypb.GetMediaStatusRequest
+	(*MediaStatusResponse)(nil),        // 5: relaypb.MediaStatusResponse
+	(*CancelSendRequest)(nil),          // 6: relaypb.CancelSendRequest
+	(*SendRequest)(nil),                // 7: relaypb.SendRequest
+	(*SendResponse)(nil),               // 8: relaypb.SendResponse
+	(*PollRequest)(nil),                // 9: relaypb.PollRequest
+	(*PollResponse)(nil),               // 10: relaypb.PollResponse
+	(*ReceivedMessage)(nil),            // 11: relaypb.ReceivedMessage
+	(*Empty)(nil),                      // 12: relaypb.Empty
+	(*RelayEndpoint)(nil),              // 13: relaypb.RelayEndpoint
+	(*RelayStatusList)(nil),            // 14: relaypb.RelayStatusList
+	(*RelayStatus)(nil),                // 15: relaypb.RelayStatus
+	(*IdentityInfo)(nil),               // 16: relaypb.IdentityInfo
+	(*PeerInfo)(nil),                   // 17: relaypb.PeerInfo
+	(*GenerateInviteCodeRequest)(nil),  // 18: relaypb.GenerateInviteCodeRequest
+	(*GenerateInviteCodeResponse)(nil), // 19: relaypb.GenerateInviteCodeResponse
+	(*JoinViaCodeRequest)(nil),         // 20: relaypb.JoinViaCodeRequest
+	(*CreateGroupRequest)(nil),         // 21: relaypb.CreateGroupRequest
+	(*CreateGroupResponse)(nil),        // 22: relaypb.CreateGroupResponse
+	(*LeaveGroupRequest)(nil),          // 23: relaypb.LeaveGroupRequest
+	(*RemoveGroupMemberRequest)(nil),   // 24: relaypb.RemoveGroupMemberRequest
+	(*ListGroupsResponse)(nil),         // 25: relaypb.ListGroupsResponse
+	(*GroupInfo)(nil),                  // 26: relaypb.GroupInfo
+	(*GroupMember)(nil),                // 27: relaypb.GroupMember
+	(*TransportStatusResponse)(nil),    // 28: relaypb.TransportStatusResponse
 }
 var file_proto_relay_proto_depIdxs = []int32{
 	0,  // 0: relaypb.SendMediaRequest.preferred_transport:type_name -> relaypb.SendMediaRequest.Transport
 	1,  // 1: relaypb.MediaStatusResponse.status:type_name -> relaypb.MediaStatusResponse.Status
 	11, // 2: relaypb.PollResponse.messages:type_name -> relaypb.ReceivedMessage
 	15, // 3: relaypb.RelayStatusList.endpoints:type_name -> relaypb.RelayStatus
-	7,  // 4: relaypb.RelayClient.SendMessage:input_type -> relaypb.SendRequest
-	9,  // 5: relaypb.RelayClient.PollMessages:input_type -> relaypb.PollRequest
-	12, // 6: relaypb.RelayClient.GetRelayStatus:input_type -> relaypb.Empty
-	13, // 7: relaypb.RelayClient.AddRelay:input_type -> relaypb.RelayEndpoint
-	13, // 8: relaypb.RelayClient.RemoveRelay:input_type -> relaypb.RelayEndpoint
-	12, // 9: relaypb.RelayClient.GetIdentity:input_type -> relaypb.Empty
-	17, // 10: relaypb.RelayClient.AddPeer:input_type -> relaypb.PeerInfo
-	12, // 11: relaypb.RelayClient.GetTransportStatus:input_type -> relaypb.Empty
-	2,  // 12: relaypb.RelayClient.SendMedia:input_type -> relaypb.SendMediaRequest
-	4,  // 13: relaypb.RelayClient.GetMediaStatus:input_type -> relaypb.GetMediaStatusRequest
-	6,  // 14: relaypb.RelayClient.CancelSend:input_type -> relaypb.CancelSendRequest
-	8,  // 15: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
-	10, // 16: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
-	14, // 17: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
-	12, // 18: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
-	12, // 19: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
-	16, // 20: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
-	12, // 21: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
-	18, // 22: relaypb.RelayClient.GetTransportStatus:output_type -> relaypb.TransportStatusResponse
-	3,  // 23: relaypb.RelayClient.SendMedia:output_type -> relaypb.SendMediaResponse
-	5,  // 24: relaypb.RelayClient.GetMediaStatus:output_type -> relaypb.MediaStatusResponse
-	12, // 25: relaypb.RelayClient.CancelSend:output_type -> relaypb.Empty
-	15, // [15:26] is the sub-list for method output_type
-	4,  // [4:15] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	26, // 4: relaypb.ListGroupsResponse.groups:type_name -> relaypb.GroupInfo
+	27, // 5: relaypb.GroupInfo.members:type_name -> relaypb.GroupMember
+	7,  // 6: relaypb.RelayClient.SendMessage:input_type -> relaypb.SendRequest
+	9,  // 7: relaypb.RelayClient.PollMessages:input_type -> relaypb.PollRequest
+	12, // 8: relaypb.RelayClient.GetRelayStatus:input_type -> relaypb.Empty
+	13, // 9: relaypb.RelayClient.AddRelay:input_type -> relaypb.RelayEndpoint
+	13, // 10: relaypb.RelayClient.RemoveRelay:input_type -> relaypb.RelayEndpoint
+	12, // 11: relaypb.RelayClient.GetIdentity:input_type -> relaypb.Empty
+	17, // 12: relaypb.RelayClient.AddPeer:input_type -> relaypb.PeerInfo
+	12, // 13: relaypb.RelayClient.GetTransportStatus:input_type -> relaypb.Empty
+	2,  // 14: relaypb.RelayClient.SendMedia:input_type -> relaypb.SendMediaRequest
+	4,  // 15: relaypb.RelayClient.GetMediaStatus:input_type -> relaypb.GetMediaStatusRequest
+	6,  // 16: relaypb.RelayClient.CancelSend:input_type -> relaypb.CancelSendRequest
+	18, // 17: relaypb.RelayClient.GenerateInviteCode:input_type -> relaypb.GenerateInviteCodeRequest
+	20, // 18: relaypb.RelayClient.JoinViaCode:input_type -> relaypb.JoinViaCodeRequest
+	17, // 19: relaypb.RelayClient.RemovePeer:input_type -> relaypb.PeerInfo
+	21, // 20: relaypb.RelayClient.CreateGroup:input_type -> relaypb.CreateGroupRequest
+	12, // 21: relaypb.RelayClient.ListGroups:input_type -> relaypb.Empty
+	23, // 22: relaypb.RelayClient.LeaveGroup:input_type -> relaypb.LeaveGroupRequest
+	24, // 23: relaypb.RelayClient.RemoveGroupMember:input_type -> relaypb.RemoveGroupMemberRequest
+	8,  // 24: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
+	10, // 25: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
+	14, // 26: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
+	12, // 27: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
+	12, // 28: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
+	16, // 29: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
+	12, // 30: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
+	28, // 31: relaypb.RelayClient.GetTransportStatus:output_type -> relaypb.TransportStatusResponse
+	3,  // 32: relaypb.RelayClient.SendMedia:output_type -> relaypb.SendMediaResponse
+	5,  // 33: relaypb.RelayClient.GetMediaStatus:output_type -> relaypb.MediaStatusResponse
+	12, // 34: relaypb.RelayClient.CancelSend:output_type -> relaypb.Empty
+	19, // 35: relaypb.RelayClient.GenerateInviteCode:output_type -> relaypb.GenerateInviteCodeResponse
+	12, // 36: relaypb.RelayClient.JoinViaCode:output_type -> relaypb.Empty
+	12, // 37: relaypb.RelayClient.RemovePeer:output_type -> relaypb.Empty
+	22, // 38: relaypb.RelayClient.CreateGroup:output_type -> relaypb.CreateGroupResponse
+	25, // 39: relaypb.RelayClient.ListGroups:output_type -> relaypb.ListGroupsResponse
+	12, // 40: relaypb.RelayClient.LeaveGroup:output_type -> relaypb.Empty
+	12, // 41: relaypb.RelayClient.RemoveGroupMember:output_type -> relaypb.Empty
+	24, // [24:42] is the sub-list for method output_type
+	6,  // [6:24] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_relay_proto_init() }
@@ -1256,7 +1842,7 @@ func file_proto_relay_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_relay_proto_rawDesc), len(file_proto_relay_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   17,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

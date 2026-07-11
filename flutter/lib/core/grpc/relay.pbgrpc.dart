@@ -110,6 +110,55 @@ class RelayClient extends $grpc.Client {
     return $createUnaryCall(_$cancelSend, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.GenerateInviteCodeResponse> generateInviteCode(
+    $0.GenerateInviteCodeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$generateInviteCode, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Empty> joinViaCode(
+    $0.JoinViaCodeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$joinViaCode, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Empty> removePeer(
+    $0.PeerInfo request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$removePeer, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.CreateGroupResponse> createGroup(
+    $0.CreateGroupRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$createGroup, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListGroupsResponse> listGroups(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listGroups, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Empty> leaveGroup(
+    $0.LeaveGroupRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$leaveGroup, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Empty> removeGroupMember(
+    $0.RemoveGroupMemberRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$removeGroupMember, request, options: options);
+  }
+
   // method descriptors
 
   static final _$sendMessage =
@@ -162,6 +211,40 @@ class RelayClient extends $grpc.Client {
       $grpc.ClientMethod<$0.CancelSendRequest, $0.Empty>(
           '/relaypb.RelayClient/CancelSend',
           ($0.CancelSendRequest value) => value.writeToBuffer(),
+          $0.Empty.fromBuffer);
+  static final _$generateInviteCode = $grpc.ClientMethod<
+          $0.GenerateInviteCodeRequest, $0.GenerateInviteCodeResponse>(
+      '/relaypb.RelayClient/GenerateInviteCode',
+      ($0.GenerateInviteCodeRequest value) => value.writeToBuffer(),
+      $0.GenerateInviteCodeResponse.fromBuffer);
+  static final _$joinViaCode =
+      $grpc.ClientMethod<$0.JoinViaCodeRequest, $0.Empty>(
+          '/relaypb.RelayClient/JoinViaCode',
+          ($0.JoinViaCodeRequest value) => value.writeToBuffer(),
+          $0.Empty.fromBuffer);
+  static final _$removePeer = $grpc.ClientMethod<$0.PeerInfo, $0.Empty>(
+      '/relaypb.RelayClient/RemovePeer',
+      ($0.PeerInfo value) => value.writeToBuffer(),
+      $0.Empty.fromBuffer);
+  static final _$createGroup =
+      $grpc.ClientMethod<$0.CreateGroupRequest, $0.CreateGroupResponse>(
+          '/relaypb.RelayClient/CreateGroup',
+          ($0.CreateGroupRequest value) => value.writeToBuffer(),
+          $0.CreateGroupResponse.fromBuffer);
+  static final _$listGroups =
+      $grpc.ClientMethod<$0.Empty, $0.ListGroupsResponse>(
+          '/relaypb.RelayClient/ListGroups',
+          ($0.Empty value) => value.writeToBuffer(),
+          $0.ListGroupsResponse.fromBuffer);
+  static final _$leaveGroup =
+      $grpc.ClientMethod<$0.LeaveGroupRequest, $0.Empty>(
+          '/relaypb.RelayClient/LeaveGroup',
+          ($0.LeaveGroupRequest value) => value.writeToBuffer(),
+          $0.Empty.fromBuffer);
+  static final _$removeGroupMember =
+      $grpc.ClientMethod<$0.RemoveGroupMemberRequest, $0.Empty>(
+          '/relaypb.RelayClient/RemoveGroupMember',
+          ($0.RemoveGroupMemberRequest value) => value.writeToBuffer(),
           $0.Empty.fromBuffer);
 }
 
@@ -248,6 +331,61 @@ abstract class RelayClientServiceBase extends $grpc.Service {
         false,
         false,
         ($core.List<$core.int> value) => $0.CancelSendRequest.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GenerateInviteCodeRequest,
+            $0.GenerateInviteCodeResponse>(
+        'GenerateInviteCode',
+        generateInviteCode_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GenerateInviteCodeRequest.fromBuffer(value),
+        ($0.GenerateInviteCodeResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.JoinViaCodeRequest, $0.Empty>(
+        'JoinViaCode',
+        joinViaCode_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.JoinViaCodeRequest.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PeerInfo, $0.Empty>(
+        'RemovePeer',
+        removePeer_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PeerInfo.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.CreateGroupRequest, $0.CreateGroupResponse>(
+            'CreateGroup',
+            createGroup_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.CreateGroupRequest.fromBuffer(value),
+            ($0.CreateGroupResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.ListGroupsResponse>(
+        'ListGroups',
+        listGroups_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.ListGroupsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.LeaveGroupRequest, $0.Empty>(
+        'LeaveGroup',
+        leaveGroup_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.LeaveGroupRequest.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RemoveGroupMemberRequest, $0.Empty>(
+        'RemoveGroupMember',
+        removeGroupMember_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.RemoveGroupMemberRequest.fromBuffer(value),
         ($0.Empty value) => value.writeToBuffer()));
   }
 
@@ -338,4 +476,61 @@ abstract class RelayClientServiceBase extends $grpc.Service {
 
   $async.Future<$0.Empty> cancelSend(
       $grpc.ServiceCall call, $0.CancelSendRequest request);
+
+  $async.Future<$0.GenerateInviteCodeResponse> generateInviteCode_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GenerateInviteCodeRequest> $request) async {
+    return generateInviteCode($call, await $request);
+  }
+
+  $async.Future<$0.GenerateInviteCodeResponse> generateInviteCode(
+      $grpc.ServiceCall call, $0.GenerateInviteCodeRequest request);
+
+  $async.Future<$0.Empty> joinViaCode_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.JoinViaCodeRequest> $request) async {
+    return joinViaCode($call, await $request);
+  }
+
+  $async.Future<$0.Empty> joinViaCode(
+      $grpc.ServiceCall call, $0.JoinViaCodeRequest request);
+
+  $async.Future<$0.Empty> removePeer_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PeerInfo> $request) async {
+    return removePeer($call, await $request);
+  }
+
+  $async.Future<$0.Empty> removePeer(
+      $grpc.ServiceCall call, $0.PeerInfo request);
+
+  $async.Future<$0.CreateGroupResponse> createGroup_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.CreateGroupRequest> $request) async {
+    return createGroup($call, await $request);
+  }
+
+  $async.Future<$0.CreateGroupResponse> createGroup(
+      $grpc.ServiceCall call, $0.CreateGroupRequest request);
+
+  $async.Future<$0.ListGroupsResponse> listGroups_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return listGroups($call, await $request);
+  }
+
+  $async.Future<$0.ListGroupsResponse> listGroups(
+      $grpc.ServiceCall call, $0.Empty request);
+
+  $async.Future<$0.Empty> leaveGroup_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.LeaveGroupRequest> $request) async {
+    return leaveGroup($call, await $request);
+  }
+
+  $async.Future<$0.Empty> leaveGroup(
+      $grpc.ServiceCall call, $0.LeaveGroupRequest request);
+
+  $async.Future<$0.Empty> removeGroupMember_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.RemoveGroupMemberRequest> $request) async {
+    return removeGroupMember($call, await $request);
+  }
+
+  $async.Future<$0.Empty> removeGroupMember(
+      $grpc.ServiceCall call, $0.RemoveGroupMemberRequest request);
 }
