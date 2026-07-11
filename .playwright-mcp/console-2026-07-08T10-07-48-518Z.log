@@ -1,3 +1,0 @@
-[   22247ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://api.whatnot.com/graphql/:0
-[   22571ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://api.whatnot.com/favicon.ico:0
-[   23083ms] [ERROR] Mixed Content: The page at 'https://api.whatnot.com/graphql/' was loaded over HTTPS, but requested an insecure resource 'http://api.whatnot.com/graphql/'. This request has been blocked; the content must be served over HTTPS. @ https://api.whatnot.com/graphql/:0

@@ -41,6 +41,7 @@ flutter/.vscode/
 run_analyze.bat
 analyze_result.txt
 .superpowers/
+.playwright-mcp/
 
 # OS junk
 Thumbs.db
