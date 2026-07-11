@@ -138,18 +138,28 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		return err
 	}
 
-		// Determine relays: always use configured relays, supplement with DHT.
-		var engineRelays []string
-		engineRelays = loadRelaysFromConfig(dataDir)
-		if len(engineRelays) == 0 {
-			engineRelays = relays
-		}
-		if len(engineRelays) == 0 && dhtClient == nil {
-			slog.Warn("no relay endpoints configured and no DHT available")
-		}
-		if len(engineRelays) > 0 {
-			slog.Info("using relays", "relays", engineRelays)
-		}
+		// Determine relays: merge file relays with method-channel relays, deduplicate.
+			var engineRelays []string
+			fileRelays := loadRelaysFromConfig(dataDir)
+			seen := make(map[string]bool)
+			for _, r := range fileRelays {
+				if !seen[r] {
+					seen[r] = true
+					engineRelays = append(engineRelays, r)
+				}
+			}
+			for _, r := range relays {
+				if !seen[r] {
+					seen[r] = true
+					engineRelays = append(engineRelays, r)
+				}
+			}
+			if len(engineRelays) == 0 && dhtClient == nil {
+				slog.Warn("no relay endpoints configured and no DHT available")
+			}
+			if len(engineRelays) > 0 {
+				slog.Info("using relays", "relays", engineRelays)
+			}
 
 	// Create DNS engine
 	engine := NewDNSClientEngine(engineRelays, zone)

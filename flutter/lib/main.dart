@@ -61,9 +61,30 @@ Future<void> _syncPeers() async {
 }
 
 /// Sync persisted relays from JSON to daemon via gRPC.
+/// If no file exists, write default relay so subsequent launches pick it up.
 Future<void> _syncRelays() async {
   final file = AppDataDir.file('relays.json');
-  if (!await file.exists()) return;
+  if (!await file.exists()) {
+    // First launch — write default relay so daemon's loadRelaysFromConfig
+    // picks it up on next launch instead of falling back to wrong port.
+    await file.writeAsString(jsonEncode({
+      'relays': [
+        {'address': GoBridge.defaultRelay, 'dnsResolver': '8.8.8.8:53'},
+      ],
+      'dnsResolver': '8.8.8.8:53',
+    }));
+    // Sync the default relay to the running daemon too
+    try {
+      await GrpcClient().stub.addRelay(RelayEndpoint(
+        address: GoBridge.defaultRelay,
+      ));
+      debugPrint('Added default relay: ${GoBridge.defaultRelay}');
+    } catch (e) {
+      debugPrint('Failed to sync default relay: $e');
+    }
+    return;
+  }
+  // File exists — sync its contents
   try {
     final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     final relays = json['relays'] as List? ?? [];

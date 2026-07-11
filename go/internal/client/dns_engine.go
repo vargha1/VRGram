@@ -271,8 +271,10 @@ type PolledMessage struct {
 func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage, error) {
 	msgIDs, err := e.PollRelays(recipientPubkey)
 	if err != nil || len(msgIDs) == 0 {
+		slog.Debug("PollMessages: no msgIDs from relays", "count", len(msgIDs), "error", err)
 		return nil, err
 	}
+	slog.Debug("PollMessages: got msgIDs from relays", "count", len(msgIDs))
 
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
