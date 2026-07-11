@@ -205,27 +205,36 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	m.SetQuestion(mdns.Fqdn(name), mdns.TypeTXT)
 	m.RecursionDesired = false
 
-		client := &mdns.Client{Timeout: 5 * time.Second}
-	resp, _, err := client.Exchange(m, resolved)
-	if err != nil {
-		// UDP failed — retry once (transient packet loss on mobile)
-		slog.Debug("poll udp failed, retrying udp", "error", err)
-		client.Net = "udp"
-		resp, _, err = client.Exchange(m, resolved)
+	// TCP first (carrier UDP intercept), fall back to UDP
+	tcpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
+	resp, _, err := tcpClient.Exchange(m, resolved)
+	if err == nil && resp.Rcode == mdns.RcodeSuccess {
+		return parsePollResponse(resp), nil
 	}
+
+	// TCP failed — try UDP once
+	slog.Debug("poll tcp failed, trying udp", "error", err)
+	udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
+	resp, _, err = udpClient.Exchange(m, resolved)
+	if err == nil && resp.Rcode == mdns.RcodeSuccess {
+		return parsePollResponse(resp), nil
+	}
+
+	// UDP also failed — final TCP retry
+	slog.Debug("poll udp failed, final tcp retry", "error", err)
+	tcpClient2 := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
+	resp, _, err = tcpClient2.Exchange(m, resolved)
 	if err != nil {
-		// UDP still fails (NAT/firewall). Try TCP.
-		slog.Debug("poll udp retry failed, trying tcp", "error", err)
-		client.Net = "tcp"
-		resp, _, err = client.Exchange(m, resolved)
-		if err != nil {
-			return nil, fmt.Errorf("dns poll failed (udp+tcp): %w", err)
-		}
+		return nil, fmt.Errorf("dns poll failed (tcp+udp): %w", err)
 	}
 	if resp.Rcode != mdns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
+	return parsePollResponse(resp), nil
+}
 
+// parsePollResponse extracts msgIDs from a POLL TXT response.
+func parsePollResponse(resp *mdns.Msg) [][8]byte {
 	var msgIDs [][8]byte
 	for _, ans := range resp.Answer {
 		txt, ok := ans.(*mdns.TXT)
@@ -242,7 +251,7 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 			msgIDs = append(msgIDs, mid)
 		}
 	}
-	return msgIDs, nil
+	return msgIDs
 }
 
 // PolledMessage holds a reassembled message and its original DNS msgID.

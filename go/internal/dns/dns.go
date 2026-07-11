@@ -26,36 +26,42 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 	m.RecursionDesired = false
 	m.SetEdns0(4096, true)
 
-	client := &dns.Client{
-		Timeout: defaultTimeout,
-		Net:     "udp",
-	}
-	if useTCP {
-		client.Net = "tcp"
+	// Try TCP first (carrier networks intercept UDP:53 and return fake NXDOMAIN).
+	// Fall back to UDP if TCP fails.
+	if !useTCP {
+		// Try TCP first
+		tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+		resp, _, err := tcpClient.Exchange(m, addr)
+		if err == nil && resp.Rcode == dns.RcodeSuccess {
+			return nil
+		}
+		// TCP failed or returned error — try UDP once
+		slog.Debug("dns tcp failed or bad rcode, trying udp", "error", err)
+		udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
+		resp, _, err = udpClient.Exchange(m, addr)
+		if err == nil && resp.Rcode == dns.RcodeSuccess {
+			return nil
+		}
+		// UDP also failed — try TCP once more (in case truncated or transient)
+		if err != nil {
+			slog.Debug("dns udp failed, final tcp retry", "error", err)
+			tcpClient2 := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+			resp, _, err = tcpClient2.Exchange(m, addr)
+			if err == nil && resp.Rcode == dns.RcodeSuccess {
+				return nil
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("dns exchange failed (tcp+udp): %w", err)
+		}
+		return fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
 
+	// useTCP explicitly requested
+	client := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
 	resp, _, err := client.Exchange(m, addr)
 	if err != nil {
-		// UDP failed — retry once (transient packet loss)
-		slog.Debug("dns udp failed, retrying udp", "error", err)
-		client.Net = "udp"
-		resp, _, err = client.Exchange(m, addr)
-	}
-	if err != nil {
-		// UDP still fails (NAT/firewall). Retry via TCP.
-		slog.Debug("dns udp retry failed, trying tcp", "error", err)
-		client.Net = "tcp"
-		resp, _, err = client.Exchange(m, addr)
-		if err != nil {
-			return fmt.Errorf("dns exchange failed (udp+tcp): %w", err)
-		}
-	}
-	if resp.MsgHdr.Truncated {
-		client.Net = "tcp"
-		resp, _, err = client.Exchange(m, addr)
-		if err != nil {
-			return fmt.Errorf("dns tcp fallback failed: %w", err)
-		}
+		return fmt.Errorf("dns tcp exchange failed: %w", err)
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		return fmt.Errorf("dns response code: %d", resp.Rcode)
@@ -72,22 +78,35 @@ func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16) (*encoding.Ch
 	m.SetQuestion(dns.Fqdn(name), dns.TypeTXT)
 	m.RecursionDesired = false
 
-	client := &dns.Client{Timeout: defaultTimeout}
-	resp, _, err := client.Exchange(m, addr)
-	if err != nil {
-		// UDP failed — retry once (transient packet loss)
-		slog.Debug("dns query udp failed, retrying udp", "error", err)
-		client.Net = "udp"
-		resp, _, err = client.Exchange(m, addr)
-	}
-	if err != nil {
-		// UDP still fails (NAT/firewall). Try TCP.
-		slog.Debug("dns query udp retry failed, trying tcp", "error", err)
-		client.Net = "tcp"
-		resp, _, err = client.Exchange(m, addr)
-		if err != nil {
-			return nil, fmt.Errorf("dns query failed (udp+tcp): %w", err)
+	// TCP first (carrier UDP intercept), fall back to UDP, then final TCP retry
+	tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+	resp, _, err := tcpClient.Exchange(m, addr)
+	if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
+		txt, ok := resp.Answer[0].(*dns.TXT)
+		if ok {
+			allLabels := append(txt.Txt, zone)
+			return encoding.DecodeChunkFromLabels(allLabels, zone)
 		}
+	}
+
+	// TCP failed — try UDP once
+	slog.Debug("dns query tcp failed or bad response, trying udp", "error", err)
+	udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
+	resp, _, err = udpClient.Exchange(m, addr)
+	if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
+		txt, ok := resp.Answer[0].(*dns.TXT)
+		if ok {
+			allLabels := append(txt.Txt, zone)
+			return encoding.DecodeChunkFromLabels(allLabels, zone)
+		}
+	}
+
+	// UDP also failed — final TCP retry (handles truncated responses)
+	slog.Debug("dns query udp failed, final tcp retry", "error", err)
+	tcpClient2 := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+	resp, _, err = tcpClient2.Exchange(m, addr)
+	if err != nil {
+		return nil, fmt.Errorf("dns query failed (tcp+udp): %w", err)
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
