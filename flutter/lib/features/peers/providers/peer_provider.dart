@@ -72,7 +72,24 @@ class PeerList extends Notifier<List<Peer>> {
 
   Future<void> addPeer(String nickname, String pubkey) async {
     final clean = sanitizePubkey(pubkey);
+    try {
+      final client = GrpcClient();
+      await client.stub.addPeer(PeerInfo(nickname: nickname, pubkey: clean));
+    } catch (e) {
+      debugPrint('addPeer gRPC failed: $e');
+    }
     state = [...state, Peer(nickname: nickname, pubkey: clean)];
+    await _save();
+  }
+
+  Future<void> removePeerByPubkey(String pubkey) async {
+    try {
+      final client = GrpcClient();
+      await client.stub.removePeer(PeerInfo(pubkey: pubkey, nickname: ''));
+    } catch (e) {
+      debugPrint('removePeer gRPC failed: $e');
+    }
+    state = state.where((p) => p.pubkey != pubkey).toList();
     await _save();
   }
 

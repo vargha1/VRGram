@@ -24,7 +24,8 @@ void main() async {
       debugPrint('Failed to get dataDir: $e');
     }
   } else {
-    AppDataDir.init(Directory.current.path);
+    dataDir = Directory.current.path;
+    AppDataDir.init(dataDir);
   }
 
   // Start Go daemon
@@ -33,30 +34,10 @@ void main() async {
   // Initialize gRPC client
   await GrpcClient().init();
 
-  // Sync persisted data to daemon (blocking — ensures daemon knows peers/relays)
-  await _syncPeers();
+  // Sync persisted data to daemon (blocking — ensures daemon knows relays)
   await _syncRelays();
 
   runApp(const ProviderScope(child: VRGramApp()));
-}
-
-/// Sync persisted peers from JSON to daemon via gRPC.
-Future<void> _syncPeers() async {
-  final file = AppDataDir.file('peers.json');
-  if (!await file.exists()) return;
-  try {
-    final json = jsonDecode(await file.readAsString()) as List;
-    for (final entry in json) {
-      final peer = entry as Map<String, dynamic>;
-      await GrpcClient().stub.addPeer(PeerInfo(
-        nickname: peer['nickname'] as String,
-        pubkey: peer['pubkey'] as String,
-      ));
-    }
-    debugPrint('Synced ${json.length} peers to daemon');
-  } catch (e) {
-    debugPrint('Failed to sync peers: $e');
-  }
 }
 
 /// Sync persisted relays from JSON to daemon via gRPC.
@@ -65,12 +46,10 @@ Future<void> _syncRelays() async {
   final file = AppDataDir.file('relays.json');
   if (!await file.exists()) {
     // First launch — write default relay so daemon's loadRelaysFromConfig
-    // picks it up on next launch instead of falling back to wrong port.
+    // picks it up on next launch. Format: {"relays": ["addr:port"]}
+    // (Go daemon expects array of strings, not objects.)
     await file.writeAsString(jsonEncode({
-      'relays': [
-        {'address': GoBridge.defaultRelay, 'dnsResolver': '8.8.8.8:53'},
-      ],
-      'dnsResolver': '8.8.8.8:53',
+      'relays': [GoBridge.defaultRelay],
     }));
     // Sync the default relay to the running daemon too
     try {
@@ -88,10 +67,14 @@ Future<void> _syncRelays() async {
     final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     final relays = json['relays'] as List? ?? [];
     for (final entry in relays) {
-      final relay = entry as Map<String, dynamic>;
-      await GrpcClient().stub.addRelay(RelayEndpoint(
-        address: relay['address'] as String,
-      ));
+      // Handle both legacy format (map with 'address') and current format (plain string)
+      String addr;
+      if (entry is Map) {
+        addr = entry['address'] as String;
+      } else {
+        addr = entry as String;
+      }
+      await GrpcClient().stub.addRelay(RelayEndpoint(address: addr));
     }
     debugPrint('Synced ${relays.length} relays to daemon');
   } catch (e) {
