@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../../../core/platform/app_data_dir.dart';
 import '../../../shared/constants.dart';
 import 'chat_provider.dart';
 
@@ -12,23 +15,85 @@ final pollMessagesProvider = StreamProvider<void>((ref) async* {
       final client = GrpcClient();
       final resp = await client.stub.pollMessages(PollRequest());
       for (final msg in resp.messages) {
+        final serverTs = msg.hasServerTimestampMs() && msg.serverTimestampMs > 0
+            ? DateTime.fromMillisecondsSinceEpoch(msg.serverTimestampMs.toInt())
+            : DateTime.now();
+
         ref.read(chatProvider.notifier).addMessage(ChatMessage(
               id: msg.messageId,
               text: utf8.decode(msg.plaintext),
-              timestamp: msg.hasTimestamp()
-                  ? DateTime.fromMillisecondsSinceEpoch(msg.timestamp.toInt())
-                  : DateTime.now(),
+              timestamp: serverTs,
+              serverTimestamp: msg.hasServerTimestampMs() && msg.serverTimestampMs > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(msg.serverTimestampMs.toInt())
+                  : null,
               isSent: false,
               status: MessageStatus.received,
               fromPeer: msg.fromPeer,
+              sequenceNumber: msg.hasSequenceNumber() && msg.sequenceNumber > 0
+                  ? msg.sequenceNumber.toInt()
+                  : null,
             ));
       }
-    } catch (_) {
-      // gRPC error — will retry on next poll
+    } catch (e) {
+      debugPrint('[pollMessagesProvider] error: $e');
     }
-    // Yield after each poll cycle so Riverpod keeps the stream alive.
-    // Without yield, StreamProvider stays in AsyncLoading and may be
-    // garbage-collected, stopping all polling.
+    yield null;
+  }
+});
+
+/// Scans media_received/ directory for files downloaded by the daemon.
+/// Each media file has a .meta sidecar with MIME type and original filename.
+final receivedMediaProvider = StreamProvider<void>((ref) async* {
+  final seen = <String>{};
+  while (true) {
+    await Future.delayed(const Duration(seconds: 3));
+    try {
+      final dir = Directory('${AppDataDir.path}/media_received');
+      if (!await dir.exists()) continue;
+      final files = await dir.list().toList();
+      for (final entity in files) {
+        final path = entity.path;
+        // Skip .meta sidecar files and already-processed files
+        if (path.endsWith('.meta') || seen.contains(path)) continue;
+        seen.add(path);
+
+        final name = entity.path.split('/').last.split('\\').last; // e.g. "abc123.jpg"
+        // Extract msgId by removing extension
+        final dot = name.lastIndexOf('.');
+        if (dot <= 0) continue;
+        final msgId = name.substring(0, dot);
+        final ext = name.substring(dot);
+
+        // Read .meta sidecar
+        String mimeType = 'application/octet-stream';
+        String filename = name;
+        String? senderPubkey;
+        final metaFile = File('$path.meta');
+        if (await metaFile.exists()) {
+          try {
+            final meta = jsonDecode(await metaFile.readAsString());
+            mimeType = meta['mime'] as String? ?? mimeType;
+            filename = meta['filename'] as String? ?? filename;
+            senderPubkey = meta['sender_pubkey'] as String?;
+          } catch (e) {}
+        }
+
+        // Use relative path for local display
+        ref.read(chatProvider.notifier).addMessage(ChatMessage(
+              id: msgId,
+              text: filename,
+              timestamp: DateTime.now(),
+              isSent: false,
+              status: MessageStatus.received,
+              fromPeer: senderPubkey, // may be null until Phase 4 writes this
+              mimeType: mimeType,
+              filename: filename,
+              localFilePath: path,
+            ));
+      }
+    } catch (e) {
+      // Directory may not exist yet
+    }
     yield null;
   }
 });
