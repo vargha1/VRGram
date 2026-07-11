@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
 import '../../../core/media/media_service.dart';
 import '../../../core/platform/app_data_dir.dart';
+
+const _uuid = Uuid();
 
 enum MessageStatus { sent, queued, failed, received, sending }
 
@@ -23,6 +26,8 @@ class ChatMessage {
   final String? mediaMessageId;
   final double? mediaProgress;
   final String? localFilePath;
+  final int? sequenceNumber;
+  final DateTime? serverTimestamp;
 
   ChatMessage({
     required this.id,
@@ -38,6 +43,8 @@ class ChatMessage {
     this.mediaMessageId,
     this.mediaProgress,
     this.localFilePath,
+    this.sequenceNumber,
+    this.serverTimestamp,
   });
 
   ChatMessage copyWith({
@@ -54,6 +61,8 @@ class ChatMessage {
     String? mediaMessageId,
     double? mediaProgress,
     String? localFilePath,
+    int? sequenceNumber,
+    DateTime? serverTimestamp,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -69,6 +78,8 @@ class ChatMessage {
       mediaMessageId: mediaMessageId ?? this.mediaMessageId,
       mediaProgress: mediaProgress ?? this.mediaProgress,
       localFilePath: localFilePath ?? this.localFilePath,
+      sequenceNumber: sequenceNumber ?? this.sequenceNumber,
+      serverTimestamp: serverTimestamp ?? this.serverTimestamp,
     );
   }
 
@@ -86,6 +97,8 @@ class ChatMessage {
         'mediaMessageId': mediaMessageId,
         'mediaProgress': mediaProgress,
         'localFilePath': localFilePath,
+        'sequenceNumber': sequenceNumber,
+        'serverTimestamp': serverTimestamp?.toIso8601String(),
       };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -103,6 +116,10 @@ class ChatMessage {
         mediaMessageId: json['mediaMessageId'] as String?,
         mediaProgress: (json['mediaProgress'] as num?)?.toDouble(),
         localFilePath: json['localFilePath'] as String?,
+        sequenceNumber: json['sequenceNumber'] as int?,
+        serverTimestamp: json['serverTimestamp'] != null
+            ? DateTime.parse(json['serverTimestamp'] as String)
+            : null,
       );
 }
 
@@ -128,7 +145,16 @@ class ChatList extends Notifier<List<ChatMessage>> {
             .toList();
         // Only replace state if no messages were added before load completed
         if (!_loaded) {
-          state = loaded;
+          // Stale queued messages from a previous session have no way to
+          // make progress — mark them as failed.
+          final stale = loaded.map((m) {
+            if (m.status == MessageStatus.queued &&
+                DateTime.now().difference(m.timestamp).inMinutes > 2) {
+              return m.copyWith(status: MessageStatus.failed);
+            }
+            return m;
+          }).toList();
+          state = stale;
           _loaded = true;
           debugPrint('[ChatList] loaded ${state.length} messages');
         }
@@ -155,7 +181,22 @@ class ChatList extends Notifier<List<ChatMessage>> {
   void addMessage(ChatMessage msg) {
     // Skip duplicates — same messageId already exists
     if (state.any((m) => m.id == msg.id)) return;
-    state = [...state, msg];
+    final newList = [...state, msg];
+    // Sort by sequenceNumber (nulls last), then by timestamp
+    newList.sort((a, b) {
+      final aSeq = a.sequenceNumber;
+      final bSeq = b.sequenceNumber;
+      if (aSeq != null && bSeq != null) {
+        final cmp = aSeq.compareTo(bSeq);
+        if (cmp != 0) return cmp;
+      } else if (aSeq != null) {
+        return -1; // sequenced messages first
+      } else if (bSeq != null) {
+        return 1;
+      }
+      return a.timestamp.compareTo(b.timestamp);
+    });
+    state = newList;
     _save();
   }
 
@@ -192,10 +233,21 @@ class ChatList extends Notifier<List<ChatMessage>> {
     }).toList();
   }
 
+  /// Strip "VRGram identity: " prefix from shared pubkey strings.
+  static String _sanitizePubkey(String raw) {
+    final s = raw.trim();
+    const prefix = 'VRGram identity: ';
+    if (s.startsWith(prefix)) {
+      return s.substring(prefix.length).trim();
+    }
+    return s;
+  }
+
   /// Send a text message: add optimistically, call gRPC, update status.
   Future<bool> sendMessage(String peerPubkey, String text) async {
-    final msgId = DateTime.now().millisecondsSinceEpoch.toString();
-    debugPrint('[ChatList] sendMessage: id=$msgId to=$peerPubkey text="$text"');
+    final pubkey = _sanitizePubkey(peerPubkey);
+    final msgId = _uuid.v4();
+    debugPrint('[ChatList] sendMessage: id=$msgId to=$pubkey text="$text"');
 
     addMessage(ChatMessage(
       id: msgId,
@@ -203,21 +255,33 @@ class ChatList extends Notifier<List<ChatMessage>> {
       timestamp: DateTime.now(),
       isSent: true,
       status: MessageStatus.sent,
-      toPeer: peerPubkey,
+      toPeer: pubkey,
     ));
 
     try {
       final client = GrpcClient();
       final resp = await client.stub
           .sendMessage(SendRequest(
-            peerPubkey: peerPubkey,
+            peerPubkey: pubkey,
             plaintext: utf8.encode(text),
           ))
           .timeout(const Duration(seconds: 35));
       debugPrint(
           '[ChatList] sendMessage OK: queued=${resp.queued} msgId=${resp.messageId}');
-      updateStatus(
-          msgId, resp.queued ? MessageStatus.queued : MessageStatus.sent);
+      if (resp.queued) {
+        updateStatus(msgId, MessageStatus.queued);
+        // If message stays queued for >2 min, the DNS relay is unreachable
+        // and the offline queue won't make progress — mark as failed.
+        Future.delayed(const Duration(minutes: 2), () {
+          final current = state.where((m) => m.id == msgId);
+          if (current.isNotEmpty && current.first.status == MessageStatus.queued) {
+            debugPrint('[ChatList] queue timeout for $msgId — marking failed');
+            updateStatus(msgId, MessageStatus.failed);
+          }
+        });
+      } else {
+        updateStatus(msgId, MessageStatus.sent);
+      }
       return true;
     } on TimeoutException {
       debugPrint('[ChatList] sendMessage TIMEOUT');
@@ -279,7 +343,7 @@ final sendMediaProvider =
         (ref, params) async {
   final client = GrpcClient();
   final mediaService = MediaService(client);
-  final msgId = DateTime.now().millisecondsSinceEpoch.toString();
+  final msgId = _uuid.v4();
 
   // Extract filename for display
   final filename = params.filePath.split('/').last.split('\\').last;
