@@ -36,7 +36,7 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 			return nil
 		}
 		// TCP failed or returned error — try UDP once
-		slog.Debug("dns tcp failed or bad rcode, trying udp", "error", err)
+		slog.Warn("dns tcp failed, trying udp", "relay", addr, "error", err)
 		udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
 		resp, _, err = udpClient.Exchange(m, addr)
 		if err == nil && resp.Rcode == dns.RcodeSuccess {

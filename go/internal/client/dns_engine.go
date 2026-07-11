@@ -128,6 +128,7 @@ func (e *DNSClientEngine) resolveAddr(addr string) (string, error) {
 // recipientPubkey is used for server-side recipient indexing so the
 // recipient can poll for messages.
 func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, recipientPubkey string) ([8]byte, int, error) {
+	slog.Debug("SendMessage start", "plaintext_len", len(plaintext), "relays", e.discoverActiveRelays(ctx))
 	// Overall deadline: 10s for all chunks across all relays
 	sendCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -382,7 +383,7 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 				default:
 				}
 				if err := dns.SendChunk(relay, e.zone, chunk, false); err != nil {
-					slog.Debug("send chunk failed", "relay", relay, "chunk", i, "error", err)
+					slog.Warn("send chunk failed", "relay", relay, "chunk", i, "error", err)
 					return
 				}
 				mu.Lock()
