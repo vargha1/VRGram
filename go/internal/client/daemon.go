@@ -396,17 +396,8 @@ func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, erro
 	return &pb.Empty{}, nil
 }
 
-// loadPeers reads peers from JSON file into memory.
+	// loadPeers reads peers from JSON file into memory.
 func (d *Daemon) loadPeers() {
-	// Migrate from old peers.json (Go map format) to daemon_peers.json
-	oldPath := filepath.Join(filepath.Dir(d.peersPath), "peers.json")
-	if _, err := os.Stat(d.peersPath); os.IsNotExist(err) {
-		if _, err := os.Stat(oldPath); err == nil {
-			slog.Info("migrating peers from old peers.json to daemon_peers.json")
-			os.Rename(oldPath, d.peersPath)
-		}
-	}
-
 	data, err := os.ReadFile(d.peersPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
