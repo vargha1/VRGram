@@ -104,6 +104,10 @@ class GoBridge {
     required String zone,
     required String dnsResolver,
   }) async {
+    // Kill any orphan relayd from a previous app instance so the new one
+    // starts with the correct --data-dir and auth token paths match.
+    await _killOrphanDaemon();
+
     // Find relayd binary next to the Flutter executable or in PATH
     final binaryName = Platform.isWindows ? 'relayd.exe' : 'relayd';
     final binaryPath = await _findBinary(binaryName);
@@ -116,7 +120,6 @@ class GoBridge {
       'client',
       '--grpc-port', grpcPort.toString(),
       '--zone', zone,
-      '--p2p-port', p2pPort.toString(),
     ];
 
     if (dataDir.isNotEmpty) {
@@ -198,7 +201,7 @@ class GoBridge {
             credentials: const ChannelCredentials.insecure(),
           ),
         );
-        final stub = RelayClientClient(channel);
+        final stub = RelayClient(channel);
         await stub.getIdentity(Empty());
         await channel.shutdown();
         debugPrint('gRPC server ready on port $port');
@@ -225,7 +228,7 @@ class GoBridge {
             credentials: const ChannelCredentials.insecure(),
           ),
         );
-        final stub = RelayClientClient(channel);
+        final stub = RelayClient(channel);
         await stub.getIdentity(Empty());
         await channel.shutdown();
         debugPrint('gRPC server finally ready');
@@ -255,6 +258,25 @@ class GoBridge {
         }
       }
     } catch (_) {}
+  }
+
+  /// Kill any orphan relayd daemon from a previous app session.
+  /// On desktop, stale relayd processes hold port 9876 and use the wrong
+  /// data directory, causing gRPC auth token mismatch for the new instance.
+  static Future<void> _killOrphanDaemon() async {
+    if (!isDesktop) return;
+    try {
+      if (Platform.isWindows) {
+        // taskkill /f ignores "not found" exit code, so we capture all output
+        await Process.run('taskkill', ['/f', '/im', 'relayd.exe'],
+            runInShell: true);
+      } else {
+        // pkill -0 checks existence, -9 kills; ignore failures
+        await Process.run('pkill', ['-9', 'relayd'], runInShell: true);
+      }
+    } catch (_) {
+      // No orphan process — fine.
+    }
   }
 
   static bool get isDesktop => !Platform.isAndroid && !Platform.isIOS;

@@ -14,7 +14,7 @@ class GrpcClient {
   static const Duration _grpcTimeout = Duration(seconds: 30);
 
   late final ClientChannel _channel;
-  late final RelayClientClient _stub;
+  late final RelayClient _stub;
   final Completer<void> _ready = Completer<void>();
 
   /// Auth token read from daemon, passed as metadata on every gRPC call.
@@ -35,7 +35,7 @@ class GrpcClient {
         idleTimeout: const Duration(seconds: 30),
       ),
     );
-    _stub = RelayClientClient(_channel,
+    _stub = RelayClient(_channel,
         options: CallOptions(timeout: _grpcTimeout));
     _ready.complete();
   }
@@ -65,7 +65,7 @@ class GrpcClient {
     debugPrint('GrpcClient: auth token file not found within $timeout, continuing without auth');
   }
 
-  RelayClientClient get stub {
+  RelayClient get stub {
     if (!_ready.isCompleted) {
       throw StateError('GrpcClient not initialized. Call init() first.');
     }
