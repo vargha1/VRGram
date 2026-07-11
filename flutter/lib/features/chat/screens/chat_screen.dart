@@ -36,6 +36,7 @@ class ChatScreen extends ConsumerWidget {
                   ),
           ),
           ChatInput(
+            peerPubkey: peer.pubkey,
             onSend: (text) {
               ref.read(chatProvider.notifier).sendMessage(
                     peer.pubkey,
