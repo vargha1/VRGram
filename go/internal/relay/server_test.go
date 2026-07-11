@@ -27,7 +27,7 @@ func TestServerStoreAndQuery(t *testing.T) {
 	rand.Read(msgID[:])
 	chunk := encoding.NewChunk(msgID, 0, 2, []byte("first chunk"))
 
-	err := dns.SendChunk("127.0.0.1:5354", "msg.local-domain", chunk, false)
+		err := dns.SendChunk("127.0.0.1:5354", "msg.local-domain", chunk, dns.TransportAuto)
 	if err != nil {
 		t.Fatal(err)
 	}

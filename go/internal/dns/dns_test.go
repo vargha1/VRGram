@@ -29,7 +29,7 @@ func TestChunkQueryRoundTrip(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Send the chunk
-	err := SendChunk(testAddr, testZone, chunk, false)
+		err := SendChunk(testAddr, testZone, chunk, TransportAuto)
 	if err != nil {
 		t.Fatal(err)
 	}

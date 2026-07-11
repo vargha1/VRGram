@@ -49,6 +49,8 @@ class VRGramApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     // Start global message polling (runs for app lifetime)
     ref.watch(pollMessagesProvider);
+    // Start media file scanner (checks daemon-downloaded media files)
+    ref.watch(receivedMediaProvider);
 
     return MaterialApp.router(
       title: AppStrings.appName,

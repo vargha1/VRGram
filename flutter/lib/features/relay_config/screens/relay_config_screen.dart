@@ -5,7 +5,83 @@ import '../widgets/relay_tile.dart';
 import 'add_relay_dialog.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../../../core/platform/app_data_dir.dart';
 import '../../../shared/constants.dart';
+
+/// DNS transport modes the user can select.
+enum TransportMode { auto, tcp, udp }
+
+final transportModeProvider =
+    NotifierProvider<TransportModeNotifier, TransportMode>(TransportModeNotifier.new);
+
+class TransportModeNotifier extends Notifier<TransportMode> {
+  @override
+  TransportMode build() {
+    _load();
+    return TransportMode.auto;
+  }
+
+  Future<void> _load() async {
+    try {
+      final file = AppDataDir.file('transport_mode');
+      if (await file.exists()) {
+        final val = (await file.readAsString()).trim().toLowerCase();
+        switch (val) {
+          case 'tcp':
+            state = TransportMode.tcp;
+            break;
+          case 'udp':
+            state = TransportMode.udp;
+            break;
+          default:
+            state = TransportMode.auto;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setMode(TransportMode mode) async {
+    state = mode;
+    try {
+      final names = {TransportMode.auto: 'auto', TransportMode.tcp: 'tcp', TransportMode.udp: 'udp'};
+      await AppDataDir.file('transport_mode').writeAsString(names[mode]!);
+    } catch (_) {}
+  }
+}
+
+final chunkSizeProvider =
+    NotifierProvider<ChunkSizeNotifier, int>(ChunkSizeNotifier.new);
+
+class ChunkSizeNotifier extends Notifier<int> {
+  @override
+  int build() {
+    _load();
+    return 75;
+  }
+
+  static const int min = 32;
+  static const int max = 200;
+
+  Future<void> _load() async {
+    try {
+      final file = AppDataDir.file('chunk_size');
+      if (await file.exists()) {
+        final val = int.tryParse((await file.readAsString()).trim());
+        if (val != null && val >= min && val <= max) {
+          state = val;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setSize(int size) async {
+    final clamped = size.clamp(min, max);
+    state = clamped;
+    try {
+      await AppDataDir.file('chunk_size').writeAsString(clamped.toString());
+    } catch (_) {}
+  }
+}
 
 class RelayConfigScreen extends ConsumerWidget {
   const RelayConfigScreen({super.key});
@@ -36,6 +112,54 @@ class RelayConfigScreen extends ConsumerWidget {
               },
             ),
           ),
+          // DNS transport mode selector
+          Consumer(builder: (context, ref, _) {
+            final mode = ref.watch(transportModeProvider);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Text('DNS transport: ', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 8),
+                  _ModeChip('Auto', TransportMode.auto, mode, ref),
+                  const SizedBox(width: 4),
+                  _ModeChip('TCP', TransportMode.tcp, mode, ref),
+                  const SizedBox(width: 4),
+                  _ModeChip('UDP', TransportMode.udp, mode, ref),
+                ],
+              ),
+            );
+          }),
+          const Divider(height: 8),
+          // DNS chunk size
+          Consumer(builder: (context, ref, _) {
+            final size = ref.watch(chunkSizeProvider);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Text('Chunk size:', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 160,
+                    child: Slider(
+                      value: size.toDouble(),
+                      min: ChunkSizeNotifier.min.toDouble(),
+                      max: ChunkSizeNotifier.max.toDouble(),
+                      divisions: (ChunkSizeNotifier.max - ChunkSizeNotifier.min) ~/ 8,
+                      label: '$size B',
+                      onChanged: (v) => ref.read(chunkSizeProvider.notifier).setSize(v.round()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text('$size B', style: const TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const Divider(height: 4),
           // Blackout mode banner
           statusAsync.when(
             data: (statusList) {
@@ -110,6 +234,27 @@ class RelayConfigScreen extends ConsumerWidget {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+/// A small selectable chip for transport mode.
+class _ModeChip extends StatelessWidget {
+  final String label;
+  final TransportMode value;
+  final TransportMode current;
+  final WidgetRef ref;
+
+  const _ModeChip(this.label, this.value, this.current, this.ref);
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value == current;
+    return FilterChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) => ref.read(transportModeProvider.notifier).setMode(value),
+      visualDensity: VisualDensity.compact,
     );
   }
 }

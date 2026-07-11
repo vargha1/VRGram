@@ -10,6 +10,38 @@ import (
 	"github.com/user/dns-transport/internal/encoding"
 )
 
+// TransportMode controls DNS chunk delivery strategy.
+type TransportMode int
+
+const (
+	TransportAuto TransportMode = iota // TCP → UDP → TCP fallback
+	TransportTCP                       // TCP only
+	TransportUDP                       // UDP only
+)
+
+// TransportModeFromString parses "tcp", "udp", or "auto".
+func TransportModeFromString(s string) TransportMode {
+	switch strings.TrimSpace(strings.ToLower(s)) {
+	case "tcp":
+		return TransportTCP
+	case "udp":
+		return TransportUDP
+	default:
+		return TransportAuto
+	}
+}
+
+func (m TransportMode) String() string {
+	switch m {
+	case TransportTCP:
+		return "tcp"
+	case TransportUDP:
+		return "udp"
+	default:
+		return "auto"
+	}
+}
+
 const defaultTimeout = 5 * time.Second
 
 type Handler interface {
@@ -17,7 +49,7 @@ type Handler interface {
 	QueryChunk(msgID [8]byte, chunkIdx uint16) (*encoding.Chunk, error)
 }
 
-func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
+func SendChunk(addr, zone string, chunk *encoding.Chunk, mode TransportMode) error {
 	labels := chunk.EncodeToLabels(zone)
 	name := strings.Join(labels, ".")
 
@@ -26,23 +58,41 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 	m.RecursionDesired = false
 	m.SetEdns0(4096, true)
 
-	// Try TCP first (carrier networks intercept UDP:53 and return fake NXDOMAIN).
-	// Fall back to UDP if TCP fails.
-	if !useTCP {
-		// Try TCP first
+	switch mode {
+	case TransportTCP:
+		client := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+		resp, _, err := client.Exchange(m, addr)
+		if err != nil {
+			return fmt.Errorf("dns tcp exchange failed: %w", err)
+		}
+		if resp.Rcode != dns.RcodeSuccess {
+			return fmt.Errorf("dns response code: %d", resp.Rcode)
+		}
+		return nil
+
+	case TransportUDP:
+		client := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
+		resp, _, err := client.Exchange(m, addr)
+		if err != nil {
+			return fmt.Errorf("dns udp exchange failed: %w", err)
+		}
+		if resp.Rcode != dns.RcodeSuccess {
+			return fmt.Errorf("dns response code: %d", resp.Rcode)
+		}
+		return nil
+
+	default: // TransportAuto — TCP → UDP → TCP fallback
 		tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
 		resp, _, err := tcpClient.Exchange(m, addr)
 		if err == nil && resp.Rcode == dns.RcodeSuccess {
 			return nil
 		}
-		// TCP failed or returned error — try UDP once
 		slog.Warn("dns tcp failed, trying udp", "relay", addr, "error", err)
 		udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
 		resp, _, err = udpClient.Exchange(m, addr)
 		if err == nil && resp.Rcode == dns.RcodeSuccess {
 			return nil
 		}
-		// UDP also failed — try TCP once more (in case truncated or transient)
 		if err != nil {
 			slog.Debug("dns udp failed, final tcp retry", "error", err)
 			tcpClient2 := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
@@ -56,20 +106,9 @@ func SendChunk(addr, zone string, chunk *encoding.Chunk, useTCP bool) error {
 		}
 		return fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
-
-	// useTCP explicitly requested
-	client := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
-	resp, _, err := client.Exchange(m, addr)
-	if err != nil {
-		return fmt.Errorf("dns tcp exchange failed: %w", err)
-	}
-	if resp.Rcode != dns.RcodeSuccess {
-		return fmt.Errorf("dns response code: %d", resp.Rcode)
-	}
-	return nil
 }
 
-func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16) (*encoding.Chunk, error) {
+func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16, mode TransportMode) (*encoding.Chunk, error) {
 	enc := encoding.NewChunk(msgID, chunkIdx, 0, nil)
 	labels := enc.EncodeToLabels(zone)
 	name := strings.Join(labels, ".")
@@ -78,48 +117,81 @@ func QueryChunk(addr, zone string, msgID [8]byte, chunkIdx uint16) (*encoding.Ch
 	m.SetQuestion(dns.Fqdn(name), dns.TypeTXT)
 	m.RecursionDesired = false
 
-	// TCP first (carrier UDP intercept), fall back to UDP, then final TCP retry
-	tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
-	resp, _, err := tcpClient.Exchange(m, addr)
-	if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
-		txt, ok := resp.Answer[0].(*dns.TXT)
-		if ok {
-			allLabels := append(txt.Txt, zone)
-			return encoding.DecodeChunkFromLabels(allLabels, zone)
+	switch mode {
+	case TransportTCP:
+		tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+		resp, _, err := tcpClient.Exchange(m, addr)
+		if err != nil {
+			return nil, fmt.Errorf("dns tcp query failed: %w", err)
 		}
-	}
-
-	// TCP failed — try UDP once
-	slog.Debug("dns query tcp failed or bad response, trying udp", "error", err)
-	udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
-	resp, _, err = udpClient.Exchange(m, addr)
-	if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
-		txt, ok := resp.Answer[0].(*dns.TXT)
-		if ok {
-			allLabels := append(txt.Txt, zone)
-			return encoding.DecodeChunkFromLabels(allLabels, zone)
+		if resp.Rcode != dns.RcodeSuccess || len(resp.Answer) == 0 {
+			return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
 		}
-	}
+		txt, ok := resp.Answer[0].(*dns.TXT)
+		if !ok {
+			return nil, fmt.Errorf("answer is not TXT record")
+		}
+		allLabels := append(txt.Txt, zone)
+		return encoding.DecodeChunkFromLabels(allLabels, zone)
 
-	// UDP also failed — final TCP retry (handles truncated responses)
-	slog.Debug("dns query udp failed, final tcp retry", "error", err)
-	tcpClient2 := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
-	resp, _, err = tcpClient2.Exchange(m, addr)
-	if err != nil {
-		return nil, fmt.Errorf("dns query failed (tcp+udp): %w", err)
+	case TransportUDP:
+		udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
+		resp, _, err := udpClient.Exchange(m, addr)
+		if err != nil {
+			return nil, fmt.Errorf("dns udp query failed: %w", err)
+		}
+		if resp.Rcode != dns.RcodeSuccess || len(resp.Answer) == 0 {
+			return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
+		}
+		txt, ok := resp.Answer[0].(*dns.TXT)
+		if !ok {
+			return nil, fmt.Errorf("answer is not TXT record")
+		}
+		allLabels := append(txt.Txt, zone)
+		return encoding.DecodeChunkFromLabels(allLabels, zone)
+
+	default: // TransportAuto — TCP → UDP → TCP
+		// TCP first
+		tcpClient := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+		resp, _, err := tcpClient.Exchange(m, addr)
+		if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
+			txt, ok := resp.Answer[0].(*dns.TXT)
+			if ok {
+				allLabels := append(txt.Txt, zone)
+				return encoding.DecodeChunkFromLabels(allLabels, zone)
+			}
+		}
+		// TCP failed — try UDP once
+		slog.Debug("dns query tcp failed or bad response, trying udp", "error", err)
+		udpClient := &dns.Client{Timeout: defaultTimeout, Net: "udp"}
+		resp, _, err = udpClient.Exchange(m, addr)
+		if err == nil && resp.Rcode == dns.RcodeSuccess && len(resp.Answer) > 0 {
+			txt, ok := resp.Answer[0].(*dns.TXT)
+			if ok {
+				allLabels := append(txt.Txt, zone)
+				return encoding.DecodeChunkFromLabels(allLabels, zone)
+			}
+		}
+		// UDP also failed — final TCP retry
+		slog.Debug("dns query udp failed, final tcp retry", "error", err)
+		tcpClient2 := &dns.Client{Timeout: defaultTimeout, Net: "tcp"}
+		resp, _, err = tcpClient2.Exchange(m, addr)
+		if err != nil {
+			return nil, fmt.Errorf("dns query failed (tcp+udp): %w", err)
+		}
+		if resp.Rcode != dns.RcodeSuccess {
+			return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
+		}
+		if len(resp.Answer) == 0 {
+			return nil, fmt.Errorf("no answer in response")
+		}
+		txt, ok := resp.Answer[0].(*dns.TXT)
+		if !ok {
+			return nil, fmt.Errorf("answer is not TXT record")
+		}
+		allLabels := append(txt.Txt, zone)
+		return encoding.DecodeChunkFromLabels(allLabels, zone)
 	}
-	if resp.Rcode != dns.RcodeSuccess {
-		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
-	}
-	if len(resp.Answer) == 0 {
-		return nil, fmt.Errorf("no answer in response")
-	}
-	txt, ok := resp.Answer[0].(*dns.TXT)
-	if !ok {
-		return nil, fmt.Errorf("answer is not TXT record")
-	}
-	allLabels := append(txt.Txt, zone)
-	return encoding.DecodeChunkFromLabels(allLabels, zone)
 }
 
 func ListenAndServe(addr, zone string, handler Handler) error {

@@ -1,12 +1,17 @@
 import 'dart:io';
+import 'package:grpc/grpc.dart';
 import '../grpc/client.dart';
 import '../grpc/relay.pb.dart';
 
 class MediaService {
   final GrpcClient _client;
 
-  /// Max file size for gRPC transport (4MB)
-  static const int maxGrpcFileSize = 4 * 1024 * 1024;
+  /// Max file size for media transport (10 MB, matches daemon's MediaMaxHardCap)
+  static const int maxMediaFileSize = 10 * 1024 * 1024;
+
+  /// Media uploads go through DNS transport which is slow (many round-trips).
+  /// Use a long gRPC timeout so they don't get killed at 30s.
+  static const Duration _mediaTimeout = Duration(seconds: 300);
 
   MediaService(this._client);
 
@@ -20,9 +25,9 @@ class MediaService {
     final bytes = await file.readAsBytes();
     final filename = filePath.split('/').last.split('\\').last;
 
-    // I1: Check file size before sending
-    if (bytes.length > maxGrpcFileSize) {
-      throw Exception('File too large for current transport');
+    // Check file size before sending
+    if (bytes.length > maxMediaFileSize) {
+      throw Exception('File too large (max ${maxMediaFileSize ~/ 1048576} MB)');
     }
 
     final request = SendMediaRequest(
@@ -33,6 +38,7 @@ class MediaService {
       preferredTransport: transport,
     );
 
-    return _client.stub.sendMedia(request);
+    return _client.stub.sendMedia(request,
+        options: CallOptions(timeout: _mediaTimeout));
   }
 }

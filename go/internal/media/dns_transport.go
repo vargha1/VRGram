@@ -16,11 +16,15 @@ import (
 )
 
 const (
-	// MaxDNSChunkSize is the max payload per DNS chunk for media (slightly smaller
-	// than text to leave room for media chunk header overhead).
-	MaxDNSChunkSize = 200
+	// MaxDNSChunkSize is the max payload per DNS chunk for media.
+	// Larger = fewer sequential SendMessage calls, but each call creates
+	// sub-chunks at chunkSize (~75 B). 1000 B keeps sub-chunks near the
+	// parallelism limit (15) for best throughput.
+	MaxDNSChunkSize = 1000
 	// MediaDNSSizeThreshold is the max file size sent via DNS before TCP is required.
-	MediaDNSSizeThreshold = 240 * 1024 // 240 KB
+	// With 1000 B chunks and ~3s per chunk, a 60 KB file completes in ~180s
+	// which fits within the 300s gRPC timeout.
+	MediaDNSSizeThreshold = 60 * 1024 // 60 KB
 	// MediaMaxHardCap is the max file size that can be sent via media transport.
 	MediaMaxHardCap = 10 * 1024 * 1024 // 10 MB
 )
@@ -41,10 +45,11 @@ type SendMessageAdapter struct {
 	Engine interface {
 		SendMessage(ctx context.Context, plaintext []byte, recipientPubkey string) ([8]byte, int, error)
 	}
+	RecipientPubkey string // set by caller so media chunks are recipient-indexed
 }
 
 func (a *SendMessageAdapter) SendMessage(ctx context.Context, plaintext []byte) ([8]byte, int, error) {
-	return a.Engine.SendMessage(ctx, plaintext, "")
+	return a.Engine.SendMessage(ctx, plaintext, a.RecipientPubkey)
 }
 
 // NewDNSTransport creates a DNS transport for media using the given chunk sender.
@@ -75,25 +80,30 @@ func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 	// 3. Chunk encrypted data
 	chunks := encoding.ChunkMessage(msgID, encrypted, MaxDNSChunkSize, "")
 
-	// 4. Send each chunk via DNS
+	// 4. Send each chunk via DNS and collect DNS msgIDs
+	var chunkMsgIDs []string
 	for _, chunk := range chunks {
-		if _, _, err := t.dnsEngine.SendMessage(ctx, chunk.Payload); err != nil {
+		dnsMsgID, _, err := t.dnsEngine.SendMessage(ctx, chunk.Payload)
+		if err != nil {
 			return nil, fmt.Errorf("send chunk: %w", err)
 		}
+		// Store base64-encoded DNS msgID so receiver can fetch this chunk
+		chunkMsgIDs = append(chunkMsgIDs, base64.StdEncoding.EncodeToString(dnsMsgID[:]))
 	}
 
 	// 5. Build metadata message (this is also sent via DNS as a text-like message)
 	meta := &MediaMessage{
-		MessageID:  fmt.Sprintf("%x", msgID),
-		Timestamp:  time.Now().UnixMilli(), // I3: set real timestamp
-		MediaType:  mediaType,
-		FileName:   fileName,
-		MimeType:   mimeType,
-		FileSize:   int64(len(fileData)),
-		Chunks:     int32(len(chunks)),
-		ChunkSize:  MaxDNSChunkSize,
-		FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
-		Checksum:   fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
+		MessageID:   fmt.Sprintf("%x", msgID),
+		Timestamp:   time.Now().UnixMilli(),
+		MediaType:   mediaType,
+		FileName:    fileName,
+		MimeType:    mimeType,
+		FileSize:    int64(len(fileData)),
+		Chunks:      int32(len(chunks)),
+		ChunkSize:   MaxDNSChunkSize,
+		FileKeyB64:  base64.StdEncoding.EncodeToString(fileKey),
+		Checksum:    fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
+		ChunkMsgIDs: chunkMsgIDs,
 	}
 
 	return meta, nil

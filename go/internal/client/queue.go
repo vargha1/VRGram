@@ -27,19 +27,24 @@ func NewOfflineQueue(path string) (*OfflineQueue, error) {
 	if err != nil {
 		return nil, err
 	}
-		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS queue (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			peer_key TEXT NOT NULL,
-			ciphertext BLOB NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			retries INTEGER DEFAULT 0,
-			last_error TEXT
-		)`)
-		if err != nil {
-			return nil, err
-		}
-		return &OfflineQueue{db: db}, nil
+	// Busy timeout prevents "database is locked" when SendMessage (DNS fallback)
+	// and processQueue (goroutine) access the queue concurrently.
+	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
+		return nil, err
 	}
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS queue (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		peer_key TEXT NOT NULL,
+		ciphertext BLOB NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		retries INTEGER DEFAULT 0,
+		last_error TEXT
+	)`)
+	if err != nil {
+		return nil, err
+	}
+	return &OfflineQueue{db: db}, nil
+}
 
 	// Enqueue adds a new message to the queue and returns its ID.
 	func (q *OfflineQueue) Enqueue(peerKey string, ciphertext []byte) (int64, error) {

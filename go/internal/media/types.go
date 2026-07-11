@@ -32,6 +32,8 @@ type MediaMessage struct {
 	Checksum   string `json:"checksum,omitempty"`     // "sha256:hex"
 	HasThumbnail bool `json:"has_thumbnail,omitempty"`
 	Thumbnail    *ThumbnailInfo `json:"thumbnail,omitempty"`
+	// DNS msgIDs for each file chunk — receiver uses these to fetch & reassemble.
+	ChunkMsgIDs []string `json:"chunk_msg_ids,omitempty"`
 	// TCP transport fields
 	Transport string `json:"transport,omitempty"` // "dns" or "tcp"
 	FileID     string `json:"file_id,omitempty"`   // file ID on relay (TCP transport)
