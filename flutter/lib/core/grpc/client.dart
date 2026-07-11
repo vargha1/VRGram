@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:grpc/grpc.dart';
 import 'relay.pb.dart';
 import 'relay.pbgrpc.dart';
@@ -20,11 +22,12 @@ class GrpcClient {
   /// Auth token read from daemon, passed as metadata on every gRPC call.
   static String? authToken;
 
-  Future<void> init() async {
+  /// Initialize gRPC client and read auth token.
+  /// Retries reading auth token until daemon writes it.
+  Future<void> init({Duration authTimeout = const Duration(seconds: 10)}) async {
     if (_ready.isCompleted) return;
 
-    // Read auth token from daemon's auth_token file
-    await _loadAuthToken();
+    await _loadAuthTokenWithRetry(authTimeout);
 
     _channel = ClientChannel(
       '127.0.0.1',
@@ -39,16 +42,24 @@ class GrpcClient {
     _ready.complete();
   }
 
-  Future<void> _loadAuthToken() async {
-    try {
-      final file = AppDataDir.file('auth_token');
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        if (bytes.length == 32) {
-          authToken = utf8.decode(bytes);
+  /// Retry reading auth_token file until it exists or timeout.
+  Future<void> _loadAuthTokenWithRetry(Duration timeout) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final file = AppDataDir.file('auth_token');
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          if (bytes.length == 32) {
+            authToken = utf8.decode(bytes);
+            debugPrint('GrpcClient: auth token loaded');
+            return;
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    debugPrint('GrpcClient: auth token file not found within $timeout, continuing without auth');
   }
 
   RelayClientClient get stub {

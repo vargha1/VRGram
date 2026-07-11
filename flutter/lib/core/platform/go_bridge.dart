@@ -184,9 +184,10 @@ class GoBridge {
     return null;
   }
 
-  /// Poll gRPC server until it responds.
-  static Future<void> _waitForGRPC(int port, {Duration timeout = const Duration(seconds: 30)}) async {
+  /// Poll gRPC server until it responds (keeps trying past timeout).
+  static Future<void> _waitForGRPC(int port, {Duration timeout = const Duration(seconds: 60)}) async {
     final deadline = DateTime.now().add(timeout);
+    bool warned = false;
     while (DateTime.now().isBefore(deadline)) {
       try {
         final channel = ClientChannel(
@@ -202,11 +203,34 @@ class GoBridge {
         debugPrint('gRPC server ready on port $port');
         return;
       } catch (_) {
+        if (!warned && deadline.difference(DateTime.now()).inSeconds < 10) {
+          debugPrint('Warning: gRPC server still not ready, will keep trying...');
+          warned = true;
+        }
         // Not ready yet
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(const Duration(milliseconds: 500));
       }
     }
-    debugPrint('Warning: gRPC server did not become ready within $timeout');
+    // After final timeout, try indefinitely with 1s intervals
+    debugPrint('gRPC server not ready within $timeout, continuing to poll indefinitely');
+    while (true) {
+      try {
+        final channel = ClientChannel(
+          '127.0.0.1',
+          port: port,
+          options: ChannelOptions(
+            credentials: const ChannelCredentials.insecure(),
+          ),
+        );
+        final stub = RelayClientClient(channel);
+        await stub.getIdentity(Empty());
+        await channel.shutdown();
+        debugPrint('gRPC server finally ready');
+        return;
+      } catch (_) {
+        await Future.delayed(const Duration(seconds: 1));
+      }
+    }
   }
 
   static bool get isDesktop => !Platform.isAndroid && !Platform.isIOS;
