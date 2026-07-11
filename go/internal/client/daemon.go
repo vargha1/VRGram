@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -284,8 +285,13 @@ func loadOrGenerateAuthToken(path string) ([]byte, error) {
 }
 
 // authInterceptor validates the x-auth-token metadata on every gRPC call.
+// GetIdentity is exempted so Flutter can check daemon readiness before auth.
 func (d *Daemon) authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	if d.authToken == nil {
+		return handler(ctx, req)
+	}
+	// Allow GetIdentity without auth (used for readiness polling)
+	if strings.Contains(info.FullMethod, "GetIdentity") {
 		return handler(ctx, req)
 	}
 	md, ok := metadata.FromIncomingContext(ctx)
