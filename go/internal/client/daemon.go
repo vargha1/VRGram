@@ -26,6 +26,7 @@ import (
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
 	"github.com/user/dns-transport/internal/crypto"
+	"github.com/user/dns-transport/internal/dns"
 )
 
 // Daemon implements the RelayClient gRPC service.
@@ -244,6 +245,12 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	// Start transfer cleanup goroutine (every 5 minutes)
 	go daemon.cleanupTransfers()
 
+	// Start transport mode file watcher (reads dataDir/transport_mode every 5s)
+	go daemon.watchTransportMode()
+
+	// Start chunk size file watcher (reads dataDir/chunk_size every 5s)
+	go daemon.watchChunkSize()
+
 	startupLog("gRPC registered, about to serve")
 	slog.Info("client daemon listening", "grpc", grpcPort, "pubkey", base64.StdEncoding.EncodeToString(identity.PublicKey), "elapsed", time.Since(t0))
 	return s.Serve(lis)
@@ -383,11 +390,14 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 		return &pb.PollResponse{}, nil
 	}
 	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+	d.debugWrite("PollMessages: start myPubkey=%s", myPubkey[:min(24, len(myPubkey))])
 	polled, err := d.engine.PollMessages(myPubkey)
 	if err != nil {
+		d.debugWrite("PollMessages: engine.PollMessages FAILED err=%v", err)
 		slog.Warn("poll messages failed", "error", err)
 		return &pb.PollResponse{}, nil
 	}
+	d.debugWrite("PollMessages: engine returned %d messages", len(polled))
 
 	var resp pb.PollResponse
 	for _, pm := range polled {
@@ -444,18 +454,121 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 			d.debugWrite("PollMessages: decrypted OK from peer=%s text_len=%d", fromPeer, len(decrypted))
 			break
 		}
-		if decrypted == nil {
-			d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
-			continue
-		}
+			if decrypted == nil {
+				d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
+				continue
+			}
+
+			// Check if this is media metadata JSON — download chunks and save file
+			if len(decrypted) > 20 && decrypted[0] == '{' {
+				var maybeMeta struct {
+					FileKeyB64  string   `json:"file_key_b64"`
+					ChunkMsgIDs []string `json:"chunk_msg_ids"`
+					MimeType    string   `json:"mime_type"`
+					FileName    string   `json:"file_name"`
+					Transport   string   `json:"transport"`
+					FileID      string   `json:"file_id"`
+				}
+				if json.Unmarshal(decrypted, &maybeMeta) == nil && maybeMeta.FileKeyB64 != "" {
+					fileKey, _ := base64.StdEncoding.DecodeString(maybeMeta.FileKeyB64)
+					relays := d.engine.GetRelays()
+					if len(relays) == 0 {
+						d.debugWrite("PollMessages: no relays for media download")
+						continue
+					}
+					relay := relays[0]
+
+					var fileData []byte
+
+					if maybeMeta.Transport == "tcp" && maybeMeta.FileID != "" {
+						// TCP transport — download file from relay's HTTP media server
+						d.debugWrite("PollMessages: detected TCP media msgID=%x fileID=%s", pm.MsgID, maybeMeta.FileID)
+						tcpT := media.NewTCPTransport(relay)
+						encryptedFile, err := tcpT.DownloadFile(ctx, maybeMeta.FileID)
+						if err != nil {
+							d.debugWrite("PollMessages: TCP download failed fileID=%s err=%v", maybeMeta.FileID, err)
+						} else if fileKey != nil {
+							fileData, err = media.DecryptFile(fileKey, encryptedFile)
+							if err != nil {
+								d.debugWrite("PollMessages: TCP media decrypt failed err=%v", err)
+							}
+						}
+					} else if len(maybeMeta.ChunkMsgIDs) > 0 {
+						// DNS transport — download chunks from relay
+						d.debugWrite("PollMessages: detected DNS media msgID=%x chunks=%d", pm.MsgID, len(maybeMeta.ChunkMsgIDs))
+						zone := d.engine.GetZone()
+						mode := d.engine.GetTransportMode()
+						var encryptedFile []byte
+						for _, cid := range maybeMeta.ChunkMsgIDs {
+							midBytes, _ := base64.StdEncoding.DecodeString(cid)
+							if len(midBytes) != 8 {
+								continue
+							}
+							var mid [8]byte
+							copy(mid[:], midBytes)
+							chunkData, err := fetchAndReassemble(relay, zone, mid, mode)
+							if err != nil {
+								d.debugWrite("PollMessages: media chunk fetch failed cid=%s err=%v", cid, err)
+								break
+							}
+							encryptedFile = append(encryptedFile, chunkData...)
+						}
+						if len(encryptedFile) > 0 && fileKey != nil {
+							fileData, err = media.DecryptFile(fileKey, encryptedFile)
+							if err != nil {
+								d.debugWrite("PollMessages: DNS media decrypt failed err=%v", err)
+							}
+						}
+					}
+
+					if fileData != nil {
+						// Save to dataDir/media_received/<msgID>.<ext>
+						ext := ".bin"
+						if maybeMeta.MimeType == "image/jpeg" {
+							ext = ".jpg"
+						} else if maybeMeta.MimeType == "image/png" {
+							ext = ".png"
+						} else if maybeMeta.MimeType == "video/mp4" {
+							ext = ".mp4"
+						} else if maybeMeta.MimeType == "audio/m4a" {
+							ext = ".m4a"
+						}
+						recvDir := filepath.Join(d.dataDir, "media_received")
+						os.MkdirAll(recvDir, 0700)
+						mediaMsgID := hex.EncodeToString(pm.MsgID[:])
+						filePath := filepath.Join(recvDir, mediaMsgID+ext)
+						if err := os.WriteFile(filePath, fileData, 0600); err != nil {
+							d.debugWrite("PollMessages: media save failed err=%v", err)
+						} else {
+							d.debugWrite("PollMessages: media saved to %s", filePath)
+							metaPath := filePath + ".meta"
+							metaJSON, _ := json.Marshal(map[string]string{
+								"mime":     maybeMeta.MimeType,
+								"filename": maybeMeta.FileName,
+							})
+							os.WriteFile(metaPath, metaJSON, 0600)
+						}
+					}
+				}
+				// Don't add media metadata as a text message
+				continue
+			}
 
 		msgID := hex.EncodeToString(pm.MsgID[:])
-		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
+		received := &pb.ReceivedMessage{
 			MessageId: msgID,
 			Plaintext: decrypted,
 			FromPeer:  fromPeer,
-		})
-	}
+		}
+		// Populate relay-stamped metadata if available
+		if pm.Timestamp > 0 {
+			received.ServerTimestampMs = uint64(pm.Timestamp)
+		}
+		if pm.Sequence > 0 {
+			received.SequenceNumber = pm.Sequence
+		}
+			resp.Messages = append(resp.Messages, received)
+		}
 	return &resp, nil
 }
 
@@ -569,10 +682,10 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 	return status, nil
 }
 
-// SendMedia sends media data (file, image, etc.) to a peer over DNS transport.
+// SendMedia sends media data (file, image, etc.) to a peer over DNS or TCP transport.
 func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
 	transport := "dns"
-	estimatedSec := int32(len(req.MediaData) / 1000) // rough estimate
+	estimatedSec := int32(len(req.MediaData) / 1000)
 	msgID := fmt.Sprintf("%x", time.Now().UnixNano())
 
 	// Create transfer tracking entry
@@ -585,35 +698,66 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	d.transfers[msgID] = transfer
 	d.transferMu.Unlock()
 
-	if len(req.MediaData) >= media.MediaDNSSizeThreshold {
-		transfer.mu.Lock()
-		transfer.Status = TransferFailed
-		transfer.Error = fmt.Sprintf("file too large for DNS transport (max %d bytes)", media.MediaDNSSizeThreshold)
-		transfer.mu.Unlock()
-		return nil, status.Errorf(codes.FailedPrecondition, "file too large for DNS transport (max %d bytes)", media.MediaDNSSizeThreshold)
-	}
+		var meta *media.MediaMessage
+		var mid [8]byte
+		rand.Read(mid[:])
+		var err error
 
-	// DNS path
-	var mid [8]byte
-	rand.Read(mid[:])
+	// Choose transport: DNS for small files, TCP (HTTP) for larger ones.
+	// TCP requires the relay's HTTP media server on port 9877.
+	if len(req.MediaData) < media.MediaDNSSizeThreshold {
+		// DNS path
+		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{
+			Engine:          d.engine,
+			RecipientPubkey: req.PeerPubkey,
+		})
+		meta, err = dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		transport = "dns"
+		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000)
+	} else if len(req.MediaData) < media.MediaMaxHardCap {
+		// TCP path — upload file to relay's HTTP media server
+		relays := d.engine.GetRelays()
+		if len(relays) == 0 {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = "no relays configured for TCP upload"
+			transfer.mu.Unlock()
+			return nil, status.Error(codes.FailedPrecondition, "no relays configured")
+		}
+		tcpTransport := media.NewTCPTransport(relays[0])
+		meta, err = tcpTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		transport = "tcp"
+		// TCP is fast — estimate a few seconds
+		estimatedSec = int32(len(req.MediaData) / (100 * 1024) * 100 / 1000)
+		if estimatedSec < 5 {
+			estimatedSec = 5
+		}
+		} else {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = fmt.Sprintf("file too large (max %d bytes)", media.MediaMaxHardCap)
+			transfer.mu.Unlock()
+			return nil, status.Errorf(codes.FailedPrecondition, "file too large (max %d bytes)", media.MediaMaxHardCap)
+		}
 
-	dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{Engine: d.engine})
+		meta.Timestamp = time.Now().UnixMilli()
+		meta.MessageID = msgID
 
-	meta, err := dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
-	if err != nil {
-		transfer.mu.Lock()
-		transfer.Status = TransferFailed
-		transfer.Error = err.Error()
-		transfer.mu.Unlock()
-		return nil, err
-	}
-
-	meta.Timestamp = time.Now().UnixMilli()
-	meta.MessageID = msgID
-
-	estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
-
-	// Send metadata as E2E-encrypted message addressed to peer
+		// Send metadata as E2E-encrypted message addressed to peer
 	metaBytes, err := meta.Marshal()
 	if err != nil {
 		transfer.mu.Lock()
@@ -751,6 +895,60 @@ func (d *Daemon) cleanupTransfers() {
 	}
 }
 
+const maxQueueRetries = 20 // give up after ~10 minutes (20 × 30s)
+
+// watchTransportMode reads dataDir/transport_mode every 5 seconds.
+// Flutter writes this file when the user changes the DNS transport mode
+// (Auto / TCP / UDP). The mode is applied to the engine immediately.
+func (d *Daemon) watchTransportMode() {
+	path := filepath.Join(d.dataDir, "transport_mode")
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var last string
+	for range ticker.C {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		mode := strings.TrimSpace(string(data))
+		if mode == last {
+			continue
+		}
+		last = mode
+		m := dns.TransportModeFromString(mode)
+		d.engine.SetTransportMode(m)
+		slog.Info("transport mode updated from file", "mode", m.String())
+	}
+}
+
+// watchChunkSize reads dataDir/chunk_size every 5 seconds.
+// Flutter writes this file when the user changes the DNS chunk size.
+// Minimum 32, maximum 200.
+func (d *Daemon) watchChunkSize() {
+	path := filepath.Join(d.dataDir, "chunk_size")
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var last int
+	for range ticker.C {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		size, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil || size < 32 || size > 200 {
+			continue
+		}
+		if size == last {
+			continue
+		}
+		last = size
+		d.engine.SetChunkSize(size)
+		slog.Info("chunk size updated from file", "size", size)
+	}
+}
+
 // processQueue periodically retries sending queued messages.
 func (d *Daemon) processQueue() {
 	for {
@@ -761,6 +959,11 @@ func (d *Daemon) processQueue() {
 			continue
 		}
 		for _, msg := range pending {
+			if msg.Retries >= maxQueueRetries {
+				slog.Warn("queue giving up on message", "id", msg.ID, "retries", msg.Retries)
+				d.queue.Remove(msg.ID)
+				continue
+			}
 			// Message already encrypted when queued — send ciphertext directly
 			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, msg.PeerKey)
 			if err != nil {

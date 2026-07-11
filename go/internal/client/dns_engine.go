@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"math"
@@ -25,7 +26,7 @@ const (
 	maxJitter      = 0.25
 	parallelism    = 15
 	maxRelays      = 5
-	chunkSize      = 220
+	defaultChunkSize = 75
 )
 
 var base32hex = base32.HexEncoding.WithPadding(base32.NoPadding)
@@ -46,7 +47,9 @@ type DNSClientEngine struct {
 	fetchedMu sync.Mutex
 	fetched   map[[8]byte]bool // msgIDs already downloaded, to avoid redundant fetch
 
-	debugLogPath string // path to relayd_debug.log for diagnostics
+	debugLogPath    string          // path to relayd_debug.log for diagnostics
+	transportMode   dns.TransportMode // user-selectable: Auto, TCP, UDP
+	chunkSize       int               // user-configurable DNS chunk payload size (default 75)
 }
 
 // NewDNSClientEngine creates a new DNS client engine.
@@ -59,6 +62,7 @@ func NewDNSClientEngine(fallbackRelays []string, zone string) *DNSClientEngine {
 		zone:           zone,
 		dnsResolver:    "8.8.8.8:53",
 		fetched:        make(map[[8]byte]bool),
+		chunkSize:      defaultChunkSize,
 	}
 }
 
@@ -83,6 +87,36 @@ func (e *DNSClientEngine) SetDNSResolver(resolver string) {
 }
 
 // SetDebugLogPath sets the path for the debug log file.
+func (e *DNSClientEngine) SetTransportMode(mode dns.TransportMode) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.transportMode = mode
+}
+
+func (e *DNSClientEngine) GetTransportMode() dns.TransportMode {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.transportMode
+}
+
+func (e *DNSClientEngine) SetChunkSize(size int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if size < 32 {
+		size = 32 // minimum safe for DNS label overhead
+	}
+	if size > 200 {
+		size = 200 // hard cap to prevent excessively large DNS names
+	}
+	e.chunkSize = size
+}
+
+func (e *DNSClientEngine) GetChunkSize() int {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.chunkSize
+}
+
 func (e *DNSClientEngine) SetDebugLogPath(path string) {
 	e.debugLogPath = path
 }
@@ -106,6 +140,12 @@ func (e *DNSClientEngine) GetDNSResolver() string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.dnsResolver
+}
+
+func (e *DNSClientEngine) GetZone() string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.zone
 }
 
 // resolveAddr resolves a domain:port to IP:port using custom DNS resolver.
@@ -159,15 +199,7 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, rec
 	var msgID [8]byte
 	rand.Read(msgID[:])
 
-	// Random padding 0-64 bytes for traffic analysis protection
-	padLenBuf := make([]byte, 1)
-	rand.Read(padLenBuf)
-	padLen := int(padLenBuf[0]) % 65
-	padding := make([]byte, padLen)
-	rand.Read(padding)
-	plaintext = append(plaintext, padding...)
-
-	chunks := encoding.ChunkMessage(msgID, plaintext, chunkSize, recipientPubkey)
+	chunks := encoding.ChunkMessage(msgID, plaintext, e.GetChunkSize(), recipientPubkey)
 
 	relays := e.discoverActiveRelays(sendCtx)
 	if len(relays) > 0 {
@@ -186,15 +218,16 @@ func (e *DNSClientEngine) SendMessage(ctx context.Context, plaintext []byte, rec
 	return msgID, len(chunks), nil
 }
 
-// PollRelays queries ALL relays for pending msgIDs for the given recipient pubkey.
-// Returns all unique msgIDs from all relays (client-side federation).
-func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) {
+// PollRelays queries ALL relays for pending messages with metadata.
+// Returns all unique PolledMessages (with relay-stamped timestamp + sequence)
+// from all relays (client-side federation).
+func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([]PolledMessage, error) {
 	if recipientPubkey == "" {
 		return nil, nil
 	}
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
-		e.debugWrite("PollRelays: no relays configured")
+		e.debugWrite("PollRelays: no relays configured — cannot poll")
 		return nil, nil
 	}
 	e.debugWrite("PollRelays: polling %d relays for %s", len(relays), recipientPubkey[:min(16, len(recipientPubkey))])
@@ -202,28 +235,28 @@ func (e *DNSClientEngine) PollRelays(recipientPubkey string) ([][8]byte, error) 
 	hash := sha256.Sum256([]byte(recipientPubkey))
 	peerID := base32hex.EncodeToString(hash[:])
 
-	var allMsgIDs [][8]byte
+	var allMsgs []PolledMessage
 	seen := make(map[[8]byte]bool)
 
 	for _, relay := range relays {
-		msgIDs, err := e.pollRelay(relay, peerID)
+		msgs, err := e.pollRelayWithMeta(relay, peerID)
 		if err != nil {
 			slog.Warn("poll relay failed", "relay", relay, "error", err)
 			continue
 		}
-		for _, id := range msgIDs {
-			if !seen[id] {
-				seen[id] = true
-				allMsgIDs = append(allMsgIDs, id)
+		for _, m := range msgs {
+			if !seen[m.MsgID] {
+				seen[m.MsgID] = true
+				allMsgs = append(allMsgs, m)
 			}
 		}
 	}
-	return allMsgIDs, nil
+	e.debugWrite("PollRelays: total unique msgIDs found=%d", len(allMsgs))
+	return allMsgs, nil
 }
 
-// pollRelay sends a POLL query to a relay server and returns pending msgIDs.
-func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
-	// Resolve relay address if it's a domain
+// pollRelayWithMeta sends a POLL query and returns PolledMessages with metadata.
+func (e *DNSClientEngine) pollRelayWithMeta(addr, peerID string) ([]PolledMessage, error) {
 	resolved, err := e.resolveAddr(addr)
 	if err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", addr, err)
@@ -236,41 +269,94 @@ func (e *DNSClientEngine) pollRelay(addr, peerID string) ([][8]byte, error) {
 	m.SetQuestion(mdns.Fqdn(name), mdns.TypeTXT)
 	m.RecursionDesired = false
 
-	// TCP first (carrier UDP intercept), fall back to UDP
-	tcpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
-	resp, _, err := tcpClient.Exchange(m, resolved)
-	if err == nil && resp.Rcode == mdns.RcodeSuccess {
-		ids := parsePollResponse(resp)
-		e.debugWrite("pollRelay TCP OK relay=%s msgIDs=%d", resolved, len(ids))
-		return ids, nil
-	}
-
-	// TCP failed — try UDP once
-	e.debugWrite("pollRelay TCP failed relay=%s err=%v trying UDP", resolved, err)
-	udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
-	resp, _, err = udpClient.Exchange(m, resolved)
-	if err == nil && resp.Rcode == mdns.RcodeSuccess {
-		ids := parsePollResponse(resp)
-		e.debugWrite("pollRelay UDP OK relay=%s msgIDs=%d", resolved, len(ids))
-		return ids, nil
-	}
-
-	// UDP also failed — final TCP retry
-	e.debugWrite("pollRelay UDP failed relay=%s err=%v final TCP", resolved, err)
-	tcpClient2 := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
-	resp, _, err = tcpClient2.Exchange(m, resolved)
-	if err != nil {
-		return nil, fmt.Errorf("dns poll failed (tcp+udp): %w", err)
+	var resp *mdns.Msg
+	mode := e.GetTransportMode()
+	switch mode {
+	case dns.TransportTCP:
+		tcpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
+		resp, _, err = tcpClient.Exchange(m, resolved)
+		if err != nil {
+			return nil, fmt.Errorf("dns tcp poll failed: %w", err)
+		}
+	case dns.TransportUDP:
+		udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
+		resp, _, err = udpClient.Exchange(m, resolved)
+		if err != nil {
+			return nil, fmt.Errorf("dns udp poll failed: %w", err)
+		}
+	default: // TransportAuto
+		tcpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
+		resp, _, err = tcpClient.Exchange(m, resolved)
+		if err == nil && resp.Rcode == mdns.RcodeSuccess {
+			return parsePollResponseWithMeta(resp), nil
+		}
+		e.debugWrite("pollRelay TCP failed relay=%s err=%v trying UDP", resolved, err)
+		udpClient := &mdns.Client{Timeout: 5 * time.Second, Net: "udp"}
+		resp, _, err = udpClient.Exchange(m, resolved)
+		if err == nil && resp.Rcode == mdns.RcodeSuccess {
+			return parsePollResponseWithMeta(resp), nil
+		}
+		e.debugWrite("pollRelay UDP failed relay=%s err=%v final TCP", resolved, err)
+		tcpClient2 := &mdns.Client{Timeout: 5 * time.Second, Net: "tcp"}
+		resp, _, err = tcpClient2.Exchange(m, resolved)
+		if err != nil {
+			return nil, fmt.Errorf("dns poll failed (tcp+udp): %w", err)
+		}
 	}
 	if resp.Rcode != mdns.RcodeSuccess {
 		return nil, fmt.Errorf("dns response code: %d", resp.Rcode)
 	}
-	ids := parsePollResponse(resp)
-	e.debugWrite("pollRelay final TCP OK relay=%s msgIDs=%d", resolved, len(ids))
-		return ids, nil
+	return parsePollResponseWithMeta(resp), nil
+}
+
+// parsePollResponseWithMeta parses a POLL TXT response, handling both
+// old (base32hex(msgID)) and extended (base32hex(msgID):timestamp:sequence) formats.
+func parsePollResponseWithMeta(resp *mdns.Msg) []PolledMessage {
+	var msgs []PolledMessage
+	for _, ans := range resp.Answer {
+		txt, ok := ans.(*mdns.TXT)
+		if !ok {
+			continue
+		}
+		for _, t := range txt.Txt {
+			pm := parsePollRecord(t)
+			if pm != nil {
+				msgs = append(msgs, *pm)
+			}
+		}
+	}
+	return msgs
+}
+
+// parsePollRecord parses a single TXT record from a POLL response.
+// Supports old format: base32hex(msgID)
+// Extended format: base32hex(msgID):base32hex(timestamp):base32hex(sequence)
+func parsePollRecord(record string) *PolledMessage {
+	parts := strings.SplitN(record, ":", 3)
+
+	idBytes, err := base32hex.DecodeString(parts[0])
+	if err != nil || len(idBytes) != 8 {
+		return nil
+	}
+	var mid [8]byte
+	copy(mid[:], idBytes)
+
+	pm := &PolledMessage{MsgID: mid}
+
+	// Parse optional extended metadata
+	if len(parts) == 3 {
+		if tsBytes, err := base32hex.DecodeString(parts[1]); err == nil && len(tsBytes) == 8 {
+			pm.Timestamp = int64(binary.BigEndian.Uint64(tsBytes))
+		}
+		if seqBytes, err := base32hex.DecodeString(parts[2]); err == nil && len(seqBytes) == 8 {
+			pm.Sequence = binary.BigEndian.Uint64(seqBytes)
+		}
 	}
 
-// parsePollResponse extracts msgIDs from a POLL TXT response.
+	return pm
+}
+
+// parsePollResponse extracts msgIDs from a POLL TXT response (old format, no metadata).
 func parsePollResponse(resp *mdns.Msg) [][8]byte {
 	var msgIDs [][8]byte
 	for _, ans := range resp.Answer {
@@ -291,21 +377,23 @@ func parsePollResponse(resp *mdns.Msg) [][8]byte {
 	return msgIDs
 }
 
-// PolledMessage holds a reassembled message and its original DNS msgID.
+// PolledMessage holds a reassembled message with relay-stamped metadata.
 type PolledMessage struct {
-	MsgID [8]byte
-	Data  []byte
+	MsgID     [8]byte
+	Data      []byte
+	Timestamp int64  // relay-stamped UnixMilli
+	Sequence  uint64 // monotonic per-recipient
 }
 
 // PollMessages fetches and reassembles all pending messages for a recipient.
-// Returns each message with its original DNS msgID for client-side dedup.
+// Returns each message with its relay-stamped timestamp and sequence number.
 func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage, error) {
-	msgIDs, err := e.PollRelays(recipientPubkey)
-	if err != nil || len(msgIDs) == 0 {
-		e.debugWrite("PollMessages: no msgIDs from relays count=%d err=%v", len(msgIDs), err)
+	polledMeta, err := e.PollRelays(recipientPubkey)
+	if err != nil || len(polledMeta) == 0 {
+		e.debugWrite("PollMessages: no msgIDs from relays count=%d err=%v", len(polledMeta), err)
 		return nil, err
 	}
-	e.debugWrite("PollMessages: got %d msgIDs from relays", len(msgIDs))
+	e.debugWrite("PollMessages: got %d msgIDs from relays", len(polledMeta))
 
 	relays := e.discoverActiveRelays(nil)
 	if len(relays) == 0 {
@@ -313,42 +401,47 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage,
 	}
 
 	var messages []PolledMessage
-	for _, msgID := range msgIDs {
+	for _, pm := range polledMeta {
 		// Skip already-fetched messages (dedup)
 		e.fetchedMu.Lock()
-		if e.fetched[msgID] {
+		if e.fetched[pm.MsgID] {
 			e.fetchedMu.Unlock()
 			continue
 		}
 		e.fetchedMu.Unlock()
 
 		var data []byte
-			var fetchErr error
-			for _, relay := range relays {
-				data, fetchErr = fetchAndReassemble(relay, e.zone, msgID)
-				if fetchErr == nil {
-					break
-				}
-				e.debugWrite("fetch from relay failed relay=%s msgID=%x err=%v", relay, msgID, fetchErr)
+		var fetchErr error
+		for _, relay := range relays {
+			data, fetchErr = fetchAndReassemble(relay, e.zone, pm.MsgID, e.GetTransportMode())
+			if fetchErr == nil {
+				break
 			}
-			if fetchErr != nil {
-				e.debugWrite("fetch message failed from all relays msgID=%x err=%v", msgID, fetchErr)
-				continue
-			}
-			e.debugWrite("fetch message OK msgID=%x data_len=%d", msgID, len(data))
+			e.debugWrite("fetch from relay failed relay=%s msgID=%x err=%v", relay, pm.MsgID, fetchErr)
+		}
+		if fetchErr != nil {
+			e.debugWrite("fetch message failed from all relays msgID=%x err=%v", pm.MsgID, fetchErr)
+			continue
+		}
+		e.debugWrite("fetch message OK msgID=%x data_len=%d", pm.MsgID, len(data))
 		// Mark as fetched to avoid re-download
 		e.fetchedMu.Lock()
-		e.fetched[msgID] = true
+		e.fetched[pm.MsgID] = true
 		e.fetchedMu.Unlock()
 
-		messages = append(messages, PolledMessage{MsgID: msgID, Data: data})
+		messages = append(messages, PolledMessage{
+			MsgID:     pm.MsgID,
+			Data:      data,
+			Timestamp: pm.Timestamp,
+			Sequence:  pm.Sequence,
+		})
 	}
 	return messages, nil
 }
 
 // fetchAndReassemble retrieves all chunks for a msgID from a relay and reassembles.
-func fetchAndReassemble(relayAddr, zone string, msgID [8]byte) ([]byte, error) {
-	firstChunk, err := dns.QueryChunk(relayAddr, zone, msgID, 0)
+func fetchAndReassemble(relayAddr, zone string, msgID [8]byte, mode dns.TransportMode) ([]byte, error) {
+	firstChunk, err := dns.QueryChunk(relayAddr, zone, msgID, 0, mode)
 	if err != nil {
 		return nil, fmt.Errorf("fetch chunk 0: %w", err)
 	}
@@ -356,7 +449,7 @@ func fetchAndReassemble(relayAddr, zone string, msgID [8]byte) ([]byte, error) {
 	allChunks := make([]*encoding.Chunk, total)
 	allChunks[0] = firstChunk
 	for i := 1; i < total; i++ {
-		chunk, err := dns.QueryChunk(relayAddr, zone, msgID, uint16(i))
+		chunk, err := dns.QueryChunk(relayAddr, zone, msgID, uint16(i), mode)
 		if err != nil {
 			return nil, fmt.Errorf("fetch chunk %d: %w", i, err)
 		}
@@ -406,7 +499,8 @@ func (e *DNSClientEngine) sendParallel(ctx context.Context, chunks []*encoding.C
 					return
 				default:
 				}
-				if err := dns.SendChunk(relay, e.zone, chunk, false); err != nil {
+				mode := e.GetTransportMode()
+				if err := dns.SendChunk(relay, e.zone, chunk, mode); err != nil {
 					slog.Warn("send chunk failed", "relay", relay, "chunk", i, "error", err)
 					return
 				}
@@ -482,7 +576,8 @@ func (e *DNSClientEngine) sendWithRetry(ctx context.Context, chunk *encoding.Chu
 				return ctx.Err()
 			default:
 			}
-			err := dns.SendChunk(relay, e.zone, chunk, false)
+			mode := e.GetTransportMode()
+			err := dns.SendChunk(relay, e.zone, chunk, mode)
 			if err == nil {
 				return nil
 			}
