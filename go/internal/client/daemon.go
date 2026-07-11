@@ -316,54 +316,59 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 		return &pb.PollResponse{}, nil
 	}
 
-	var resp pb.PollResponse
-	for _, pm := range polled {
-		raw := pm.Data
-		if len(raw) < crypto.NonceLength {
-			slog.Warn("message too short", "len", len(raw))
-			continue
-		}
-		nonce := raw[:crypto.NonceLength]
-		ciphertext := raw[crypto.NonceLength:]
-
-		// Try to decrypt with each peer's shared secret
-			var decrypted []byte
-			var fromPeer string
-			d.peersMu.RLock()
-			peersSnapshot := make(map[string]string, len(d.peers))
-			for k, v := range d.peers {
-				peersSnapshot[k] = v
-			}
-			d.peersMu.RUnlock()
-			for nickname, pubkeyStr := range peersSnapshot {
-			pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
-			if err != nil {
+		var resp pb.PollResponse
+		for _, pm := range polled {
+			raw := pm.Data
+			if len(raw) < crypto.NonceLength {
+				d.debugWrite("PollMessages: message too short len=%d", len(raw))
 				continue
 			}
-			ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
-			if err != nil {
+			nonce := raw[:crypto.NonceLength]
+			ciphertext := raw[crypto.NonceLength:]
+	
+			// Try to decrypt with each peer's shared secret
+				var decrypted []byte
+				var fromPeer string
+				d.peersMu.RLock()
+				peersSnapshot := make(map[string]string, len(d.peers))
+				for k, v := range d.peers {
+					peersSnapshot[k] = v
+				}
+				d.peersMu.RUnlock()
+				d.debugWrite("PollMessages: decrypt trying %d peers msgID=%x", len(peersSnapshot), pm.MsgID)
+				for nickname, pubkeyStr := range peersSnapshot {
+				pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
+				if err != nil {
+					d.debugWrite("PollMessages: bad pubkey for peer %s", nickname)
+					continue
+				}
+				ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+				if err != nil {
+					d.debugWrite("PollMessages: shared secret failed for peer %s", nickname)
+					continue
+				}
+				plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
+				if err != nil {
+					d.debugWrite("PollMessages: decrypt failed for peer %s err=%v", nickname, err)
+					continue
+				}
+				// First line is sender's pubkey (base64)
+				parts := strings.SplitN(string(plaintext), "\n", 2)
+				if len(parts) == 2 {
+					fromPeer = parts[0]
+					decrypted = []byte(parts[1])
+				} else {
+					decrypted = plaintext
+					fromPeer = pubkeyStr
+				}
+				d.debugWrite("PollMessages: decrypted OK from peer=%s text_len=%d", nickname, len(decrypted))
+				_ = nickname
+				break
+			}
+			if decrypted == nil {
+				d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
 				continue
 			}
-			plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
-			if err != nil {
-				continue
-			}
-			// First line is sender's pubkey (base64)
-			parts := strings.SplitN(string(plaintext), "\n", 2)
-			if len(parts) == 2 {
-				fromPeer = parts[0]
-				decrypted = []byte(parts[1])
-			} else {
-				decrypted = plaintext
-				fromPeer = pubkeyStr
-			}
-			_ = nickname
-			break
-		}
-		if decrypted == nil {
-			slog.Warn("could not decrypt message from any known peer")
-			continue
-		}
 
 		msgID := hex.EncodeToString(pm.MsgID[:])
 		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{

@@ -323,18 +323,19 @@ func (e *DNSClientEngine) PollMessages(recipientPubkey string) ([]PolledMessage,
 		e.fetchedMu.Unlock()
 
 		var data []byte
-		var fetchErr error
-		for _, relay := range relays {
-			data, fetchErr = fetchAndReassemble(relay, e.zone, msgID)
-			if fetchErr == nil {
-				break
+			var fetchErr error
+			for _, relay := range relays {
+				data, fetchErr = fetchAndReassemble(relay, e.zone, msgID)
+				if fetchErr == nil {
+					break
+				}
+				e.debugWrite("fetch from relay failed relay=%s msgID=%x err=%v", relay, msgID, fetchErr)
 			}
-			slog.Debug("fetch from relay failed, trying next", "relay", relay, "error", fetchErr)
-		}
-		if fetchErr != nil {
-			slog.Warn("fetch message failed from all relays", "msgID", msgID, "error", fetchErr)
-			continue
-		}
+			if fetchErr != nil {
+				e.debugWrite("fetch message failed from all relays msgID=%x err=%v", msgID, fetchErr)
+				continue
+			}
+			e.debugWrite("fetch message OK msgID=%x data_len=%d", msgID, len(data))
 		// Mark as fetched to avoid re-download
 		e.fetchedMu.Lock()
 		e.fetched[msgID] = true
