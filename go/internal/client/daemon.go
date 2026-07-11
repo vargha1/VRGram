@@ -786,6 +786,7 @@ func (d *Daemon) cleanupTransfers() {
 }
 
 // processQueue periodically retries sending queued messages.
+// Messages remain in the queue indefinitely until delivered — no permanent drop.
 func (d *Daemon) processQueue() {
 	for {
 		time.Sleep(30 * time.Second)
@@ -795,19 +796,14 @@ func (d *Daemon) processQueue() {
 			continue
 		}
 		for _, msg := range pending {
-			if msg.Retries >= 5 {
-				slog.Warn("permanent failure, removing message", "id", msg.ID, "retries", msg.Retries)
-				d.queue.Remove(msg.ID)
+			// Message already encrypted when queued — send ciphertext directly
+			_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, msg.PeerKey)
+			if err != nil {
+				slog.Error("queue send failed", "id", msg.ID, "retries", msg.Retries, "error", err)
+				d.queue.MarkFailed(msg.ID, err.Error())
 				continue
 			}
-		// Message already encrypted when queued — send ciphertext directly
-				_, _, err = d.engine.SendMessage(context.Background(), msg.Ciphertext, msg.PeerKey)
-				if err != nil {
-					slog.Error("queue send failed", "id", msg.ID, "error", err)
-					d.queue.MarkFailed(msg.ID, err.Error())
-					continue
-				}
-			slog.Info("queue message sent", "id", msg.ID)
+			slog.Info("queue message sent", "id", msg.ID, "retries", msg.Retries)
 			d.queue.Remove(msg.ID)
 		}
 	}
