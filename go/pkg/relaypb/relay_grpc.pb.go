@@ -30,6 +30,7 @@ const (
 	RelayClient_SendMedia_FullMethodName          = "/relaypb.RelayClient/SendMedia"
 	RelayClient_GetMediaStatus_FullMethodName     = "/relaypb.RelayClient/GetMediaStatus"
 	RelayClient_CancelSend_FullMethodName         = "/relaypb.RelayClient/CancelSend"
+	RelayClient_SendMediaStream_FullMethodName    = "/relaypb.RelayClient/SendMediaStream"
 	RelayClient_GenerateInviteCode_FullMethodName = "/relaypb.RelayClient/GenerateInviteCode"
 	RelayClient_JoinViaCode_FullMethodName        = "/relaypb.RelayClient/JoinViaCode"
 	RelayClient_RemovePeer_FullMethodName         = "/relaypb.RelayClient/RemovePeer"
@@ -55,6 +56,7 @@ type RelayClientClient interface {
 	SendMedia(ctx context.Context, in *SendMediaRequest, opts ...grpc.CallOption) (*SendMediaResponse, error)
 	GetMediaStatus(ctx context.Context, in *GetMediaStatusRequest, opts ...grpc.CallOption) (*MediaStatusResponse, error)
 	CancelSend(ctx context.Context, in *CancelSendRequest, opts ...grpc.CallOption) (*Empty, error)
+	SendMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[MediaUploadChunk, SendMediaResponse], error)
 	GenerateInviteCode(ctx context.Context, in *GenerateInviteCodeRequest, opts ...grpc.CallOption) (*GenerateInviteCodeResponse, error)
 	JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*Empty, error)
 	RemovePeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error)
@@ -182,6 +184,19 @@ func (c *relayClientClient) CancelSend(ctx context.Context, in *CancelSendReques
 	return out, nil
 }
 
+func (c *relayClientClient) SendMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[MediaUploadChunk, SendMediaResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &RelayClient_ServiceDesc.Streams[0], RelayClient_SendMediaStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[MediaUploadChunk, SendMediaResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RelayClient_SendMediaStreamClient = grpc.ClientStreamingClient[MediaUploadChunk, SendMediaResponse]
+
 func (c *relayClientClient) GenerateInviteCode(ctx context.Context, in *GenerateInviteCodeRequest, opts ...grpc.CallOption) (*GenerateInviteCodeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GenerateInviteCodeResponse)
@@ -268,6 +283,7 @@ type RelayClientServer interface {
 	SendMedia(context.Context, *SendMediaRequest) (*SendMediaResponse, error)
 	GetMediaStatus(context.Context, *GetMediaStatusRequest) (*MediaStatusResponse, error)
 	CancelSend(context.Context, *CancelSendRequest) (*Empty, error)
+	SendMediaStream(grpc.ClientStreamingServer[MediaUploadChunk, SendMediaResponse]) error
 	GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error)
 	JoinViaCode(context.Context, *JoinViaCodeRequest) (*Empty, error)
 	RemovePeer(context.Context, *PeerInfo) (*Empty, error)
@@ -317,6 +333,9 @@ func (UnimplementedRelayClientServer) GetMediaStatus(context.Context, *GetMediaS
 }
 func (UnimplementedRelayClientServer) CancelSend(context.Context, *CancelSendRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelSend not implemented")
+}
+func (UnimplementedRelayClientServer) SendMediaStream(grpc.ClientStreamingServer[MediaUploadChunk, SendMediaResponse]) error {
+	return status.Error(codes.Unimplemented, "method SendMediaStream not implemented")
 }
 func (UnimplementedRelayClientServer) GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateInviteCode not implemented")
@@ -558,6 +577,13 @@ func _RelayClient_CancelSend_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_SendMediaStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RelayClientServer).SendMediaStream(&grpc.GenericServerStream[MediaUploadChunk, SendMediaResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RelayClient_SendMediaStreamServer = grpc.ClientStreamingServer[MediaUploadChunk, SendMediaResponse]
+
 func _RelayClient_GenerateInviteCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GenerateInviteCodeRequest)
 	if err := dec(in); err != nil {
@@ -764,6 +790,12 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RelayClient_RemoveGroupMember_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SendMediaStream",
+			Handler:       _RelayClient_SendMediaStream_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "proto/relay.proto",
 }

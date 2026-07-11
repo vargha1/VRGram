@@ -110,6 +110,14 @@ class RelayClient extends $grpc.Client {
     return $createUnaryCall(_$cancelSend, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.SendMediaResponse> sendMediaStream(
+    $async.Stream<$0.MediaUploadChunk> request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(_$sendMediaStream, request, options: options)
+        .single;
+  }
+
   $grpc.ResponseFuture<$0.GenerateInviteCodeResponse> generateInviteCode(
     $0.GenerateInviteCodeRequest request, {
     $grpc.CallOptions? options,
@@ -212,6 +220,11 @@ class RelayClient extends $grpc.Client {
           '/relaypb.RelayClient/CancelSend',
           ($0.CancelSendRequest value) => value.writeToBuffer(),
           $0.Empty.fromBuffer);
+  static final _$sendMediaStream =
+      $grpc.ClientMethod<$0.MediaUploadChunk, $0.SendMediaResponse>(
+          '/relaypb.RelayClient/SendMediaStream',
+          ($0.MediaUploadChunk value) => value.writeToBuffer(),
+          $0.SendMediaResponse.fromBuffer);
   static final _$generateInviteCode = $grpc.ClientMethod<
           $0.GenerateInviteCodeRequest, $0.GenerateInviteCodeResponse>(
       '/relaypb.RelayClient/GenerateInviteCode',
@@ -332,6 +345,13 @@ abstract class RelayClientServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.CancelSendRequest.fromBuffer(value),
         ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.MediaUploadChunk, $0.SendMediaResponse>(
+        'SendMediaStream',
+        sendMediaStream,
+        true,
+        false,
+        ($core.List<$core.int> value) => $0.MediaUploadChunk.fromBuffer(value),
+        ($0.SendMediaResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.GenerateInviteCodeRequest,
             $0.GenerateInviteCodeResponse>(
         'GenerateInviteCode',
@@ -476,6 +496,9 @@ abstract class RelayClientServiceBase extends $grpc.Service {
 
   $async.Future<$0.Empty> cancelSend(
       $grpc.ServiceCall call, $0.CancelSendRequest request);
+
+  $async.Future<$0.SendMediaResponse> sendMediaStream(
+      $grpc.ServiceCall call, $async.Stream<$0.MediaUploadChunk> request);
 
   $async.Future<$0.GenerateInviteCodeResponse> generateInviteCode_Pre(
       $grpc.ServiceCall $call,

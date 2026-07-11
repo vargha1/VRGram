@@ -406,6 +406,85 @@ class CancelSendRequest extends $pb.GeneratedMessage {
   void clearMessageId() => $_clearField(1);
 }
 
+class MediaUploadChunk extends $pb.GeneratedMessage {
+  factory MediaUploadChunk({
+    $core.String? transferId,
+    $core.List<$core.int>? data,
+    $core.int? chunkIndex,
+  }) {
+    final result = create();
+    if (transferId != null) result.transferId = transferId;
+    if (data != null) result.data = data;
+    if (chunkIndex != null) result.chunkIndex = chunkIndex;
+    return result;
+  }
+
+  MediaUploadChunk._();
+
+  factory MediaUploadChunk.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MediaUploadChunk.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MediaUploadChunk',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'transferId')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'data', $pb.PbFieldType.OY)
+    ..aI(3, _omitFieldNames ? '' : 'chunkIndex', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MediaUploadChunk clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MediaUploadChunk copyWith(void Function(MediaUploadChunk) updates) =>
+      super.copyWith((message) => updates(message as MediaUploadChunk))
+          as MediaUploadChunk;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MediaUploadChunk create() => MediaUploadChunk._();
+  @$core.override
+  MediaUploadChunk createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MediaUploadChunk getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MediaUploadChunk>(create);
+  static MediaUploadChunk? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get transferId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set transferId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTransferId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTransferId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get data => $_getN(1);
+  @$pb.TagNumber(2)
+  set data($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasData() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearData() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get chunkIndex => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set chunkIndex($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasChunkIndex() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearChunkIndex() => $_clearField(3);
+}
+
 class SendRequest extends $pb.GeneratedMessage {
   factory SendRequest({
     $core.String? peerPubkey,

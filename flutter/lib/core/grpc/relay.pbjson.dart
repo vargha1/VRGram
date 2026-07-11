@@ -138,6 +138,21 @@ const CancelSendRequest$json = {
 final $typed_data.Uint8List cancelSendRequestDescriptor = $convert.base64Decode(
     'ChFDYW5jZWxTZW5kUmVxdWVzdBIdCgptZXNzYWdlX2lkGAEgASgJUgltZXNzYWdlSWQ=');
 
+@$core.Deprecated('Use mediaUploadChunkDescriptor instead')
+const MediaUploadChunk$json = {
+  '1': 'MediaUploadChunk',
+  '2': [
+    {'1': 'transfer_id', '3': 1, '4': 1, '5': 9, '10': 'transferId'},
+    {'1': 'data', '3': 2, '4': 1, '5': 12, '10': 'data'},
+    {'1': 'chunk_index', '3': 3, '4': 1, '5': 13, '10': 'chunkIndex'},
+  ],
+};
+
+/// Descriptor for `MediaUploadChunk`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mediaUploadChunkDescriptor = $convert.base64Decode(
+    'ChBNZWRpYVVwbG9hZENodW5rEh8KC3RyYW5zZmVyX2lkGAEgASgJUgp0cmFuc2ZlcklkEhIKBG'
+    'RhdGEYAiABKAxSBGRhdGESHwoLY2h1bmtfaW5kZXgYAyABKA1SCmNodW5rSW5kZXg=');
+
 @$core.Deprecated('Use sendRequestDescriptor instead')
 const SendRequest$json = {
   '1': 'SendRequest',
