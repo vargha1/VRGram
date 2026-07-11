@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/user/dns-transport/internal/client"
@@ -63,6 +64,17 @@ func runServer(addr, zone, db, mediaPort string) {
 
 	s := store.NewChunkStore(60*time.Second, relay.DefaultChunkTTL)
 	rl := ratelimit.NewIPRateLimiter(10, 20)
+
+	// Initialize sequence counter for message ordering
+	seqPath := filepath.Join(db, "sequence.db")
+	seqCounter, err := store.NewSequenceCounter(seqPath)
+	if err != nil {
+		slog.Warn("failed to open sequence counter, timestamps disabled", "error", err)
+	} else {
+		s.SetSequenceCounter(seqCounter)
+		slog.Info("sequence counter initialized", "path", seqPath)
+		defer seqCounter.Close()
+	}
 
 	slog.Info("starting relay server", "addr", addr, "zone", zone, "media-port", mediaPort)
 	if err := relay.RunServer(addr, zone, mediaPort, s, rl); err != nil {

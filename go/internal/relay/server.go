@@ -3,8 +3,10 @@ package relay
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/base32"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -81,30 +83,44 @@ func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.
 		labels := strings.Split(body, ".")
 
 		// Check for POLL query: POLL.recipientHash.zone
-		if labels[0] == "POLL" {
-			if len(labels) < 2 {
-				m.Rcode = dns.RcodeFormatError
+			if labels[0] == "POLL" {
+				if len(labels) < 2 {
+					m.Rcode = dns.RcodeFormatError
+					w.WriteMsg(m)
+					return
+				}
+				peerHash := labels[1]
+				msgIDs := s.ListPeerMessages(peerHash)
+				var pending []string
+				for _, id := range msgIDs {
+					// Extended format: base32hex(msgID):base32hex(timestamp):base32hex(sequence)
+					// Backward compatible: old clients parse base32hex(msgID) and ignore the rest
+					if ts, seq, ok := s.GetMessageMeta(id); ok && ts > 0 {
+						tsBytes := make([]byte, 8)
+						binary.BigEndian.PutUint64(tsBytes, uint64(ts))
+						seqBytes := make([]byte, 8)
+						binary.BigEndian.PutUint64(seqBytes, seq)
+						pending = append(pending, fmt.Sprintf("%s:%s:%s",
+							base32hex.EncodeToString(id[:]),
+							base32hex.EncodeToString(tsBytes),
+							base32hex.EncodeToString(seqBytes),
+						))
+					} else {
+						pending = append(pending, base32hex.EncodeToString(id[:]))
+					}
+				}
+				m.Answer = append(m.Answer, &dns.TXT{
+					Hdr: dns.RR_Header{
+						Name:   qname,
+						Rrtype: dns.TypeTXT,
+						Class:  dns.ClassINET,
+						Ttl:    60,
+					},
+					Txt: pending,
+				})
 				w.WriteMsg(m)
 				return
 			}
-			peerHash := labels[1]
-			msgIDs := s.ListPeerMessages(peerHash)
-			var pending []string
-			for _, id := range msgIDs {
-				pending = append(pending, base32hex.EncodeToString(id[:]))
-			}
-			m.Answer = append(m.Answer, &dns.TXT{
-				Hdr: dns.RR_Header{
-					Name:   qname,
-					Rrtype: dns.TypeTXT,
-					Class:  dns.ClassINET,
-					Ttl:    60,
-				},
-				Txt: pending,
-			})
-			w.WriteMsg(m)
-			return
-		}
 
 		labels = append(labels, zoneClean)
 		chunk, err := encoding.DecodeChunkFromLabels(labels, zoneClean)
