@@ -8,6 +8,7 @@ import 'package:grpc/grpc.dart';
 
 import '../grpc/relay.pb.dart';
 import '../grpc/relay.pbgrpc.dart';
+import 'app_data_dir.dart';
 
 class GoBridge {
   static Process? _process;
@@ -203,6 +204,8 @@ class GoBridge {
         debugPrint('gRPC server ready on port $port');
         return;
       } catch (_) {
+        // Read Go daemon startup log to show progress
+        _printStartupLog();
         if (!warned && deadline.difference(DateTime.now()).inSeconds < 10) {
           debugPrint('Warning: gRPC server still not ready, will keep trying...');
           warned = true;
@@ -228,9 +231,30 @@ class GoBridge {
         debugPrint('gRPC server finally ready');
         return;
       } catch (_) {
+        _printStartupLog();
         await Future.delayed(const Duration(seconds: 1));
       }
     }
+  }
+
+  /// Read Go daemon's startup.log and print any new lines.
+  static DateTime _lastStartupLogRead = DateTime(2000);
+  static Future<void> _printStartupLog() async {
+    try {
+      final file = AppDataDir.file('startup.log');
+      if (await file.exists()) {
+        final mod = await file.lastModified();
+        if (mod.isAfter(_lastStartupLogRead)) {
+          final content = await file.readAsString();
+          _lastStartupLogRead = mod;
+          for (final line in content.split('\n')) {
+            if (line.trim().isNotEmpty) {
+              debugPrint('[daemon] $line');
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   static bool get isDesktop => !Platform.isAndroid && !Platform.isIOS;
