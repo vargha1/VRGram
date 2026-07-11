@@ -36,7 +36,8 @@ class GrpcClient {
       ),
     );
     _stub = RelayClient(_channel,
-        options: CallOptions(timeout: _grpcTimeout));
+        options: CallOptions(timeout: _grpcTimeout),
+        interceptors: [_AuthInterceptor()]);
     _ready.complete();
   }
 
@@ -80,5 +81,40 @@ class GrpcClient {
   Future<TransportStatusResponse> getTransportStatus() async {
     await _ready.future;
     return stub.getTransportStatus(Empty());
+  }
+}
+
+/// gRPC interceptor that injects x-auth-token metadata on every unary/streaming call.
+class _AuthInterceptor extends ClientInterceptor {
+  _AuthInterceptor();
+
+  @override
+  ResponseFuture<R> interceptUnary<Q, R>(
+    ClientMethod<Q, R> method,
+    Q request,
+    CallOptions options,
+    ClientUnaryInvoker<Q, R> invoker,
+  ) {
+    if (GrpcClient.authToken != null) {
+      options = options.mergedWith(CallOptions(
+        metadata: {'x-auth-token': GrpcClient.authToken!},
+      ));
+    }
+    return invoker(method, request, options);
+  }
+
+  @override
+  ResponseStream<R> interceptStreaming<Q, R>(
+    ClientMethod<Q, R> method,
+    Stream<Q> requests,
+    CallOptions options,
+    ClientStreamingInvoker<Q, R> invoker,
+  ) {
+    if (GrpcClient.authToken != null) {
+      options = options.mergedWith(CallOptions(
+        metadata: {'x-auth-token': GrpcClient.authToken!},
+      ));
+    }
+    return invoker(method, requests, options);
   }
 }

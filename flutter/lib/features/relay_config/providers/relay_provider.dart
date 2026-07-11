@@ -34,12 +34,19 @@ class RelayList extends Notifier<List<RelayConfig>> {
     try {
       final file = AppDataDir.file(_fileName);
       if (await file.exists()) {
-        final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        final relays = (json['relays'] as List? ?? [])
-            .map((e) => RelayConfig.fromJson(e as Map<String, dynamic>))
-            .toList();
-        _defaultDnsResolver = json['dnsResolver'] as String? ?? '8.8.8.8:53';
-        state = relays;
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map<String, dynamic>) {
+          final relays = (decoded['relays'] as List? ?? [])
+              .map((e) => RelayConfig.fromJson(e as Map<String, dynamic>))
+              .toList();
+          _defaultDnsResolver = decoded['dnsResolver'] as String? ?? '8.8.8.8:53';
+          state = relays;
+        } else if (decoded is List) {
+          // Old format — just a list of address strings
+          state = decoded
+              .map((e) => RelayConfig(address: e as String, dnsResolver: '8.8.8.8:53'))
+              .toList();
+        }
       }
     } catch (e) {
       debugPrint('Failed to load relays: $e');
