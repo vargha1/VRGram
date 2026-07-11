@@ -1,10 +1,13 @@
+import 'dart:math' show min;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_provider.dart';
 import '../../../shared/constants.dart';
 import 'media_bubble.dart';
+import '../../peers/providers/peer_provider.dart';
 
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends ConsumerWidget {
   final ChatMessage message;
   const MessageBubble({super.key, required this.message});
 
@@ -39,23 +42,32 @@ class MessageBubble extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bgColor =
         message.isSent ? AppColors.sentBubble : AppColors.receivedBubble;
     final textColor = message.isSent ? Colors.white : Colors.black;
     final alignment =
         message.isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start;
 
+    // Resolve sender nickname from pubkey
+    String? senderLabel;
+    if (message.fromPeer != null) {
+      final nickname =
+          ref.read(peerProvider.notifier).findNicknameByPubkey(message.fromPeer!);
+      senderLabel = nickname ??
+          message.fromPeer!.substring(0, min(16, message.fromPeer!.length));
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Column(
         crossAxisAlignment: alignment,
         children: [
-          if (message.fromPeer != null)
+          if (senderLabel != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 2, left: 8),
               child: Text(
-                message.fromPeer!,
+                senderLabel,
                 style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
@@ -80,7 +92,7 @@ class MessageBubble extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      DateFormat('HH:mm').format(message.timestamp),
+                      DateFormat('HH:mm').format(message.serverTimestamp ?? message.timestamp),
                       style: TextStyle(
                           fontSize: 10, color: textColor.withAlpha(150)),
                     ),

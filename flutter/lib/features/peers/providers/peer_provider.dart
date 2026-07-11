@@ -31,7 +31,12 @@ class PeerList extends Notifier<List<Peer>> {
       final file = AppDataDir.file(_fileName);
       if (await file.exists()) {
         final json = jsonDecode(await file.readAsString()) as List;
-        state = json.map((e) => Peer.fromJson(e as Map<String, dynamic>)).toList();
+        state = json.map((e) {
+          final peer = Peer.fromJson(e as Map<String, dynamic>);
+          // Auto-repair "VRGram identity: " prefix in stored pubkeys
+          return Peer(nickname: peer.nickname, pubkey: sanitizePubkey(peer.pubkey));
+        }).toList();
+        _save(); // persist repaired data
       }
     } catch (e) {
       debugPrint('Failed to load peers: $e');
@@ -47,8 +52,27 @@ class PeerList extends Notifier<List<Peer>> {
     }
   }
 
+  /// Strip "VRGram identity: " prefix from shared pubkey strings.
+  static String sanitizePubkey(String raw) {
+    final s = raw.trim();
+    const prefix = 'VRGram identity: ';
+    if (s.startsWith(prefix)) {
+      return s.substring(prefix.length).trim();
+    }
+    return s;
+  }
+
+  /// Find a peer's nickname by their public key. Returns null if not found.
+  String? findNicknameByPubkey(String pubkey) {
+    for (final peer in state) {
+      if (peer.pubkey == pubkey) return peer.nickname;
+    }
+    return null;
+  }
+
   Future<void> addPeer(String nickname, String pubkey) async {
-    state = [...state, Peer(nickname: nickname, pubkey: pubkey)];
+    final clean = sanitizePubkey(pubkey);
+    state = [...state, Peer(nickname: nickname, pubkey: clean)];
     await _save();
   }
 
@@ -61,12 +85,13 @@ class PeerList extends Notifier<List<Peer>> {
 final peerProvider = NotifierProvider<PeerList, List<Peer>>(PeerList.new);
 
 final addPeerProvider = FutureProvider.family<void, PeerParams>((ref, params) async {
+  final cleanPubkey = PeerList.sanitizePubkey(params.pubkey);
   final client = GrpcClient();
   await client.stub.addPeer(PeerInfo(
     nickname: params.nickname,
-    pubkey: params.pubkey,
+    pubkey: cleanPubkey,
   ));
-  await ref.read(peerProvider.notifier).addPeer(params.nickname, params.pubkey);
+  await ref.read(peerProvider.notifier).addPeer(params.nickname, cleanPubkey);
 });
 
 class PeerParams {
