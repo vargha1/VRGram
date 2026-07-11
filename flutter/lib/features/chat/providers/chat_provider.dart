@@ -208,15 +208,21 @@ class ChatList extends Notifier<List<ChatMessage>> {
 
     try {
       final client = GrpcClient();
-      final resp = await client.stub.sendMessage(SendRequest(
-        peerPubkey: peerPubkey,
-        plaintext: utf8.encode(text),
-      ));
+      final resp = await client.stub
+          .sendMessage(SendRequest(
+            peerPubkey: peerPubkey,
+            plaintext: utf8.encode(text),
+          ))
+          .timeout(const Duration(seconds: 35));
       debugPrint(
           '[ChatList] sendMessage OK: queued=${resp.queued} msgId=${resp.messageId}');
       updateStatus(
           msgId, resp.queued ? MessageStatus.queued : MessageStatus.sent);
       return true;
+    } on TimeoutException {
+      debugPrint('[ChatList] sendMessage TIMEOUT');
+      updateStatus(msgId, MessageStatus.failed);
+      return false;
     } catch (e) {
       debugPrint('[ChatList] sendMessage FAILED: $e');
       updateStatus(msgId, MessageStatus.failed);
