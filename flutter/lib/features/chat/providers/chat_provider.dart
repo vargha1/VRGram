@@ -301,36 +301,26 @@ class ChatList extends Notifier<List<ChatMessage>> {
       try {
         final resp = await client.stub
             .getMediaStatus(GetMediaStatusRequest(messageId: mediaMessageId));
-        final progress = _statusToProgress(resp.status);
-        updateMediaProgress(msgId, progress);
+        updateMediaProgress(msgId, resp.progressPct / 100.0);
+        updateStatus(msgId, _protoStatusToMessage(resp.status));
 
         if (resp.status == MediaStatusResponse_Status.COMPLETE) {
           _pollTimer?.cancel();
-          updateStatus(msgId, MessageStatus.received);
         } else if (resp.status == MediaStatusResponse_Status.FAILED) {
           _pollTimer?.cancel();
-          updateStatus(msgId, MessageStatus.failed);
         }
-      } catch (_) {
-        // Polling errors are ignored; next tick retries
-      }
+      } catch (_) {}
     });
   }
 
-  double _statusToProgress(MediaStatusResponse_Status status) {
+  MessageStatus _protoStatusToMessage(MediaStatusResponse_Status status) {
     switch (status) {
-      case MediaStatusResponse_Status.QUEUED:
-        return 0.1;
-      case MediaStatusResponse_Status.SENDING:
-        return 0.3;
-      case MediaStatusResponse_Status.ARRIVING:
-        return 0.7;
-      case MediaStatusResponse_Status.COMPLETE:
-        return 1.0;
-      case MediaStatusResponse_Status.FAILED:
-        return 0.0;
-      default:
-        return 0.0;
+      case MediaStatusResponse_Status.QUEUED: return MessageStatus.sending;
+      case MediaStatusResponse_Status.SENDING: return MessageStatus.sending;
+      case MediaStatusResponse_Status.ARRIVING: return MessageStatus.sending;
+      case MediaStatusResponse_Status.COMPLETE: return MessageStatus.received;
+      case MediaStatusResponse_Status.FAILED: return MessageStatus.failed;
+      default: return MessageStatus.sending;
     }
   }
 }
