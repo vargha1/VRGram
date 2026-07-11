@@ -1,6 +1,7 @@
 // Manually written gRPC client stub for RelayClient service (grpc 5.x API).
 import 'package:grpc/grpc.dart';
 import 'relay.pb.dart';
+import 'client.dart';
 
 class RelayClientClient extends Client {
   static final _$sendMessage = ClientMethod<SendRequest, SendResponse>(
@@ -72,58 +73,69 @@ class RelayClientClient extends Client {
   RelayClientClient(ClientChannel channel, {CallOptions? options})
       : super(channel, options: options);
 
+  /// Merges [options] with auth token metadata when available.
+  CallOptions _withAuth(CallOptions? options) {
+    if (GrpcClient.authToken == null) {
+      return options ?? CallOptions();
+    }
+    final base = options ?? CallOptions();
+    return base.mergedWith(CallOptions(
+      metadata: {'x-auth-token': GrpcClient.authToken!},
+    ));
+  }
+
   ResponseFuture<SendResponse> sendMessage(SendRequest request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$sendMessage, request, options: options);
+    return $createUnaryCall(_$sendMessage, request, options: _withAuth(options));
   }
 
   ResponseFuture<PollResponse> pollMessages(PollRequest request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$pollMessages, request, options: options);
+    return $createUnaryCall(_$pollMessages, request, options: _withAuth(options));
   }
 
   ResponseFuture<RelayStatusList> getRelayStatus(Empty request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$getRelayStatus, request, options: options);
+    return $createUnaryCall(_$getRelayStatus, request, options: _withAuth(options));
   }
 
   ResponseFuture<Empty> addRelay(RelayEndpoint request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$addRelay, request, options: options);
+    return $createUnaryCall(_$addRelay, request, options: _withAuth(options));
   }
 
   ResponseFuture<Empty> removeRelay(RelayEndpoint request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$removeRelay, request, options: options);
+    return $createUnaryCall(_$removeRelay, request, options: _withAuth(options));
   }
 
   ResponseFuture<IdentityInfo> getIdentity(Empty request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$getIdentity, request, options: options);
+    return $createUnaryCall(_$getIdentity, request, options: _withAuth(options));
   }
 
   ResponseFuture<Empty> addPeer(PeerInfo request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$addPeer, request, options: options);
+    return $createUnaryCall(_$addPeer, request, options: _withAuth(options));
   }
 
   ResponseFuture<TransportStatusResponse> getTransportStatus(Empty request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$getTransportStatus, request, options: options);
+    return $createUnaryCall(_$getTransportStatus, request, options: _withAuth(options));
   }
 
   ResponseFuture<SendMediaResponse> sendMedia(SendMediaRequest request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$sendMedia, request, options: options);
+    return $createUnaryCall(_$sendMedia, request, options: _withAuth(options));
   }
 
   ResponseFuture<MediaStatusResponse> getMediaStatus(GetMediaStatusRequest request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$getMediaStatus, request, options: options);
+    return $createUnaryCall(_$getMediaStatus, request, options: _withAuth(options));
   }
 
   ResponseFuture<Empty> cancelSend(CancelSendRequest request,
       {CallOptions? options}) {
-    return $createUnaryCall(_$cancelSend, request, options: options);
+    return $createUnaryCall(_$cancelSend, request, options: _withAuth(options));
   }
 }

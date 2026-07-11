@@ -31,7 +31,7 @@ if "%1"=="all" goto build_go_windows
 
 :build_go_windows
 echo Target: windows/amd64
-go build -o "%FLUTTER_DIR%/build/windows/x64/runner/Release/relayd.exe" ./cmd/relayd/
+go build -ldflags="-s -w -buildid=" -o "%FLUTTER_DIR%/build/windows/x64/runner/Release/relayd.exe" ./cmd/relayd/
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Go build failed
     exit /b 1
@@ -47,7 +47,7 @@ REM Cross-compile relayd binary (optional, for res/raw)
 set GOOS=android
 set GOARCH=arm64
 set CGO_ENABLED=0
-go build -o "%FLUTTER_DIR%/android/app/src/main/res/raw/relayd_android" ./cmd/relayd/
+go build -ldflags="-s -w -buildid=" -o "%FLUTTER_DIR%/android/app/src/main/res/raw/relayd_android" ./cmd/relayd/
 set GOOS=
 set GOARCH=
 set CGO_ENABLED=
@@ -64,7 +64,7 @@ set GOOS=android
 set GOARCH=arm64
 set CGO_ENABLED=1
 set CC=%ANDROID_NDK_HOME%\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android21-clang
-go build -buildmode=c-shared -ldflags=-checklinkname=0 -o "%FLUTTER_DIR%/android/app/src/main/jniLibs/arm64-v8a/libvrgram.so" ./mobileso/
+go build -buildmode=c-shared -ldflags="-s -w -buildid= -checklinkname=0" -o "%FLUTTER_DIR%/android/app/src/main/jniLibs/arm64-v8a/libvrgram.so" ./mobileso/
 set GOOS=
 set GOARCH=
 set CGO_ENABLED=
@@ -82,7 +82,7 @@ goto build_flutter_all
 :build_flutter_windows
 echo === Building Flutter Windows app ===
 cd /d "%FLUTTER_DIR%"
-flutter build windows --no-tree-shake-icons
+flutter build windows --split-debug-info=build/debug-info --obfuscate
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Flutter Windows build failed
     exit /b 1
@@ -98,7 +98,7 @@ goto end
 :build_flutter_apk
 echo === Building Flutter APK ===
 cd /d "%FLUTTER_DIR%"
-flutter build apk --no-tree-shake-icons
+flutter build apk --split-debug-info=build/debug-info
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Flutter APK build failed
     exit /b 1
@@ -112,8 +112,8 @@ goto end
 :build_flutter_all
 echo === Building Flutter Windows + APK ===
 cd /d "%FLUTTER_DIR%"
-flutter build windows --no-tree-shake-icons
-flutter build apk --no-tree-shake-icons
+flutter build windows --split-debug-info=build/debug-info --obfuscate
+flutter build apk --split-debug-info=build/debug-info
 echo Build complete
 goto end
 

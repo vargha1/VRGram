@@ -6,10 +6,10 @@ import 'features/chat/screens/chat_list_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
 import 'features/peers/providers/peer_provider.dart';
 import 'features/peers/screens/peer_list_screen.dart';
-import 'features/dht/screens/dht_status_screen.dart';
 import 'features/relay_config/screens/relay_config_screen.dart';
 import 'features/identity/screens/identity_screen.dart';
 import 'shared/constants.dart';
+import 'core/theme_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -29,10 +29,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const PeerListScreen(),
       ),
       GoRoute(
-        path: '/dht',
-        builder: (_, _) => const DhtStatusScreen(),
-      ),
-      GoRoute(
         path: '/relays',
         builder: (_, _) => const RelayConfigScreen(),
       ),
@@ -50,6 +46,7 @@ class VRGramApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
     // Start global message polling (runs for app lifetime)
     ref.watch(pollMessagesProvider);
 
@@ -58,7 +55,14 @@ class VRGramApp extends ConsumerWidget {
       theme: ThemeData(
         colorSchemeSeed: AppColors.primary,
         useMaterial3: true,
+        brightness: Brightness.light,
       ),
+      darkTheme: ThemeData(
+        colorSchemeSeed: AppColors.primary,
+        useMaterial3: true,
+        brightness: Brightness.dark,
+      ),
+      themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

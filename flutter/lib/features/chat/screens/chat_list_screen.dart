@@ -5,6 +5,7 @@ import '../providers/chat_provider.dart';
 import '../../peers/providers/peer_provider.dart';
 import '../../peers/screens/peer_list_screen.dart';
 import '../../../shared/constants.dart';
+import '../../../core/theme_provider.dart';
 
 class ChatListScreen extends ConsumerWidget {
   const ChatListScreen({super.key});
@@ -25,8 +26,22 @@ class ChatListScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.dns),
-            onPressed: () => context.push('/dht'),
+            onPressed: () => context.push('/relays'),
             tooltip: 'Relay servers',
+          ),
+          PopupMenuButton<ThemeMode>(
+            icon: Icon(
+              ref.watch(themeModeProvider) == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            tooltip: 'Theme',
+            onSelected: (mode) => ref.read(themeModeProvider.notifier).setMode(mode),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: ThemeMode.system, child: Text('System')),
+              const PopupMenuItem(value: ThemeMode.light, child: Text('Light')),
+              const PopupMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+            ],
           ),
         ],
       ),

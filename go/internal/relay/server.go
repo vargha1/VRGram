@@ -2,6 +2,7 @@ package relay
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/base32"
 	"io"
@@ -22,7 +23,23 @@ import (
 // DefaultChunkTTL is the default TTL for stored chunks (7 days).
 const DefaultChunkTTL = 7 * 24 * time.Hour
 
+// Media server constants.
+const (
+	maxUploadSize   = 50 << 20 // 50 MB
+	mediaServerName = "vrgram-relay"
+)
+
 var base32hex = base32.HexEncoding.WithPadding(base32.NoPadding)
+
+// mediaToken holds the auth token for media HTTP endpoints, loaded from env.
+var mediaToken string
+
+func init() {
+	mediaToken = os.Getenv("RELAY_MEDIA_TOKEN")
+	if mediaToken == "" {
+		mediaToken = os.Getenv("RELAYD_MEDIA_TOKEN")
+	}
+}
 
 // RunServer starts the DNS relay server and optionally an HTTP media server.
 // If mediaPort is non-empty, starts HTTP server on that port for file upload/download.
@@ -152,50 +169,50 @@ func RunServer(addr, zone, mediaPort string, s *store.ChunkStore, rl *ratelimit.
 			Txt: ackLabels,
 		})
 		w.WriteMsg(m)
-		})
+	})
 
-		// Start HTTP media server if mediaPort specified
-		if mediaPort != "" {
-			go startMediaServer(mediaPort)
-		}
+	// Start HTTP media server if mediaPort specified
+	if mediaPort != "" {
+		go startMediaServer(mediaPort)
+	}
 
-		server := &dns.Server{
+	server := &dns.Server{
+		Addr:    addr,
+		Net:     "udp",
+		Handler: mux,
+	}
+
+	// Also listen on TCP for clients behind NAT that lose UDP responses.
+	go func() {
+		tcpServer := &dns.Server{
 			Addr:    addr,
-			Net:     "udp",
+			Net:     "tcp",
 			Handler: mux,
 		}
+		slog.Info("relay TCP server starting", "addr", addr)
+		if err := tcpServer.ListenAndServe(); err != nil {
+			slog.Error("relay TCP server failed", "error", err)
+		}
+	}()
 
-		// Also listen on TCP for clients behind NAT that lose UDP responses.
-		go func() {
-			tcpServer := &dns.Server{
-				Addr:    addr,
-				Net:     "tcp",
-				Handler: mux,
-			}
-			slog.Info("relay TCP server starting", "addr", addr)
-			if err := tcpServer.ListenAndServe(); err != nil {
-				slog.Error("relay TCP server failed", "error", err)
-			}
-		}()
+	// Also listen on fallback port 5353 (carriers often block port 53).
+	go func() {
+		altUDP := &dns.Server{Addr: ":5353", Net: "udp", Handler: mux}
+		slog.Info("relay fallback UDP server starting", "addr", ":5353")
+		if err := altUDP.ListenAndServe(); err != nil {
+			slog.Error("relay fallback UDP server failed", "error", err)
+		}
+	}()
+	go func() {
+		altTCP := &dns.Server{Addr: ":5353", Net: "tcp", Handler: mux}
+		slog.Info("relay fallback TCP server starting", "addr", ":5353")
+		if err := altTCP.ListenAndServe(); err != nil {
+			slog.Error("relay fallback TCP server failed", "error", err)
+		}
+	}()
 
-		// Also listen on fallback port 5353 (carriers often block port 53).
-		go func() {
-			altUDP := &dns.Server{Addr: ":5353", Net: "udp", Handler: mux}
-			slog.Info("relay fallback UDP server starting", "addr", ":5353")
-			if err := altUDP.ListenAndServe(); err != nil {
-				slog.Error("relay fallback UDP server failed", "error", err)
-			}
-		}()
-		go func() {
-			altTCP := &dns.Server{Addr: ":5353", Net: "tcp", Handler: mux}
-			slog.Info("relay fallback TCP server starting", "addr", ":5353")
-			if err := altTCP.ListenAndServe(); err != nil {
-				slog.Error("relay fallback TCP server failed", "error", err)
-			}
-		}()
-
-		return server.ListenAndServe()
-	}
+	return server.ListenAndServe()
+}
 
 func startMediaServer(port string) {
 	mediaDir := filepath.Join(os.Getenv("HOME"), ".config", "relayd", "media")
@@ -219,13 +236,28 @@ func startMediaServer(port string) {
 		}
 	}()
 
-	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", 405)
 			return
 		}
+
+		// Auth check
+		if !checkMediaAuth(r) {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+
+		// Size limit
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
+			if strings.Contains(err.Error(), "http: request body too large") {
+				http.Error(w, "file too large", 413)
+				return
+			}
 			http.Error(w, "read failed", 500)
 			return
 		}
@@ -239,10 +271,15 @@ func startMediaServer(port string) {
 		w.Write([]byte(`{"file_id":"` + fileID + `"}`))
 	})
 
-	http.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
 		fileID := strings.TrimPrefix(r.URL.Path, "/download/")
 		if fileID == "" {
 			http.NotFound(w, r)
+			return
+		}
+		// Auth check
+		if !checkMediaAuth(r) {
+			http.Error(w, "unauthorized", 401)
 			return
 		}
 		// Validate fileID is hex
@@ -258,10 +295,23 @@ func startMediaServer(port string) {
 		http.ServeFile(w, r, path)
 	})
 
-	slog.Info("media HTTP server starting", "port", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	slog.Info("media HTTP server starting", "port", port, "auth", mediaToken != "")
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		slog.Error("media server failed", "error", err)
 	}
+}
+
+// checkMediaAuth validates the X-Auth-Token header against the configured token.
+// If no token is configured, auth is disabled (backward compatible).
+func checkMediaAuth(r *http.Request) bool {
+	if mediaToken == "" {
+		return true // auth disabled
+	}
+	provided := r.Header.Get("X-Auth-Token")
+	if provided == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(mediaToken), []byte(provided)) == 1
 }
 
 func extractIP(addr net.Addr) string {

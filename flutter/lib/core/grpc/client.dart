@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:grpc/grpc.dart';
 import 'relay.pb.dart';
 import 'relay.pbgrpc.dart';
+import '../platform/app_data_dir.dart';
 
 class GrpcClient {
   static final GrpcClient _instance = GrpcClient._();
@@ -15,20 +17,38 @@ class GrpcClient {
   late final RelayClientClient _stub;
   final Completer<void> _ready = Completer<void>();
 
+  /// Auth token read from daemon, passed as metadata on every gRPC call.
+  static String? authToken;
+
   Future<void> init() async {
     if (_ready.isCompleted) return;
+
+    // Read auth token from daemon's auth_token file
+    await _loadAuthToken();
+
     _channel = ClientChannel(
       '127.0.0.1',
       port: _port,
       options: ChannelOptions(
         credentials: const ChannelCredentials.insecure(),
-        // Drop idle connections after 30s so stale channel doesn't block sends
         idleTimeout: const Duration(seconds: 30),
       ),
     );
     _stub = RelayClientClient(_channel,
         options: CallOptions(timeout: _grpcTimeout));
     _ready.complete();
+  }
+
+  Future<void> _loadAuthToken() async {
+    try {
+      final file = AppDataDir.file('auth_token');
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        if (bytes.length == 32) {
+          authToken = utf8.decode(bytes);
+        }
+      }
+    } catch (_) {}
   }
 
   RelayClientClient get stub {

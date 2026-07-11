@@ -1,9 +1,5 @@
 package client
 
-import (
-	"github.com/user/dns-transport/internal/p2p"
-)
-
 // NetworkMode represents the current network connectivity state.
 type NetworkMode int
 
@@ -16,16 +12,14 @@ const (
 type Detector struct {
 	forceBlackout bool
 	mode          NetworkMode
-	dhtClient     *p2p.DHTClient
 	relayCount    int
 }
 
 // NewDetector creates a new Detector.
-func NewDetector(forceBlackout bool, cli *p2p.DHTClient, relayCount int) *Detector {
+func NewDetector(forceBlackout bool, relayCount int) *Detector {
 	return &Detector{
 		forceBlackout: forceBlackout,
 		mode:          ModeNormal,
-		dhtClient:     cli,
 		relayCount:    relayCount,
 	}
 }
@@ -44,19 +38,11 @@ func (d *Detector) Check() NetworkMode {
 		d.mode = ModeBlackout
 		return ModeBlackout
 	}
-	// If we have static relays, consider it normal mode regardless of DHT.
+	// If we have static relays, consider it normal mode.
 	if d.relayCount > 0 {
 		d.mode = ModeNormal
 		return ModeNormal
 	}
-	if d.dhtClient == nil {
-		d.mode = ModeBlackout
-		return ModeBlackout
-	}
-	if d.dhtClient.ConnectedPeers() > 0 {
-		d.mode = ModeNormal
-	} else {
-		d.mode = ModeBlackout
-	}
-	return d.mode
+	d.mode = ModeBlackout
+	return ModeBlackout
 }

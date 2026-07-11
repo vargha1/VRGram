@@ -26,7 +26,7 @@ type MediaMessage struct {
 	FileName string `json:"file_name,omitempty"`
 	MimeType string `json:"mime_type,omitempty"`
 	FileSize int64  `json:"file_size,omitempty"`
-	Chunks   int32  `json:"chunks,omitempty"`   // total DNS chunks (0 = sent via libp2p/TCP)
+	Chunks   int32  `json:"chunks,omitempty"`   // total DNS chunks (0 = sent via TCP)
 	ChunkSize int32 `json:"chunk_size,omitempty"`
 	FileKeyB64 string `json:"file_key_b64,omitempty"` // base64 AES-256 key
 	Checksum   string `json:"checksum,omitempty"`     // "sha256:hex"

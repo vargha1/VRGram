@@ -12,6 +12,7 @@ class IdentityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final identityAsync = ref.watch(identityProvider);
+    final shortKey = ref.watch(identityShortProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.yourPublicKey)),
@@ -19,7 +20,7 @@ class IdentityScreen extends ConsumerWidget {
         loading: () => const LoadingIndicator(message: 'Loading identity...'),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (identity) {
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,7 +30,45 @@ class IdentityScreen extends ConsumerWidget {
                   'Share it with contacts so they can message you.',
                   style: TextStyle(color: Colors.grey, fontSize: 14),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Messages are now signed with Ed25519 for verified sender identity.',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 16),
+                // Fingerprint display
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Your fingerprint',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        shortKey,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Full key
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -61,7 +100,9 @@ class IdentityScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () {
-                        SharePlus.instance.share(ShareParams(text: identity.pubkey));
+                        SharePlus.instance.share(ShareParams(
+                          text: 'VRGram identity: ${identity.pubkey}',
+                        ));
                       },
                       icon: const Icon(Icons.share),
                       label: const Text('Share'),

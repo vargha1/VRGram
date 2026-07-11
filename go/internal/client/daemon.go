@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -12,60 +13,54 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/user/dns-transport/internal/media"
-	"github.com/user/dns-transport/internal/p2p"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	pb "github.com/user/dns-transport/pkg/relaypb"
 
-		"github.com/user/dns-transport/internal/crypto"
+	"github.com/user/dns-transport/internal/crypto"
 )
 
 // Daemon implements the RelayClient gRPC service.
 type Daemon struct {
 	pb.UnimplementedRelayClientServer
 
-	engine         *DNSClientEngine
-	detector       *Detector
-	queue          *OfflineQueue
-		identity       *crypto.KeyPair
-		peers          map[string]string // nickname -> pubkey
-		peersMu        sync.RWMutex
-		peersPath      string            // path to peers.json
-		dataDir        string
-	dhtOnly        bool
-	grpcServer     *grpc.Server
-	p2pHost        *p2p.P2PHost
-	dhtClient      *p2p.DHTClient
-		libp2pTransport Libp2pTransport // optional libp2p transport for media
+	engine      *DNSClientEngine
+	detector    *Detector
+	queue       *OfflineQueue
+	identity    *crypto.KeyPair
+	peers       map[string]string // nickname -> pubkey
+	peersMu     sync.RWMutex
+	peersPath   string // path to peers.json
+	dataDir     string
+	grpcServer  *grpc.Server
 
-		// Media transfer tracking
-		transfers   map[string]*MediaTransfer // messageID -> transfer
-		transferMu  sync.Mutex
+	// Media transfer tracking
+	transfers  map[string]*MediaTransfer // messageID -> transfer
+	transferMu sync.Mutex
 
-		debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
-	}
+	// Auth token for gRPC
+	authToken     []byte
+	authTokenPath string
 
-// Libp2pTransport is the interface for sending files over libp2p.
-type Libp2pTransport interface {
-	SendFile(ctx context.Context, peerID string, fileName string, mimeType string, data []byte) error
+	debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
 }
 
 // TransferStatus represents the state of a media transfer.
 type TransferStatus int32
 
 const (
-	TransferQueued     TransferStatus = 0
-	TransferSending    TransferStatus = 1
-	TransferComplete   TransferStatus = 2
-	TransferFailed     TransferStatus = 3
-	TransferCancelled  TransferStatus = 4
+	TransferQueued    TransferStatus = 0
+	TransferSending   TransferStatus = 1
+	TransferComplete  TransferStatus = 2
+	TransferFailed    TransferStatus = 3
+	TransferCancelled TransferStatus = 4
 )
 
 // MediaTransfer tracks the progress and state of a media transfer.
@@ -112,7 +107,7 @@ func (t *MediaTransfer) getError() string {
 }
 
 // RunDaemon starts the client daemon with gRPC server, DNS engine, and offline queue.
-func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, p2pHost *p2p.P2PHost, dhtClient *p2p.DHTClient, dhtOnly bool, dnsResolver string) error {
+func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, forceBlackout bool, dnsResolver string) error {
 	// Ensure data directory
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
@@ -132,59 +127,65 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 		}
 	}
 
+	// Generate or load auth token for gRPC
+	authTokenPath := filepath.Join(dataDir, "auth_token")
+	authToken, err := loadOrGenerateAuthToken(authTokenPath)
+	if err != nil {
+		return fmt.Errorf("auth token: %w", err)
+	}
+	slog.Info("auth token loaded", "path", authTokenPath)
+
 	// Open offline queue
 	queue, err := NewOfflineQueue(filepath.Join(dataDir, "queue.db"))
 	if err != nil {
 		return err
 	}
 
-		// Determine relays: merge file relays with method-channel relays, deduplicate.
-			var engineRelays []string
-			fileRelays := loadRelaysFromConfig(dataDir)
-			seen := make(map[string]bool)
-			for _, r := range fileRelays {
-				if !seen[r] {
-					seen[r] = true
-					engineRelays = append(engineRelays, r)
-				}
-			}
-			for _, r := range relays {
-				if !seen[r] {
-					seen[r] = true
-					engineRelays = append(engineRelays, r)
-				}
-			}
-			if len(engineRelays) == 0 && dhtClient == nil {
-				slog.Warn("no relay endpoints configured and no DHT available")
-			}
-			if len(engineRelays) > 0 {
-				slog.Info("using relays", "relays", engineRelays)
-			}
+	// Determine relays: merge file relays with method-channel relays, deduplicate.
+	var engineRelays []string
+	fileRelays := loadRelaysFromConfig(dataDir)
+	seen := make(map[string]bool)
+	for _, r := range fileRelays {
+		if !seen[r] {
+			seen[r] = true
+			engineRelays = append(engineRelays, r)
+		}
+	}
+	for _, r := range relays {
+		if !seen[r] {
+			seen[r] = true
+			engineRelays = append(engineRelays, r)
+		}
+	}
+	if len(engineRelays) == 0 {
+		slog.Warn("no relay endpoints configured")
+	}
+	if len(engineRelays) > 0 {
+		slog.Info("using relays", "relays", engineRelays)
+	}
 
-		// Create DNS engine
-		engine := NewDNSClientEngine(engineRelays, zone)
-		engine.SetDNSResolver(dnsResolver)
-		// Point engine to same debug log path (opened below for daemon)
-		engine.SetDebugLogPath(filepath.Join(dataDir, "relayd_debug.log"))
+	// Create DNS engine
+	engine := NewDNSClientEngine(engineRelays, zone)
+	engine.SetDNSResolver(dnsResolver)
+	engine.SetDebugLogPath(filepath.Join(dataDir, "relayd_debug.log"))
 
-		// Create network detector
-		detector := NewDetector(forceBlackout, dhtClient, len(engineRelays))
+	// Create network detector
+	detector := NewDetector(forceBlackout, len(engineRelays))
 	detector.Check() // initial check
 	slog.Info("network mode", "blackout", detector.CurrentMode() == ModeBlackout)
 
 	// Create daemon
 	daemon := &Daemon{
-		engine:    engine,
-		detector:  detector,
-		queue:     queue,
-		identity:  identity,
-		peers:     make(map[string]string),
-		peersPath: filepath.Join(dataDir, "daemon_peers.json"),
-		dataDir:   dataDir,
-		dhtOnly:   dhtOnly,
-		p2pHost:   p2pHost,
-		dhtClient: dhtClient,
-		transfers: make(map[string]*MediaTransfer),
+		engine:        engine,
+		detector:      detector,
+		queue:         queue,
+		identity:      identity,
+		peers:         make(map[string]string),
+		peersPath:     filepath.Join(dataDir, "daemon_peers.json"),
+		dataDir:       dataDir,
+		transfers:     make(map[string]*MediaTransfer),
+		authToken:     authToken,
+		authTokenPath: authTokenPath,
 	}
 	// Open debug log (append, create if missing)
 	dl, err := os.OpenFile(filepath.Join(dataDir, "relayd_debug.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -200,8 +201,9 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	}
 
 	s := grpc.NewServer(
-		grpc.MaxRecvMsgSize(100 * 1024 * 1024), // 100 MB max receive
-		grpc.MaxSendMsgSize(100 * 1024 * 1024), // 100 MB max send
+		grpc.MaxRecvMsgSize(100*1024*1024), // 100 MB max receive
+		grpc.MaxSendMsgSize(100*1024*1024), // 100 MB max send
+		grpc.UnaryInterceptor(daemon.authInterceptor),
 	)
 	pb.RegisterRelayClientServer(s, daemon)
 	daemon.grpcServer = s
@@ -242,6 +244,47 @@ func loadRelaysFromConfig(dataDir string) []string {
 	return cfg.Relays
 }
 
+const authTokenLen = 32
+
+// loadOrGenerateAuthToken reads an existing auth token or generates a new one.
+func loadOrGenerateAuthToken(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err == nil && len(data) == authTokenLen {
+		return data, nil
+	}
+	token := make([]byte, authTokenLen)
+	if _, err := rand.Read(token); err != nil {
+		return nil, fmt.Errorf("generate auth token: %w", err)
+	}
+	if err := os.WriteFile(path, token, 0600); err != nil {
+		return nil, fmt.Errorf("save auth token: %w", err)
+	}
+	return token, nil
+}
+
+// authInterceptor validates the x-auth-token metadata on every gRPC call.
+func (d *Daemon) authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if d.authToken == nil {
+		return handler(ctx, req)
+	}
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	tokens := md["x-auth-token"]
+	if len(tokens) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "missing auth token")
+	}
+	if len(tokens[0]) != authTokenLen {
+		return nil, status.Error(codes.Unauthenticated, "invalid auth token")
+	}
+	// Constant-time comparison to prevent timing attacks
+	if subtle.ConstantTimeCompare(d.authToken, []byte(tokens[0])) != 1 {
+		return nil, status.Error(codes.Unauthenticated, "invalid auth token")
+	}
+	return handler(ctx, req)
+}
+
 // debugWrite writes a line to the debug log file (if open).
 func (d *Daemon) debugWrite(format string, args ...interface{}) {
 	if d.debugLog == nil {
@@ -267,10 +310,9 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 	if err != nil {
 		return nil, err
 	}
-	// Prepend sender pubkey so recipient knows who sent it
-	senderPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	payloadWithSender := append([]byte(senderPubkeyB64+"\n"), req.Plaintext...)
-	ciphertext, nonce, err := crypto.EncryptMessage(sharedSecret, payloadWithSender)
+	// Build signed payload with Ed25519 signature
+	signedPayload := crypto.BuildSignedPayload(d.identity, req.Plaintext)
+	ciphertext, nonce, err := crypto.EncryptMessage(sharedSecret, signedPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -278,12 +320,12 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 	transportPayload := append(nonce, ciphertext...)
 
 	// Try send via DNS engine
-		msgID, chunkCount, err := d.engine.SendMessage(ctx, transportPayload, req.PeerPubkey)
-		if err != nil {
-			// Queue ciphertext offline (already encrypted)
-			d.debugWrite("SendMessage DNS FAILED: %v -- queueing offline", err)
-			slog.Warn("send failed, queueing offline", "error", err)
-			_, qErr := d.queue.Enqueue(req.PeerPubkey, transportPayload)
+	msgID, chunkCount, err := d.engine.SendMessage(ctx, transportPayload, req.PeerPubkey)
+	if err != nil {
+		// Queue ciphertext offline (already encrypted)
+		d.debugWrite("SendMessage DNS FAILED: %v -- queueing offline", err)
+		slog.Warn("send failed, queueing offline", "error", err)
+		_, qErr := d.queue.Enqueue(req.PeerPubkey, transportPayload)
 		if qErr != nil {
 			return nil, qErr
 		}
@@ -303,8 +345,6 @@ func (d *Daemon) SendMessage(ctx context.Context, req *pb.SendRequest) (*pb.Send
 }
 
 // PollMessages polls relays for pending messages and returns them.
-// Each message's MessageId is the original DNS msgID (hex-encoded) for
-// client-side deduplication.
 func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.PollResponse, error) {
 	if d.identity == nil {
 		return &pb.PollResponse{}, nil
@@ -316,65 +356,71 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 		return &pb.PollResponse{}, nil
 	}
 
-		var resp pb.PollResponse
-		for _, pm := range polled {
-			raw := pm.Data
-			if len(raw) < crypto.NonceLength {
-				d.debugWrite("PollMessages: message too short len=%d", len(raw))
+	var resp pb.PollResponse
+	for _, pm := range polled {
+		raw := pm.Data
+		if len(raw) < crypto.NonceLength {
+			d.debugWrite("PollMessages: message too short len=%d", len(raw))
+			continue
+		}
+		nonce := raw[:crypto.NonceLength]
+		ciphertext := raw[crypto.NonceLength:]
+
+		// Try to decrypt with each peer's shared secret
+		var decrypted []byte
+		var fromPeer string
+		d.peersMu.RLock()
+		peersSnapshot := make(map[string]string, len(d.peers))
+		for k, v := range d.peers {
+			peersSnapshot[k] = v
+		}
+		d.peersMu.RUnlock()
+		d.debugWrite("PollMessages: decrypt trying %d peers msgID=%x", len(peersSnapshot), pm.MsgID)
+		for nickname, pubkeyStr := range peersSnapshot {
+			pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
+			if err != nil {
+				d.debugWrite("PollMessages: bad pubkey for peer %s", nickname)
 				continue
 			}
-			nonce := raw[:crypto.NonceLength]
-			ciphertext := raw[crypto.NonceLength:]
-	
-			// Try to decrypt with each peer's shared secret
-				var decrypted []byte
-				var fromPeer string
-				d.peersMu.RLock()
-				peersSnapshot := make(map[string]string, len(d.peers))
-				for k, v := range d.peers {
-					peersSnapshot[k] = v
-				}
-				d.peersMu.RUnlock()
-				d.debugWrite("PollMessages: decrypt trying %d peers msgID=%x", len(peersSnapshot), pm.MsgID)
-				for nickname, pubkeyStr := range peersSnapshot {
-				pubkey, err := base64.StdEncoding.DecodeString(pubkeyStr)
-				if err != nil {
-					d.debugWrite("PollMessages: bad pubkey for peer %s", nickname)
-					continue
-				}
-				ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
-				if err != nil {
-					d.debugWrite("PollMessages: shared secret failed for peer %s", nickname)
-					continue
-				}
-				plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
-				if err != nil {
-					d.debugWrite("PollMessages: decrypt failed for peer %s err=%v", nickname, err)
-					continue
-				}
-				// First line is sender's pubkey (base64)
-				parts := strings.SplitN(string(plaintext), "\n", 2)
-				if len(parts) == 2 {
-					fromPeer = parts[0]
-					decrypted = []byte(parts[1])
+			ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+			if err != nil {
+				d.debugWrite("PollMessages: shared secret failed for peer %s", nickname)
+				continue
+			}
+			plaintext, err := crypto.DecryptMessage(ss, nonce, ciphertext)
+			if err != nil {
+				d.debugWrite("PollMessages: decrypt failed for peer %s err=%v", nickname, err)
+				continue
+			}
+			// Verify and parse signed payload
+			senderX25519, _, msgPlaintext, sigVerified, parseErr := crypto.ParseSignedPayload(plaintext)
+			if parseErr != nil || senderX25519 == "" {
+				// Fallback: treat as unsigned plaintext
+				d.debugWrite("PollMessages: parse failed for msgID=%x err=%v", pm.MsgID, parseErr)
+				decrypted = plaintext
+				fromPeer = pubkeyStr
+			} else {
+				fromPeer = senderX25519
+				decrypted = msgPlaintext
+				if !sigVerified {
+					d.debugWrite("PollMessages: INVALID signature from sender=%s msgID=%x", senderX25519, pm.MsgID)
 				} else {
-					decrypted = plaintext
-					fromPeer = pubkeyStr
+					d.debugWrite("PollMessages: signature OK from sender=%s msgID=%x", senderX25519, pm.MsgID)
 				}
-				d.debugWrite("PollMessages: decrypted OK from peer=%s text_len=%d", nickname, len(decrypted))
-				_ = nickname
-				break
 			}
-			if decrypted == nil {
-				d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
-				continue
-			}
+			d.debugWrite("PollMessages: decrypted OK from peer=%s text_len=%d", fromPeer, len(decrypted))
+			break
+		}
+		if decrypted == nil {
+			d.debugWrite("PollMessages: could not decrypt msgID=%x from any known peer", pm.MsgID)
+			continue
+		}
 
 		msgID := hex.EncodeToString(pm.MsgID[:])
 		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
-			MessageId:  msgID,
-			Plaintext:  decrypted,
-			FromPeer:   fromPeer,
+			MessageId: msgID,
+			Plaintext: decrypted,
+			FromPeer:  fromPeer,
 		})
 	}
 	return &resp, nil
@@ -426,6 +472,15 @@ func (d *Daemon) GetIdentity(ctx context.Context, req *pb.Empty) (*pb.IdentityIn
 
 // AddPeer stores a peer mapping and persists to disk.
 func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, error) {
+	// Validate pubkey is valid base64
+	pubkeyBytes, err := base64.StdEncoding.DecodeString(req.Pubkey)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid public key: not valid base64: %v", err)
+	}
+	if len(pubkeyBytes) != crypto.KeyLength {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid public key: expected %d bytes, got %d", crypto.KeyLength, len(pubkeyBytes))
+	}
+
 	d.peersMu.Lock()
 	d.peers[req.Nickname] = req.Pubkey
 	d.peersMu.Unlock()
@@ -433,7 +488,7 @@ func (d *Daemon) AddPeer(ctx context.Context, req *pb.PeerInfo) (*pb.Empty, erro
 	return &pb.Empty{}, nil
 }
 
-	// loadPeers reads peers from JSON file into memory.
+// loadPeers reads peers from JSON file into memory.
 func (d *Daemon) loadPeers() {
 	data, err := os.ReadFile(d.peersPath)
 	if err != nil {
@@ -469,37 +524,10 @@ func (d *Daemon) savePeers() {
 	}
 }
 
-// DiscoverRelaysFromDHT returns relay DNS addresses discovered via DHT.
-func (d *Daemon) DiscoverRelaysFromDHT(ctx context.Context) ([]string, error) {
-	if d.dhtClient == nil {
-		return nil, fmt.Errorf("DHT not available")
-	}
-	providers, err := d.dhtClient.FindRelayProviders(ctx, maxRelays)
-	if err != nil {
-		return nil, err
-	}
-	addrs := make([]string, 0, len(providers))
-	for _, p := range providers {
-		for _, a := range p.Addrs {
-			// Extract IP:port from multiaddr and replace port with 53
-			// Simple: for /ip4/x.x.x.x/tcp/yyyy, use x.x.x.x:53
-			// For circuit addresses, skip
-			// TODO: proper multiaddr parsing
-			addrs = append(addrs, a.String())
-		}
-	}
-	return addrs, nil
-}
-
 // GetTransportStatus returns the current transport layer status.
 func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.TransportStatusResponse, error) {
 	status := &pb.TransportStatusResponse{
 		DnsMode: "normal",
-	}
-	if d.dhtClient != nil {
-		status.DhtConnected = d.dhtClient.ConnectedPeers() > 0
-		status.DiscoveredRelays = int32(d.dhtClient.ConnectedPeers())
-		status.Libp2PCircuit = true
 	}
 	mode := d.detector.CurrentMode()
 	if mode == ModeBlackout {
@@ -508,24 +536,7 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 	return status, nil
 }
 
-// GetP2PStatus returns P2P and DHT subsystem status.
-func (d *Daemon) GetP2PStatus() map[string]interface{} {
-	s := map[string]interface{}{
-		"p2p_enabled": d.p2pHost != nil,
-		"dht_enabled": d.dhtClient != nil,
-	}
-	if d.dhtClient != nil {
-		s["dht_peers"] = d.dhtClient.ConnectedPeers()
-	}
-	if d.p2pHost != nil {
-		s["peer_id"] = d.p2pHost.PeerID()
-		s["multiaddrs"] = d.p2pHost.Multiaddrs()
-	}
-	return s
-}
-
-// SendMedia sends media data (file, image, etc.) to a peer.
-// Chooses transport based on size and availability: DNS for small files, libp2p for larger.
+// SendMedia sends media data (file, image, etc.) to a peer over DNS transport.
 func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
 	transport := "dns"
 	estimatedSec := int32(len(req.MediaData) / 1000) // rough estimate
@@ -533,202 +544,87 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 
 	// Create transfer tracking entry
 	transfer := &MediaTransfer{
-		Status:   TransferQueued,
+		Status:  TransferQueued,
 		Progress: 0,
-		Created:  time.Now(),
+		Created: time.Now(),
 	}
 	d.transferMu.Lock()
 	d.transfers[msgID] = transfer
 	d.transferMu.Unlock()
 
-	if req.PreferredTransport == pb.SendMediaRequest_DNS ||
-		(req.PreferredTransport == pb.SendMediaRequest_AUTO && len(req.MediaData) < media.MediaDNSSizeThreshold) {
-		// DNS path
-		var mid [8]byte
-		rand.Read(mid[:])
-
-		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{Engine: d.engine})
-
-		// I5: MediaLibp2pHardCap enforced inside SendChunks
-		meta, err := dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-
-		// I3: Set timestamp
-		meta.Timestamp = time.Now().UnixMilli()
-		meta.MessageID = msgID
-
-		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
-
-		// I2: Send metadata as E2E-encrypted message addressed to peer
-		metaBytes, err := meta.Marshal()
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
-				transfer.mu.Lock()
-				transfer.Status = TransferFailed
-				transfer.Error = err.Error()
-				transfer.mu.Unlock()
-				return nil, err
-			}
-
-			transfer.mu.Lock()
-			transfer.Status = TransferSending
-			transfer.Progress = 50
-			transfer.mu.Unlock()
-
-		} else if req.PreferredTransport == pb.SendMediaRequest_LIBP2P ||
-			(len(req.MediaData) >= media.MediaDNSSizeThreshold && d.libp2pTransport != nil) {
-
-		// C3: libp2p peer ID is X25519 pubkey — wrong.
-		// For PoC, skip if we cannot resolve a proper peer ID.
-		// TODO: Implement proper pubkey -> libp2p PeerID mapping using d.p2pHost.
-		// Currently req.PeerPubkey is the X25519 public key, not the libp2p PeerID.
-		peerID := "" // would need a mapping from pubkey -> peerID
-		if peerID == "" {
-			// No mapping available; this is a PoC limitation.
-			// The real fix requires identifying libp2p peers by their PeerID,
-			// which needs a mapping from X25519 pubkey to libp2p PeerID.
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = "libp2p peer ID mapping not available (PoC limitation)"
-			transfer.mu.Unlock()
-			return nil, status.Error(codes.Unimplemented, "libp2p peer ID mapping not available (PoC)")
-		}
-
-		transport = "libp2p"
-
-		// C1: Encrypt file before sending over libp2p
-		fileKey, err := media.GenerateFileKey()
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		encryptedData, err := media.EncryptFile(fileKey, req.MediaData)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-
-		// Build metadata with file key so peer can decrypt
-		meta := &media.MediaMessage{
-			MessageID:  msgID,
-			Timestamp:  time.Now().UnixMilli(),
-			MediaType:  media.MediaTypeFile,
-			FileName:   req.Filename,
-			MimeType:   req.MimeType,
-			FileSize:   int64(len(req.MediaData)),
-			Chunks:     0, // 0 = sent via libp2p
-			FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
-		}
-
-		// I2: Send metadata as E2E-encrypted message addressed to peer
-		metaBytes, err := meta.Marshal()
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-			if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
-				transfer.mu.Lock()
-				transfer.Status = TransferFailed
-				transfer.Error = err.Error()
-				transfer.mu.Unlock()
-				return nil, err
-			}
-	
-			// Send encrypted file via libp2p
-		if err := d.libp2pTransport.SendFile(ctx, peerID, req.Filename, req.MimeType, encryptedData); err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
-		}
-
-		transfer.mu.Lock()
-		transfer.Status = TransferComplete
-		transfer.Progress = 100
-		transfer.mu.Unlock()
-
-		estimatedSec = int32(len(req.MediaData) / (1024 * 1024)) // ~1 MB/s est
-
-	} else if req.PreferredTransport == pb.SendMediaRequest_AUTO &&
-		len(req.MediaData) >= media.MediaDNSSizeThreshold &&
-		d.libp2pTransport == nil {
-		// I4: AUTO transport but file too large for DNS and libp2p unavailable
+	if len(req.MediaData) >= media.MediaDNSSizeThreshold {
 		transfer.mu.Lock()
 		transfer.Status = TransferFailed
-		transfer.Error = "file too large for DNS, libp2p unavailable"
+		transfer.Error = fmt.Sprintf("file too large for DNS transport (max %d bytes)", media.MediaDNSSizeThreshold)
 		transfer.mu.Unlock()
-		return nil, status.Error(codes.FailedPrecondition, "file too large for DNS, libp2p unavailable")
+		return nil, status.Errorf(codes.FailedPrecondition, "file too large for DNS transport (max %d bytes)", media.MediaDNSSizeThreshold)
 	}
+
+	// DNS path
+	var mid [8]byte
+	rand.Read(mid[:])
+
+	dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{Engine: d.engine})
+
+	meta, err := dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+
+	meta.Timestamp = time.Now().UnixMilli()
+	meta.MessageID = msgID
+
+	estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000) // DNS parallel estimate
+
+	// Send metadata as E2E-encrypted message addressed to peer
+	metaBytes, err := meta.Marshal()
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+	peerPubkey, err := base64.StdEncoding.DecodeString(req.PeerPubkey)
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+	sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, peerPubkey)
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+	ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+	if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, err
+	}
+
+	transfer.mu.Lock()
+	transfer.Status = TransferSending
+	transfer.Progress = 50
+	transfer.mu.Unlock()
 
 	transfer.mu.Lock()
 	transfer.Status = TransferComplete
@@ -823,7 +719,6 @@ func (d *Daemon) cleanupTransfers() {
 }
 
 // processQueue periodically retries sending queued messages.
-// Messages remain in the queue indefinitely until delivered — no permanent drop.
 func (d *Daemon) processQueue() {
 	for {
 		time.Sleep(30 * time.Second)

@@ -21,8 +21,8 @@ const (
 	MaxDNSChunkSize = 200
 	// MediaDNSSizeThreshold is the max file size sent via DNS before TCP is required.
 	MediaDNSSizeThreshold = 240 * 1024 // 240 KB
-	// MediaLibp2pHardCap is the max file size that can be sent via DNS at all.
-	MediaLibp2pHardCap = 10 * 1024 * 1024 // 10 MB
+	// MediaMaxHardCap is the max file size that can be sent via media transport.
+	MediaMaxHardCap = 10 * 1024 * 1024 // 10 MB
 )
 
 // DNSTransport handles sending media files over DNS chunks.
@@ -56,8 +56,8 @@ func NewDNSTransport(sender DNSChunkSender) *DNSTransport {
 // Returns the metadata message, file key, and error.
 func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData []byte, fileName string, mimeType string, mediaType MediaType) (*MediaMessage, error) {
 	// I5: Enforce hard cap on DNS file size
-	if len(fileData) > MediaLibp2pHardCap {
-		return nil, fmt.Errorf("file exceeds max DNS size (%d bytes > %d bytes)", len(fileData), MediaLibp2pHardCap)
+	if len(fileData) > MediaMaxHardCap {
+		return nil, fmt.Errorf("file exceeds max DNS size (%d bytes > %d bytes)", len(fileData), MediaMaxHardCap)
 	}
 
 	// 1. Generate per-file key
@@ -131,8 +131,8 @@ type TCPUploadResponse struct {
 // SendChunks uploads a file via TCP to the relay server.
 func (t *TCPTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData []byte, fileName string, mimeType string, mediaType MediaType) (*MediaMessage, error) {
 	// I5: Enforce hard cap (same as DNS)
-	if len(fileData) > MediaLibp2pHardCap {
-		return nil, fmt.Errorf("file exceeds max size (%d bytes > %d bytes)", len(fileData), MediaLibp2pHardCap)
+	if len(fileData) > MediaMaxHardCap {
+		return nil, fmt.Errorf("file exceeds max size (%d bytes > %d bytes)", len(fileData), MediaMaxHardCap)
 	}
 
 	// 1. Generate per-file key
