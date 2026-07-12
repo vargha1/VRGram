@@ -6,15 +6,35 @@ import 'add_peer_dialog.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../../../shared/constants.dart';
 
-class PeerListScreen extends ConsumerWidget {
+class PeerListScreen extends ConsumerStatefulWidget {
   const PeerListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PeerListScreen> createState() => _PeerListScreenState();
+}
+
+class _PeerListScreenState extends ConsumerState<PeerListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Sync peer list from daemon on open (catches auto-added peers from hello)
+    Future.microtask(() => ref.read(peerProvider.notifier).refreshFromDaemon());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final peers = ref.watch(peerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Contacts')),
+      appBar: AppBar(
+        title: const Text('Contacts'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(peerProvider.notifier).refreshFromDaemon(),
+          ),
+        ],
+      ),
       body: peers.isEmpty
           ? const Center(child: Text(AppStrings.noPeers))
           : ListView.builder(
@@ -28,7 +48,7 @@ class PeerListScreen extends ConsumerWidget {
                   ),
                 ),
                 onDelete: () =>
-                    ref.read(peerProvider.notifier).removePeer(i),
+                    ref.read(peerProvider.notifier).removePeerByPubkey(peers[i].pubkey),
               ),
             ),
       floatingActionButton: FloatingActionButton(
