@@ -714,12 +714,14 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 							d.debugWrite("PollMessages: media save failed err=%v", err)
 						} else {
 							d.debugWrite("PollMessages: media saved to %s", filePath)
-							metaPath := filePath + ".meta"
-							metaJSON, _ := json.Marshal(map[string]string{
-								"mime":     maybeMeta.MimeType,
-								"filename": maybeMeta.FileName,
-							})
-							os.WriteFile(metaPath, metaJSON, 0600)
+								metaPath := filePath + ".meta"
+								metaJSON, _ := json.Marshal(map[string]string{
+									"mime":               maybeMeta.MimeType,
+									"filename":           maybeMeta.FileName,
+									"sender_pubkey":      fromPeer,
+									"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
+								})
+								os.WriteFile(metaPath, metaJSON, 0600)
 						}
 					}
 				}

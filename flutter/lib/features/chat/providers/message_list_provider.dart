@@ -68,6 +68,7 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
         String mimeType = 'application/octet-stream';
         String filename = name;
         String? senderPubkey;
+        DateTime? serverTimestamp;
         final metaFile = File('$path.meta');
         if (await metaFile.exists()) {
           try {
@@ -75,17 +76,27 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
             mimeType = meta['mime'] as String? ?? mimeType;
             filename = meta['filename'] as String? ?? filename;
             senderPubkey = meta['sender_pubkey'] as String?;
+            final tsMs = meta['server_timestamp_ms'] as String?;
+            if (tsMs != null) {
+              final ts = int.tryParse(tsMs);
+              if (ts != null && ts > 0) {
+                serverTimestamp = DateTime.fromMillisecondsSinceEpoch(ts);
+              }
+            }
           } catch (e) {}
         }
 
-        // Use relative path for local display
+        // Use file modification time as fallback timestamp
+        final fileTimestamp = serverTimestamp ?? File(path).statSync().modified;
+
         ref.read(chatProvider.notifier).addMessage(ChatMessage(
               id: msgId,
               text: filename,
-              timestamp: DateTime.now(),
+              timestamp: fileTimestamp,
+              serverTimestamp: serverTimestamp,
               isSent: false,
               status: MessageStatus.received,
-              fromPeer: senderPubkey, // may be null until Phase 4 writes this
+              fromPeer: senderPubkey,
               mimeType: mimeType,
               filename: filename,
               localFilePath: path,

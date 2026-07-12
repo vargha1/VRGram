@@ -179,22 +179,37 @@ class ChatList extends Notifier<List<ChatMessage>> {
   }
 
   void addMessage(ChatMessage msg) {
-    // Skip duplicates — same messageId already exists
-    if (state.any((m) => m.id == msg.id)) return;
+    // If message already exists (by id), update it with relay metadata
+    final existingIdx = state.indexWhere((m) => m.id == msg.id);
+    if (existingIdx >= 0) {
+      final existing = state[existingIdx];
+      // Only update metadata from polled version — keep original isSent/status
+      final updated = existing.copyWith(
+        serverTimestamp: msg.serverTimestamp ?? existing.serverTimestamp,
+        sequenceNumber: msg.sequenceNumber ?? existing.sequenceNumber,
+      );
+      state = [
+        for (int i = 0; i < state.length; i++)
+          if (i == existingIdx) updated else state[i],
+      ];
+      _save();
+      return;
+    }
     final newList = [...state, msg];
-    // Sort by sequenceNumber (nulls last), then by timestamp
+    // Sort by effective timestamp (serverTimestamp preferred), then sequence as tiebreaker
     newList.sort((a, b) {
+      final aTime = a.serverTimestamp ?? a.timestamp;
+      final bTime = b.serverTimestamp ?? b.timestamp;
+      final timeCmp = aTime.compareTo(bTime);
+      if (timeCmp != 0) return timeCmp;
+      // Tiebreaker: sequence number if both have it
       final aSeq = a.sequenceNumber;
       final bSeq = b.sequenceNumber;
       if (aSeq != null && bSeq != null) {
-        final cmp = aSeq.compareTo(bSeq);
-        if (cmp != 0) return cmp;
-      } else if (aSeq != null) {
-        return -1; // sequenced messages first
-      } else if (bSeq != null) {
-        return 1;
+        return aSeq.compareTo(bSeq);
       }
-      return a.timestamp.compareTo(b.timestamp);
+      // Stable sort fallback
+      return a.id.compareTo(b.id);
     });
     state = newList;
     _save();
