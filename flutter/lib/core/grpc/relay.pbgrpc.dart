@@ -125,7 +125,7 @@ class RelayClient extends $grpc.Client {
     return $createUnaryCall(_$generateInviteCode, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.Empty> joinViaCode(
+  $grpc.ResponseFuture<$0.JoinViaCodeResponse> joinViaCode(
     $0.JoinViaCodeRequest request, {
     $grpc.CallOptions? options,
   }) {
@@ -137,6 +137,13 @@ class RelayClient extends $grpc.Client {
     $grpc.CallOptions? options,
   }) {
     return $createUnaryCall(_$removePeer, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListPeersResponse> listPeers(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listPeers, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.CreateGroupResponse> createGroup(
@@ -231,14 +238,18 @@ class RelayClient extends $grpc.Client {
       ($0.GenerateInviteCodeRequest value) => value.writeToBuffer(),
       $0.GenerateInviteCodeResponse.fromBuffer);
   static final _$joinViaCode =
-      $grpc.ClientMethod<$0.JoinViaCodeRequest, $0.Empty>(
+      $grpc.ClientMethod<$0.JoinViaCodeRequest, $0.JoinViaCodeResponse>(
           '/relaypb.RelayClient/JoinViaCode',
           ($0.JoinViaCodeRequest value) => value.writeToBuffer(),
-          $0.Empty.fromBuffer);
+          $0.JoinViaCodeResponse.fromBuffer);
   static final _$removePeer = $grpc.ClientMethod<$0.PeerInfo, $0.Empty>(
       '/relaypb.RelayClient/RemovePeer',
       ($0.PeerInfo value) => value.writeToBuffer(),
       $0.Empty.fromBuffer);
+  static final _$listPeers = $grpc.ClientMethod<$0.Empty, $0.ListPeersResponse>(
+      '/relaypb.RelayClient/ListPeers',
+      ($0.Empty value) => value.writeToBuffer(),
+      $0.ListPeersResponse.fromBuffer);
   static final _$createGroup =
       $grpc.ClientMethod<$0.CreateGroupRequest, $0.CreateGroupResponse>(
           '/relaypb.RelayClient/CreateGroup',
@@ -361,14 +372,15 @@ abstract class RelayClientServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.GenerateInviteCodeRequest.fromBuffer(value),
         ($0.GenerateInviteCodeResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.JoinViaCodeRequest, $0.Empty>(
-        'JoinViaCode',
-        joinViaCode_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.JoinViaCodeRequest.fromBuffer(value),
-        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.JoinViaCodeRequest, $0.JoinViaCodeResponse>(
+            'JoinViaCode',
+            joinViaCode_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.JoinViaCodeRequest.fromBuffer(value),
+            ($0.JoinViaCodeResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.PeerInfo, $0.Empty>(
         'RemovePeer',
         removePeer_Pre,
@@ -376,6 +388,13 @@ abstract class RelayClientServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.PeerInfo.fromBuffer(value),
         ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.ListPeersResponse>(
+        'ListPeers',
+        listPeers_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.ListPeersResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.CreateGroupRequest, $0.CreateGroupResponse>(
             'CreateGroup',
@@ -509,12 +528,12 @@ abstract class RelayClientServiceBase extends $grpc.Service {
   $async.Future<$0.GenerateInviteCodeResponse> generateInviteCode(
       $grpc.ServiceCall call, $0.GenerateInviteCodeRequest request);
 
-  $async.Future<$0.Empty> joinViaCode_Pre($grpc.ServiceCall $call,
+  $async.Future<$0.JoinViaCodeResponse> joinViaCode_Pre($grpc.ServiceCall $call,
       $async.Future<$0.JoinViaCodeRequest> $request) async {
     return joinViaCode($call, await $request);
   }
 
-  $async.Future<$0.Empty> joinViaCode(
+  $async.Future<$0.JoinViaCodeResponse> joinViaCode(
       $grpc.ServiceCall call, $0.JoinViaCodeRequest request);
 
   $async.Future<$0.Empty> removePeer_Pre(
@@ -524,6 +543,14 @@ abstract class RelayClientServiceBase extends $grpc.Service {
 
   $async.Future<$0.Empty> removePeer(
       $grpc.ServiceCall call, $0.PeerInfo request);
+
+  $async.Future<$0.ListPeersResponse> listPeers_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return listPeers($call, await $request);
+  }
+
+  $async.Future<$0.ListPeersResponse> listPeers(
+      $grpc.ServiceCall call, $0.Empty request);
 
   $async.Future<$0.CreateGroupResponse> createGroup_Pre($grpc.ServiceCall $call,
       $async.Future<$0.CreateGroupRequest> $request) async {

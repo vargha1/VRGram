@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../providers/peer_provider.dart';
 
 class InviteCodeScreen extends ConsumerStatefulWidget {
   const InviteCodeScreen({super.key});
@@ -42,10 +44,18 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
     setState(() => _joining = true);
     try {
       final client = GrpcClient();
-      await client.stub
+      final resp = await client.stub
           .joinViaCode(JoinViaCodeRequest(code: code))
           .timeout(const Duration(seconds: 10));
+      // Add peer to local list using response info
+      await ref.read(peerProvider.notifier).addPeer(
+            resp.peerNickname,
+            resp.peerPubkey,
+          );
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connected with ${resp.peerNickname}')),
+        );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -94,6 +104,21 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
                     ),
                     child: SelectableText(_generatedCode!,
                         style: const TextStyle(fontSize: 14, fontFamily: 'monospace')),
+                  ),
+                  const SizedBox(height: 12),
+                  // QR code
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: QrImageView(
+                      data: _generatedCode!,
+                      version: QrVersions.auto,
+                      size: 180,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [

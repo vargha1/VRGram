@@ -34,6 +34,7 @@ const (
 	RelayClient_GenerateInviteCode_FullMethodName = "/relaypb.RelayClient/GenerateInviteCode"
 	RelayClient_JoinViaCode_FullMethodName        = "/relaypb.RelayClient/JoinViaCode"
 	RelayClient_RemovePeer_FullMethodName         = "/relaypb.RelayClient/RemovePeer"
+	RelayClient_ListPeers_FullMethodName          = "/relaypb.RelayClient/ListPeers"
 	RelayClient_CreateGroup_FullMethodName        = "/relaypb.RelayClient/CreateGroup"
 	RelayClient_ListGroups_FullMethodName         = "/relaypb.RelayClient/ListGroups"
 	RelayClient_LeaveGroup_FullMethodName         = "/relaypb.RelayClient/LeaveGroup"
@@ -58,8 +59,9 @@ type RelayClientClient interface {
 	CancelSend(ctx context.Context, in *CancelSendRequest, opts ...grpc.CallOption) (*Empty, error)
 	SendMediaStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[MediaUploadChunk, SendMediaResponse], error)
 	GenerateInviteCode(ctx context.Context, in *GenerateInviteCodeRequest, opts ...grpc.CallOption) (*GenerateInviteCodeResponse, error)
-	JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*Empty, error)
+	JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*JoinViaCodeResponse, error)
 	RemovePeer(ctx context.Context, in *PeerInfo, opts ...grpc.CallOption) (*Empty, error)
+	ListPeers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListPeersResponse, error)
 	CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error)
 	ListGroups(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListGroupsResponse, error)
 	LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -207,9 +209,9 @@ func (c *relayClientClient) GenerateInviteCode(ctx context.Context, in *Generate
 	return out, nil
 }
 
-func (c *relayClientClient) JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*Empty, error) {
+func (c *relayClientClient) JoinViaCode(ctx context.Context, in *JoinViaCodeRequest, opts ...grpc.CallOption) (*JoinViaCodeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
+	out := new(JoinViaCodeResponse)
 	err := c.cc.Invoke(ctx, RelayClient_JoinViaCode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -221,6 +223,16 @@ func (c *relayClientClient) RemovePeer(ctx context.Context, in *PeerInfo, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, RelayClient_RemovePeer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) ListPeers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListPeersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPeersResponse)
+	err := c.cc.Invoke(ctx, RelayClient_ListPeers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -285,8 +297,9 @@ type RelayClientServer interface {
 	CancelSend(context.Context, *CancelSendRequest) (*Empty, error)
 	SendMediaStream(grpc.ClientStreamingServer[MediaUploadChunk, SendMediaResponse]) error
 	GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error)
-	JoinViaCode(context.Context, *JoinViaCodeRequest) (*Empty, error)
+	JoinViaCode(context.Context, *JoinViaCodeRequest) (*JoinViaCodeResponse, error)
 	RemovePeer(context.Context, *PeerInfo) (*Empty, error)
+	ListPeers(context.Context, *Empty) (*ListPeersResponse, error)
 	CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error)
 	ListGroups(context.Context, *Empty) (*ListGroupsResponse, error)
 	LeaveGroup(context.Context, *LeaveGroupRequest) (*Empty, error)
@@ -340,11 +353,14 @@ func (UnimplementedRelayClientServer) SendMediaStream(grpc.ClientStreamingServer
 func (UnimplementedRelayClientServer) GenerateInviteCode(context.Context, *GenerateInviteCodeRequest) (*GenerateInviteCodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateInviteCode not implemented")
 }
-func (UnimplementedRelayClientServer) JoinViaCode(context.Context, *JoinViaCodeRequest) (*Empty, error) {
+func (UnimplementedRelayClientServer) JoinViaCode(context.Context, *JoinViaCodeRequest) (*JoinViaCodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JoinViaCode not implemented")
 }
 func (UnimplementedRelayClientServer) RemovePeer(context.Context, *PeerInfo) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemovePeer not implemented")
+}
+func (UnimplementedRelayClientServer) ListPeers(context.Context, *Empty) (*ListPeersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPeers not implemented")
 }
 func (UnimplementedRelayClientServer) CreateGroup(context.Context, *CreateGroupRequest) (*CreateGroupResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateGroup not implemented")
@@ -638,6 +654,24 @@ func _RelayClient_RemovePeer_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_ListPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).ListPeers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_ListPeers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).ListPeers(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RelayClient_CreateGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateGroupRequest)
 	if err := dec(in); err != nil {
@@ -772,6 +806,10 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemovePeer",
 			Handler:    _RelayClient_RemovePeer_Handler,
+		},
+		{
+			MethodName: "ListPeers",
+			Handler:    _RelayClient_ListPeers_Handler,
 		},
 		{
 			MethodName: "CreateGroup",

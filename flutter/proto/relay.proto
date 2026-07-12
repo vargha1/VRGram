@@ -18,8 +18,9 @@ service RelayClient {
   rpc CancelSend(CancelSendRequest) returns (Empty);
   rpc SendMediaStream(stream MediaUploadChunk) returns (SendMediaResponse);
   rpc GenerateInviteCode(GenerateInviteCodeRequest) returns (GenerateInviteCodeResponse);
-  rpc JoinViaCode(JoinViaCodeRequest) returns (Empty);
+  rpc JoinViaCode(JoinViaCodeRequest) returns (JoinViaCodeResponse);
   rpc RemovePeer(PeerInfo) returns (Empty);
+  rpc ListPeers(Empty) returns (ListPeersResponse);
   rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
   rpc ListGroups(Empty) returns (ListGroupsResponse);
   rpc LeaveGroup(LeaveGroupRequest) returns (Empty);
@@ -137,6 +138,13 @@ message GenerateInviteCodeResponse {
 }
 message JoinViaCodeRequest {
   string code = 1;
+}
+message JoinViaCodeResponse {
+  string peer_nickname = 1;
+  string peer_pubkey = 2;
+}
+message ListPeersResponse {
+  repeated PeerInfo peers = 1;
 }
 message CreateGroupRequest {
   string name = 1;

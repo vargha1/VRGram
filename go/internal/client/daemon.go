@@ -840,36 +840,53 @@ func (d *Daemon) GenerateInviteCode(ctx context.Context, req *pb.GenerateInviteC
 }
 
 // JoinViaCode parses an invite code, adds the inviter as a peer, and sends a hello message.
-func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*pb.Empty, error) {
-	remotePubkey, nonce, nickname, err := crypto.ParseInviteCode(req.Code)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid invite code: %v", err)
+func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*pb.JoinViaCodeResponse, error) {
+		remotePubkey, nonce, nickname, err := crypto.ParseInviteCode(req.Code)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid invite code: %v", err)
+		}
+		remotePubkeyB64 := base64.StdEncoding.EncodeToString(remotePubkey)
+
+		// Add remote as a peer
+		d.peersMu.Lock()
+		d.peers[remotePubkeyB64] = &PeerInfoEntry{Nickname: nickname, Pubkey: remotePubkeyB64}
+		d.peersMu.Unlock()
+		d.savePeers()
+
+		// Derive hello key from nonce and send hello message
+		helloKey := crypto.DeriveHelloKey(nonce)
+		myPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
+		myNickname := d.getMyNickname()
+		helloPayload := fmt.Sprintf(`{"type":"hello","pubkey":"%s","nickname":"%s"}`, myPubkeyB64, myNickname)
+		encryptedHello, err := crypto.EncryptHello(helloKey, []byte(helloPayload))
+		if err != nil {
+			return nil, status.Error(codes.Internal, "encrypt hello failed")
+		}
+
+		// Send via relay (plaintext = encrypted hello, no ECDH wrapper)
+		_, _, err = d.engine.SendMessage(ctx, encryptedHello, remotePubkeyB64)
+		if err != nil {
+			d.queue.Enqueue(remotePubkeyB64, encryptedHello)
+		}
+
+		return &pb.JoinViaCodeResponse{
+			PeerNickname: nickname,
+			PeerPubkey:   remotePubkeyB64,
+		}, nil
 	}
-	remotePubkeyB64 := base64.StdEncoding.EncodeToString(remotePubkey)
 
-	// Add remote as a peer
-	d.peersMu.Lock()
-	d.peers[remotePubkeyB64] = &PeerInfoEntry{Nickname: nickname, Pubkey: remotePubkeyB64}
-	d.peersMu.Unlock()
-	d.savePeers()
-
-	// Derive hello key from nonce and send hello message
-	helloKey := crypto.DeriveHelloKey(nonce)
-	myPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	myNickname := "Me" // Could look up from somewhere
-	helloPayload := fmt.Sprintf(`{"type":"hello","pubkey":"%s","nickname":"%s"}`, myPubkeyB64, myNickname)
-	encryptedHello, err := crypto.EncryptHello(helloKey, []byte(helloPayload))
-	if err != nil {
-		return nil, status.Error(codes.Internal, "encrypt hello failed")
+	// ListPeers returns all known peers from the daemon.
+func (d *Daemon) ListPeers(ctx context.Context, req *pb.Empty) (*pb.ListPeersResponse, error) {
+	d.peersMu.RLock()
+	defer d.peersMu.RUnlock()
+	var pbPeers []*pb.PeerInfo
+	for _, p := range d.peers {
+		pbPeers = append(pbPeers, &pb.PeerInfo{
+			Nickname: p.Nickname,
+			Pubkey:   p.Pubkey,
+		})
 	}
-
-	// Send via relay (plaintext = encrypted hello, no ECDH wrapper)
-	_, _, err = d.engine.SendMessage(ctx, encryptedHello, remotePubkeyB64)
-	if err != nil {
-		d.queue.Enqueue(remotePubkeyB64, encryptedHello)
-	}
-
-	return &pb.Empty{}, nil
+	return &pb.ListPeersResponse{Peers: pbPeers}, nil
 }
 
 // CreateGroup creates a new chat group, generates a group key, and distributes it to all members.
@@ -1068,10 +1085,15 @@ func (d *Daemon) savePeers() {
 		slog.Warn("failed to marshal peers", "error", err)
 		return
 	}
-	if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
+		if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
 			slog.Warn("failed to save peers file", "error", err)
 		}
-	}
+}
+
+// getMyNickname returns the user's own nickname, or "Me" if not set.
+func (d *Daemon) getMyNickname() string {
+	return "Me" // Could be stored in identity config later
+}
 
 // saveGroups writes the groups map to JSON file.
 func (d *Daemon) saveGroups() {

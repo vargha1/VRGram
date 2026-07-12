@@ -373,6 +373,40 @@ const JoinViaCodeRequest$json = {
 final $typed_data.Uint8List joinViaCodeRequestDescriptor = $convert
     .base64Decode('ChJKb2luVmlhQ29kZVJlcXVlc3QSEgoEY29kZRgBIAEoCVIEY29kZQ==');
 
+@$core.Deprecated('Use joinViaCodeResponseDescriptor instead')
+const JoinViaCodeResponse$json = {
+  '1': 'JoinViaCodeResponse',
+  '2': [
+    {'1': 'peer_nickname', '3': 1, '4': 1, '5': 9, '10': 'peerNickname'},
+    {'1': 'peer_pubkey', '3': 2, '4': 1, '5': 9, '10': 'peerPubkey'},
+  ],
+};
+
+/// Descriptor for `JoinViaCodeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List joinViaCodeResponseDescriptor = $convert.base64Decode(
+    'ChNKb2luVmlhQ29kZVJlc3BvbnNlEiMKDXBlZXJfbmlja25hbWUYASABKAlSDHBlZXJOaWNrbm'
+    'FtZRIfCgtwZWVyX3B1YmtleRgCIAEoCVIKcGVlclB1YmtleQ==');
+
+@$core.Deprecated('Use listPeersResponseDescriptor instead')
+const ListPeersResponse$json = {
+  '1': 'ListPeersResponse',
+  '2': [
+    {
+      '1': 'peers',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.relaypb.PeerInfo',
+      '10': 'peers'
+    },
+  ],
+};
+
+/// Descriptor for `ListPeersResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listPeersResponseDescriptor = $convert.base64Decode(
+    'ChFMaXN0UGVlcnNSZXNwb25zZRInCgVwZWVycxgBIAMoCzIRLnJlbGF5cGIuUGVlckluZm9SBX'
+    'BlZXJz');
+
 @$core.Deprecated('Use createGroupRequestDescriptor instead')
 const CreateGroupRequest$json = {
   '1': 'CreateGroupRequest',

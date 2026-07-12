@@ -1400,6 +1400,121 @@ class JoinViaCodeRequest extends $pb.GeneratedMessage {
   void clearCode() => $_clearField(1);
 }
 
+class JoinViaCodeResponse extends $pb.GeneratedMessage {
+  factory JoinViaCodeResponse({
+    $core.String? peerNickname,
+    $core.String? peerPubkey,
+  }) {
+    final result = create();
+    if (peerNickname != null) result.peerNickname = peerNickname;
+    if (peerPubkey != null) result.peerPubkey = peerPubkey;
+    return result;
+  }
+
+  JoinViaCodeResponse._();
+
+  factory JoinViaCodeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory JoinViaCodeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'JoinViaCodeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'peerNickname')
+    ..aOS(2, _omitFieldNames ? '' : 'peerPubkey')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JoinViaCodeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  JoinViaCodeResponse copyWith(void Function(JoinViaCodeResponse) updates) =>
+      super.copyWith((message) => updates(message as JoinViaCodeResponse))
+          as JoinViaCodeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static JoinViaCodeResponse create() => JoinViaCodeResponse._();
+  @$core.override
+  JoinViaCodeResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static JoinViaCodeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<JoinViaCodeResponse>(create);
+  static JoinViaCodeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get peerNickname => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set peerNickname($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPeerNickname() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPeerNickname() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get peerPubkey => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set peerPubkey($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPeerPubkey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPeerPubkey() => $_clearField(2);
+}
+
+class ListPeersResponse extends $pb.GeneratedMessage {
+  factory ListPeersResponse({
+    $core.Iterable<PeerInfo>? peers,
+  }) {
+    final result = create();
+    if (peers != null) result.peers.addAll(peers);
+    return result;
+  }
+
+  ListPeersResponse._();
+
+  factory ListPeersResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ListPeersResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPeersResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..pPM<PeerInfo>(1, _omitFieldNames ? '' : 'peers',
+        subBuilder: PeerInfo.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPeersResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPeersResponse copyWith(void Function(ListPeersResponse) updates) =>
+      super.copyWith((message) => updates(message as ListPeersResponse))
+          as ListPeersResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListPeersResponse create() => ListPeersResponse._();
+  @$core.override
+  ListPeersResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ListPeersResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPeersResponse>(create);
+  static ListPeersResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PeerInfo> get peers => $_getList(0);
+}
+
 class CreateGroupRequest extends $pb.GeneratedMessage {
   factory CreateGroupRequest({
     $core.String? name,

@@ -97,6 +97,20 @@ class PeerList extends Notifier<List<Peer>> {
     state = [...state]..removeAt(index);
     await _save();
   }
+
+  /// Refresh peer list from daemon via gRPC ListPeers.
+  Future<void> refreshFromDaemon() async {
+    try {
+      final client = GrpcClient();
+      final resp = await client.stub.listPeers(Empty());
+      state = resp.peers
+          .map((p) => Peer(nickname: p.nickname, pubkey: sanitizePubkey(p.pubkey)))
+          .toList();
+      await _save();
+    } catch (e) {
+      debugPrint('refreshFromDaemon failed: $e');
+    }
+  }
 }
 
 final peerProvider = NotifierProvider<PeerList, List<Peer>>(PeerList.new);
