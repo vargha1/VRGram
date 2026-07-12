@@ -24,14 +24,10 @@ class MediaService {
     
     final transferId = _uuid.v4();
     const chunkSize = 256 * 1024; // 256KB
-    final estimatedChunks = (fileSize / chunkSize).ceil();
-    
-    // First chunk includes metadata header
-    final header = '${peerPubkey}|${filePath.split('/').last.split('\\').last}|$mimeType';
-    final headerBytes = [utf8.encode(header).length, ...utf8.encode(header)];
     
     try {
-      final stream = _createUploadStream(transferId, file, chunkSize);
+      final stream = _createUploadStream(transferId, file, chunkSize,
+          peerPubkey, filePath, mimeType);
       final resp = await _client.stub.sendMediaStream(stream).timeout(
         Duration(seconds: _estimateTimeout(fileSize)),
       );
@@ -42,8 +38,23 @@ class MediaService {
   }
 
   Stream<MediaUploadChunk> _createUploadStream(
-      String transferId, File file, int chunkSize) async* {
-    int index = 0;
+      String transferId, File file, int chunkSize,
+      String peerPubkey, String filePath, String mimeType) async* {
+    // First chunk: JSON metadata with peer info
+    final filename = filePath.split('/').last.split('\\').last;
+    final header = jsonEncode({
+      'peer_pubkey': peerPubkey,
+      'file_name': filename,
+      'mime_type': mimeType,
+    });
+    yield MediaUploadChunk(
+      transferId: transferId,
+      data: utf8.encode(header),
+      chunkIndex: 0,
+    );
+
+    // Subsequent chunks: raw file data
+    int index = 1;
     final stream = file.openRead();
     await for (final data in stream) {
       for (int offset = 0; offset < data.length; offset += chunkSize) {
