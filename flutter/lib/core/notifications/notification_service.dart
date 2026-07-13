@@ -53,6 +53,12 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
+    // Request notification permission on Android 13+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
     _initialized = true;
     debugPrint('[NotificationService] initialized');
   }
