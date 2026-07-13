@@ -35,7 +35,7 @@ class NotificationService {
     );
 
     await _plugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
@@ -110,10 +110,10 @@ class NotificationService {
 
     // Payload: peerPubkey so tap opens the right chat
     await _plugin.show(
-      notificationId,
-      peerNickname,
-      body,
-      details,
+      id: notificationId,
+      title: peerNickname,
+      body: body,
+      notificationDetails: details,
       payload: peerPubkey,
     );
 

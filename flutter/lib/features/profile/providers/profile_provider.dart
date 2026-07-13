@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +62,7 @@ final profilePicProvider = FutureProvider<Uint8List?>((ref) async {
   final client = GrpcClient();
   final resp = await client.stub.getProfilePic(Empty());
   if (resp.imageData.isEmpty) return null;
-  return resp.imageData;
+  return Uint8List.fromList(resp.imageData);
 });
 
 /// Cached local path for profile pic (avoids re-downloading every rebuild).
