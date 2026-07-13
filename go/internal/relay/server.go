@@ -28,7 +28,7 @@ const DefaultChunkTTL = 7 * 24 * time.Hour
 // Media server constants.
 const (
 	maxUploadSize   = 50 << 20 // 50 MB
-	mediaServerName = "vrgram-relay"
+	mediaServerName = "VRGram-relay"
 )
 
 var base32hex = base32.HexEncoding.WithPadding(base32.NoPadding)
