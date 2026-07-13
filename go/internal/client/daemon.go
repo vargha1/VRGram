@@ -65,10 +65,21 @@ type Daemon struct {
 	authToken     []byte
 	authTokenPath string
 
-	debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
-}
+		debugLog *os.File // DNS debug log, written to dataDir/relayd_debug.log
 
-// PeerInfoEntry holds a peer's nickname and pubkey, keyed by pubkey.
+		// Profile data
+		profile     *Profile
+		profilePath string
+		profileMu   sync.RWMutex
+	}
+
+	// Profile holds the user's own profile information.
+	type Profile struct {
+		Nickname string `json:"nickname,omitempty"`
+		Bio      string `json:"bio,omitempty"`
+	}
+
+	// PeerInfoEntry holds a peer's nickname and pubkey, keyed by pubkey.
 type PeerInfoEntry struct {
 	Nickname string `json:"nickname"`
 	Pubkey   string `json:"pubkey"`
@@ -256,6 +267,9 @@ func RunDaemon(grpcPort int, relays []string, zone string, dataDir string, force
 	}
 	daemon.loadPeers()
 	daemon.loadGroups()
+	// Load profile (nickname, bio)
+	daemon.profilePath = filepath.Join(dataDir, "profile.json")
+	daemon.loadProfile()
 	// Open transfer store for resume support
 	ts, err := media.NewTransferStore(filepath.Join(dataDir, "media_transfers.db"))
 	if err != nil {
@@ -785,10 +799,20 @@ func (d *Daemon) RemoveRelay(ctx context.Context, req *pb.RelayEndpoint) (*pb.Em
 	return &pb.Empty{}, nil
 }
 
-// GetIdentity returns the daemon's public key.
+// GetIdentity returns the daemon's public key and profile info.
 func (d *Daemon) GetIdentity(ctx context.Context, req *pb.Empty) (*pb.IdentityInfo, error) {
+	d.profileMu.RLock()
+	nickname := ""
+	bio := ""
+	if d.profile != nil {
+		nickname = d.profile.Nickname
+		bio = d.profile.Bio
+	}
+	d.profileMu.RUnlock()
 	return &pb.IdentityInfo{
-		Pubkey: base64.StdEncoding.EncodeToString(d.identity.PublicKey),
+		Pubkey:   base64.StdEncoding.EncodeToString(d.identity.PublicKey),
+		Nickname: nickname,
+		Bio:      bio,
 	}, nil
 }
 
@@ -874,7 +898,47 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 		return &pb.JoinViaCodeResponse{
 			PeerNickname: nickname,
 			PeerPubkey:   remotePubkeyB64,
+			}, nil
+		}
+
+	// UpdateProfile saves the user's nickname and bio.
+	func (d *Daemon) UpdateProfile(ctx context.Context, req *pb.ProfileInfo) (*pb.Empty, error) {
+		d.profileMu.Lock()
+		if d.profile == nil {
+			d.profile = &Profile{}
+		}
+		d.profile.Nickname = req.Nickname
+		d.profile.Bio = req.Bio
+		d.profileMu.Unlock()
+		d.saveProfile()
+		slog.Info("profile updated", "nickname", req.Nickname)
+		return &pb.Empty{}, nil
+	}
+
+	// GetProfilePic returns the user's profile picture.
+	func (d *Daemon) GetProfilePic(ctx context.Context, req *pb.Empty) (*pb.ProfilePicResponse, error) {
+		picPath := filepath.Join(d.dataDir, "profile_pic.jpg")
+		data, err := os.ReadFile(picPath)
+		if err != nil {
+			return &pb.ProfilePicResponse{}, nil // no pic, return empty
+		}
+		return &pb.ProfilePicResponse{
+			ImageData: data,
+			MimeType:  "image/jpeg",
 		}, nil
+	}
+
+	// SetProfilePic saves the user's profile picture.
+	func (d *Daemon) SetProfilePic(ctx context.Context, req *pb.SetProfilePicRequest) (*pb.Empty, error) {
+		if len(req.ImageData) > 5*1024*1024 {
+			return nil, status.Error(codes.InvalidArgument, "image too large (max 5MB)")
+		}
+		picPath := filepath.Join(d.dataDir, "profile_pic.jpg")
+		if err := os.WriteFile(picPath, req.ImageData, 0600); err != nil {
+			return nil, status.Error(codes.Internal, "failed to save profile picture")
+		}
+		slog.Info("profile picture saved", "size", len(req.ImageData))
+		return &pb.Empty{}, nil
 	}
 
 	// ListPeers returns all known peers from the daemon.
@@ -1090,12 +1154,7 @@ func (d *Daemon) savePeers() {
 		if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
 			slog.Warn("failed to save peers file", "error", err)
 		}
-}
-
-// getMyNickname returns the user's own nickname, or "Me" if not set.
-func (d *Daemon) getMyNickname() string {
-	return "Me" // Could be stored in identity config later
-}
+	}
 
 // saveGroups writes the groups map to JSON file.
 func (d *Daemon) saveGroups() {
@@ -1130,7 +1189,51 @@ func (d *Daemon) loadGroups() {
 		d.groups[k] = v
 	}
 	d.groupsMu.Unlock()
-	slog.Info("loaded groups from disk", "count", len(loaded))
+		slog.Info("loaded groups from disk", "count", len(loaded))
+	}
+
+// loadProfile reads profile from JSON file into memory.
+func (d *Daemon) loadProfile() {
+	data, err := os.ReadFile(d.profilePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("failed to read profile", "error", err)
+		}
+		return
+	}
+	var p Profile
+	if err := json.Unmarshal(data, &p); err != nil {
+		slog.Warn("failed to parse profile", "error", err)
+		return
+	}
+	d.profileMu.Lock()
+	d.profile = &p
+	d.profileMu.Unlock()
+	slog.Info("loaded profile", "nickname", p.Nickname)
+}
+
+// saveProfile writes the profile to JSON file.
+func (d *Daemon) saveProfile() {
+	d.profileMu.RLock()
+	data, err := json.MarshalIndent(d.profile, "", "  ")
+	d.profileMu.RUnlock()
+	if err != nil {
+		slog.Warn("failed to marshal profile", "error", err)
+		return
+	}
+	if err := os.WriteFile(d.profilePath, data, 0600); err != nil {
+		slog.Warn("failed to save profile", "error", err)
+	}
+}
+
+// getMyNickname returns the user's nickname, or "Me" if not set.
+func (d *Daemon) getMyNickname() string {
+	d.profileMu.RLock()
+	defer d.profileMu.RUnlock()
+	if d.profile != nil && d.profile.Nickname != "" {
+		return d.profile.Nickname
+	}
+	return "Me"
 }
 
 // GetTransportStatus returns the current transport layer status.

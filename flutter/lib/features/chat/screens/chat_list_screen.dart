@@ -21,9 +21,9 @@ class ChatListScreen extends ConsumerWidget {
         title: const Text(AppStrings.appName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.vpn_key),
-            onPressed: () => context.push('/identity'),
-            tooltip: AppStrings.yourPublicKey,
+            icon: const Icon(Icons.person),
+            onPressed: () => context.push('/profile'),
+            tooltip: 'Profile',
           ),
           IconButton(
             icon: const Icon(Icons.dns),

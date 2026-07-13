@@ -1119,9 +1119,13 @@ class RelayStatus extends $pb.GeneratedMessage {
 class IdentityInfo extends $pb.GeneratedMessage {
   factory IdentityInfo({
     $core.String? pubkey,
+    $core.String? nickname,
+    $core.String? bio,
   }) {
     final result = create();
     if (pubkey != null) result.pubkey = pubkey;
+    if (nickname != null) result.nickname = nickname;
+    if (bio != null) result.bio = bio;
     return result;
   }
 
@@ -1139,6 +1143,8 @@ class IdentityInfo extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'pubkey')
+    ..aOS(2, _omitFieldNames ? '' : 'nickname')
+    ..aOS(3, _omitFieldNames ? '' : 'bio')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1168,6 +1174,24 @@ class IdentityInfo extends $pb.GeneratedMessage {
   $core.bool hasPubkey() => $_has(0);
   @$pb.TagNumber(1)
   void clearPubkey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get nickname => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set nickname($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNickname() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNickname() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get bio => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set bio($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBio() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBio() => $_clearField(3);
 }
 
 class PeerInfo extends $pb.GeneratedMessage {
@@ -2076,6 +2100,207 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
   $core.bool hasDnsMode() => $_has(4);
   @$pb.TagNumber(5)
   void clearDnsMode() => $_clearField(5);
+}
+
+/// Profile messages
+class ProfileInfo extends $pb.GeneratedMessage {
+  factory ProfileInfo({
+    $core.String? nickname,
+    $core.String? bio,
+  }) {
+    final result = create();
+    if (nickname != null) result.nickname = nickname;
+    if (bio != null) result.bio = bio;
+    return result;
+  }
+
+  ProfileInfo._();
+
+  factory ProfileInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProfileInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProfileInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'nickname')
+    ..aOS(2, _omitFieldNames ? '' : 'bio')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfileInfo copyWith(void Function(ProfileInfo) updates) =>
+      super.copyWith((message) => updates(message as ProfileInfo))
+          as ProfileInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProfileInfo create() => ProfileInfo._();
+  @$core.override
+  ProfileInfo createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProfileInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProfileInfo>(create);
+  static ProfileInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get nickname => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set nickname($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNickname() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNickname() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get bio => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set bio($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasBio() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearBio() => $_clearField(2);
+}
+
+class SetProfilePicRequest extends $pb.GeneratedMessage {
+  factory SetProfilePicRequest({
+    $core.List<$core.int>? imageData,
+    $core.String? mimeType,
+  }) {
+    final result = create();
+    if (imageData != null) result.imageData = imageData;
+    if (mimeType != null) result.mimeType = mimeType;
+    return result;
+  }
+
+  SetProfilePicRequest._();
+
+  factory SetProfilePicRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetProfilePicRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetProfilePicRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..a<$core.List<$core.int>>(
+        1, _omitFieldNames ? '' : 'imageData', $pb.PbFieldType.OY)
+    ..aOS(2, _omitFieldNames ? '' : 'mimeType')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetProfilePicRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetProfilePicRequest copyWith(void Function(SetProfilePicRequest) updates) =>
+      super.copyWith((message) => updates(message as SetProfilePicRequest))
+          as SetProfilePicRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetProfilePicRequest create() => SetProfilePicRequest._();
+  @$core.override
+  SetProfilePicRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetProfilePicRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetProfilePicRequest>(create);
+  static SetProfilePicRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<$core.int> get imageData => $_getN(0);
+  @$pb.TagNumber(1)
+  set imageData($core.List<$core.int> value) => $_setBytes(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasImageData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearImageData() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get mimeType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set mimeType($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMimeType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMimeType() => $_clearField(2);
+}
+
+class ProfilePicResponse extends $pb.GeneratedMessage {
+  factory ProfilePicResponse({
+    $core.List<$core.int>? imageData,
+    $core.String? mimeType,
+  }) {
+    final result = create();
+    if (imageData != null) result.imageData = imageData;
+    if (mimeType != null) result.mimeType = mimeType;
+    return result;
+  }
+
+  ProfilePicResponse._();
+
+  factory ProfilePicResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProfilePicResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProfilePicResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..a<$core.List<$core.int>>(
+        1, _omitFieldNames ? '' : 'imageData', $pb.PbFieldType.OY)
+    ..aOS(2, _omitFieldNames ? '' : 'mimeType')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfilePicResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProfilePicResponse copyWith(void Function(ProfilePicResponse) updates) =>
+      super.copyWith((message) => updates(message as ProfilePicResponse))
+          as ProfilePicResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProfilePicResponse create() => ProfilePicResponse._();
+  @$core.override
+  ProfilePicResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProfilePicResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProfilePicResponse>(create);
+  static ProfilePicResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<$core.int> get imageData => $_getN(0);
+  @$pb.TagNumber(1)
+  set imageData($core.List<$core.int> value) => $_setBytes(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasImageData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearImageData() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get mimeType => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set mimeType($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMimeType() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMimeType() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

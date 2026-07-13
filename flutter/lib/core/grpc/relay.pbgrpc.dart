@@ -174,6 +174,28 @@ class RelayClient extends $grpc.Client {
     return $createUnaryCall(_$removeGroupMember, request, options: options);
   }
 
+  /// Profile RPCs
+  $grpc.ResponseFuture<$0.Empty> updateProfile(
+    $0.ProfileInfo request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$updateProfile, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ProfilePicResponse> getProfilePic(
+    $0.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getProfilePic, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Empty> setProfilePic(
+    $0.SetProfilePicRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setProfilePic, request, options: options);
+  }
+
   // method descriptors
 
   static final _$sendMessage =
@@ -269,6 +291,20 @@ class RelayClient extends $grpc.Client {
       $grpc.ClientMethod<$0.RemoveGroupMemberRequest, $0.Empty>(
           '/relaypb.RelayClient/RemoveGroupMember',
           ($0.RemoveGroupMemberRequest value) => value.writeToBuffer(),
+          $0.Empty.fromBuffer);
+  static final _$updateProfile = $grpc.ClientMethod<$0.ProfileInfo, $0.Empty>(
+      '/relaypb.RelayClient/UpdateProfile',
+      ($0.ProfileInfo value) => value.writeToBuffer(),
+      $0.Empty.fromBuffer);
+  static final _$getProfilePic =
+      $grpc.ClientMethod<$0.Empty, $0.ProfilePicResponse>(
+          '/relaypb.RelayClient/GetProfilePic',
+          ($0.Empty value) => value.writeToBuffer(),
+          $0.ProfilePicResponse.fromBuffer);
+  static final _$setProfilePic =
+      $grpc.ClientMethod<$0.SetProfilePicRequest, $0.Empty>(
+          '/relaypb.RelayClient/SetProfilePic',
+          ($0.SetProfilePicRequest value) => value.writeToBuffer(),
           $0.Empty.fromBuffer);
 }
 
@@ -425,6 +461,28 @@ abstract class RelayClientServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) =>
             $0.RemoveGroupMemberRequest.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ProfileInfo, $0.Empty>(
+        'UpdateProfile',
+        updateProfile_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ProfileInfo.fromBuffer(value),
+        ($0.Empty value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.Empty, $0.ProfilePicResponse>(
+        'GetProfilePic',
+        getProfilePic_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.Empty.fromBuffer(value),
+        ($0.ProfilePicResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SetProfilePicRequest, $0.Empty>(
+        'SetProfilePic',
+        setProfilePic_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SetProfilePicRequest.fromBuffer(value),
         ($0.Empty value) => value.writeToBuffer()));
   }
 
@@ -583,4 +641,28 @@ abstract class RelayClientServiceBase extends $grpc.Service {
 
   $async.Future<$0.Empty> removeGroupMember(
       $grpc.ServiceCall call, $0.RemoveGroupMemberRequest request);
+
+  $async.Future<$0.Empty> updateProfile_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ProfileInfo> $request) async {
+    return updateProfile($call, await $request);
+  }
+
+  $async.Future<$0.Empty> updateProfile(
+      $grpc.ServiceCall call, $0.ProfileInfo request);
+
+  $async.Future<$0.ProfilePicResponse> getProfilePic_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.Empty> $request) async {
+    return getProfilePic($call, await $request);
+  }
+
+  $async.Future<$0.ProfilePicResponse> getProfilePic(
+      $grpc.ServiceCall call, $0.Empty request);
+
+  $async.Future<$0.Empty> setProfilePic_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SetProfilePicRequest> $request) async {
+    return setProfilePic($call, await $request);
+  }
+
+  $async.Future<$0.Empty> setProfilePic(
+      $grpc.ServiceCall call, $0.SetProfilePicRequest request);
 }

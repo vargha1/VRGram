@@ -25,6 +25,11 @@ service RelayClient {
   rpc ListGroups(Empty) returns (ListGroupsResponse);
   rpc LeaveGroup(LeaveGroupRequest) returns (Empty);
   rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (Empty);
+
+  // Profile RPCs
+  rpc UpdateProfile(ProfileInfo) returns (Empty);
+  rpc GetProfilePic(Empty) returns (ProfilePicResponse);
+  rpc SetProfilePic(SetProfilePicRequest) returns (Empty);
 }
 
 message SendMediaRequest {
@@ -123,6 +128,8 @@ message RelayStatus {
 
 message IdentityInfo {
   string pubkey = 1;
+  string nickname = 2;
+  string bio = 3;
 }
 
 message PeerInfo {
@@ -182,4 +189,20 @@ message TransportStatusResponse {
   bool libp2p_direct = 3;
   bool libp2p_circuit = 4;
   string dns_mode = 5;
+}
+
+// Profile messages
+message ProfileInfo {
+  string nickname = 1;
+  string bio = 2;
+}
+
+message SetProfilePicRequest {
+  bytes image_data = 1;
+  string mime_type = 2;
+}
+
+message ProfilePicResponse {
+  bytes image_data = 1;
+  string mime_type = 2;
 }

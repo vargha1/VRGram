@@ -313,12 +313,15 @@ const IdentityInfo$json = {
   '1': 'IdentityInfo',
   '2': [
     {'1': 'pubkey', '3': 1, '4': 1, '5': 9, '10': 'pubkey'},
+    {'1': 'nickname', '3': 2, '4': 1, '5': 9, '10': 'nickname'},
+    {'1': 'bio', '3': 3, '4': 1, '5': 9, '10': 'bio'},
   ],
 };
 
 /// Descriptor for `IdentityInfo`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List identityInfoDescriptor = $convert
-    .base64Decode('CgxJZGVudGl0eUluZm8SFgoGcHVia2V5GAEgASgJUgZwdWJrZXk=');
+final $typed_data.Uint8List identityInfoDescriptor = $convert.base64Decode(
+    'CgxJZGVudGl0eUluZm8SFgoGcHVia2V5GAEgASgJUgZwdWJrZXkSGgoIbmlja25hbWUYAiABKA'
+    'lSCG5pY2tuYW1lEhAKA2JpbxgDIAEoCVIDYmlv');
 
 @$core.Deprecated('Use peerInfoDescriptor instead')
 const PeerInfo$json = {
@@ -546,3 +549,45 @@ final $typed_data.Uint8List transportStatusResponseDescriptor = $convert.base64D
     '5uZWN0ZWQSKwoRZGlzY292ZXJlZF9yZWxheXMYAiABKAVSEGRpc2NvdmVyZWRSZWxheXMSIwoN'
     'bGlicDJwX2RpcmVjdBgDIAEoCFIMbGlicDJwRGlyZWN0EiUKDmxpYnAycF9jaXJjdWl0GAQgAS'
     'gIUg1saWJwMnBDaXJjdWl0EhkKCGRuc19tb2RlGAUgASgJUgdkbnNNb2Rl');
+
+@$core.Deprecated('Use profileInfoDescriptor instead')
+const ProfileInfo$json = {
+  '1': 'ProfileInfo',
+  '2': [
+    {'1': 'nickname', '3': 1, '4': 1, '5': 9, '10': 'nickname'},
+    {'1': 'bio', '3': 2, '4': 1, '5': 9, '10': 'bio'},
+  ],
+};
+
+/// Descriptor for `ProfileInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List profileInfoDescriptor = $convert.base64Decode(
+    'CgtQcm9maWxlSW5mbxIaCghuaWNrbmFtZRgBIAEoCVIIbmlja25hbWUSEAoDYmlvGAIgASgJUg'
+    'NiaW8=');
+
+@$core.Deprecated('Use setProfilePicRequestDescriptor instead')
+const SetProfilePicRequest$json = {
+  '1': 'SetProfilePicRequest',
+  '2': [
+    {'1': 'image_data', '3': 1, '4': 1, '5': 12, '10': 'imageData'},
+    {'1': 'mime_type', '3': 2, '4': 1, '5': 9, '10': 'mimeType'},
+  ],
+};
+
+/// Descriptor for `SetProfilePicRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setProfilePicRequestDescriptor = $convert.base64Decode(
+    'ChRTZXRQcm9maWxlUGljUmVxdWVzdBIdCgppbWFnZV9kYXRhGAEgASgMUglpbWFnZURhdGESGw'
+    'oJbWltZV90eXBlGAIgASgJUghtaW1lVHlwZQ==');
+
+@$core.Deprecated('Use profilePicResponseDescriptor instead')
+const ProfilePicResponse$json = {
+  '1': 'ProfilePicResponse',
+  '2': [
+    {'1': 'image_data', '3': 1, '4': 1, '5': 12, '10': 'imageData'},
+    {'1': 'mime_type', '3': 2, '4': 1, '5': 9, '10': 'mimeType'},
+  ],
+};
+
+/// Descriptor for `ProfilePicResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List profilePicResponseDescriptor = $convert.base64Decode(
+    'ChJQcm9maWxlUGljUmVzcG9uc2USHQoKaW1hZ2VfZGF0YRgBIAEoDFIJaW1hZ2VEYXRhEhsKCW'
+    '1pbWVfdHlwZRgCIAEoCVIIbWltZVR5cGU=');
