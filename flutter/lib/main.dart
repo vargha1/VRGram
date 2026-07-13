@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/grpc/client.dart';
 import 'core/grpc/relay.pb.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/platform/app_data_dir.dart';
 import 'core/platform/go_bridge.dart';
 
@@ -37,7 +38,20 @@ void main() async {
   // Sync persisted data to daemon (blocking — ensures daemon knows relays)
   await _syncRelays();
 
+  // Request notification permissions on Android 13+
+  _requestNotificationPermission();
+
   runApp(const ProviderScope(child: VRGramApp()));
+
+  // Initialize local notifications for incoming messages
+  await NotificationService().init();
+}
+
+/// Request POST_NOTIFICATIONS permission on Android 13+.
+void _requestNotificationPermission() {
+  // The flutter_local_notifications plugin handles this internally,
+  // but pre-requesting via permission_handler or platform channel helps.
+  // For now, the plugin requests on first notification.
 }
 
 /// Sync persisted relays from JSON to daemon via gRPC.

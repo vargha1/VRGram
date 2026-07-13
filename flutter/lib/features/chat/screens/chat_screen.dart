@@ -2,19 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input.dart';
 import '../widgets/media_picker.dart';
 import '../../peers/providers/peer_provider.dart';
 
-class ChatScreen extends ConsumerWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   final Peer peer;
   const ChatScreen({super.key, required this.peer});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Mark this chat as active so notifications are suppressed
+    activeChatPubkey.value = widget.peer.pubkey;
+  }
+
+  @override
+  void dispose() {
+    // Clear active chat tracking
+    activeChatPubkey.value = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final allMessages = ref.watch(chatProvider);
+    final peer = widget.peer;
 
     // Filter to only messages with this peer
     final messages = allMessages.where((m) =>
@@ -107,7 +128,7 @@ class ChatScreen extends ConsumerWidget {
   void _sendFile(WidgetRef ref, String filePath, String mimeType) {
     ref.read(sendMediaProvider(
       SendMediaParams(
-        peerPubkey: peer.pubkey,
+        peerPubkey: widget.peer.pubkey,
         filePath: filePath,
         mimeType: mimeType,
       ),

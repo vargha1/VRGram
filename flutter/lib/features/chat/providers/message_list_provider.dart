@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/grpc/client.dart';
 import '../../../core/grpc/relay.pb.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../../../core/platform/app_data_dir.dart';
 import '../../../shared/constants.dart';
+import '../../peers/providers/peer_provider.dart';
 import 'chat_provider.dart';
 
 final pollMessagesProvider = StreamProvider<void>((ref) async* {
@@ -14,6 +17,8 @@ final pollMessagesProvider = StreamProvider<void>((ref) async* {
     try {
       final client = GrpcClient();
       final resp = await client.stub.pollMessages(PollRequest());
+      // Get peer list to resolve nicknames for notifications
+      final peerList = ref.read(peerProvider);
       for (final msg in resp.messages) {
         final serverTs = msg.hasServerTimestampMs() && msg.serverTimestampMs > 0
             ? DateTime.fromMillisecondsSinceEpoch(msg.serverTimestampMs.toInt())
@@ -33,6 +38,23 @@ final pollMessagesProvider = StreamProvider<void>((ref) async* {
                   ? msg.sequenceNumber.toInt()
                   : null,
             ));
+
+        // Show local notification for incoming message
+        final fromPeer = msg.fromPeer;
+        if (fromPeer != null && fromPeer.isNotEmpty) {
+          final peerNickname = peerList
+              .where((p) => p.pubkey == fromPeer)
+              .map((p) => p.nickname)
+              .firstOrNull;
+          // Always show notification even if nickname unknown — use truncated pubkey
+          final displayName = peerNickname ?? fromPeer.substring(0, min(8, fromPeer.length)) + '…';
+          NotificationService().showMessageNotification(
+            peerPubkey: fromPeer,
+            peerNickname: displayName,
+            messagePreview: utf8.decode(msg.plaintext),
+            messageId: msg.messageId,
+          );
+        }
       }
     } catch (e) {
       debugPrint('[pollMessagesProvider] error: $e');

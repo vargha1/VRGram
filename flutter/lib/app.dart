@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'core/notifications/notification_service.dart';
 import 'features/chat/providers/message_list_provider.dart';
 import 'features/chat/screens/chat_list_screen.dart';
 import 'features/chat/screens/chat_screen.dart';
@@ -40,17 +41,38 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class VRGramApp extends ConsumerWidget {
+class VRGramApp extends ConsumerStatefulWidget {
   const VRGramApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VRGramApp> createState() => _VRGramAppState();
+}
+
+class _VRGramAppState extends ConsumerState<VRGramApp> {
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     // Start global message polling (runs for app lifetime)
     ref.watch(pollMessagesProvider);
     // Start media file scanner (checks daemon-downloaded media files)
     ref.watch(receivedMediaProvider);
+
+    // Handle notification tap navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final peerPubkey = NotificationService.getPendingNavigationPubkey();
+      if (peerPubkey != null && context.mounted) {
+        // Find peer in the peer list
+        final peers = ref.read(peerProvider);
+        final peer = peers.where((p) => p.pubkey == peerPubkey).firstOrNull;
+        if (peer != null) {
+          context.go('/chat', extra: peer);
+        } else {
+          // Peer not found — navigate to peers list so user can add them
+          context.go('/peers');
+        }
+      }
+    });
 
     return MaterialApp.router(
       title: AppStrings.appName,

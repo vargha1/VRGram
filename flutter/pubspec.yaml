@@ -25,6 +25,7 @@ dependencies:
   uuid: ^4.5.3
   qr_flutter: ^4.1.0
   audioplayers: ^6.8.1
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   build_runner: ^2.15.1
