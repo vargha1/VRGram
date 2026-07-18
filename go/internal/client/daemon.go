@@ -646,148 +646,160 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 					}
 				}
 
-				// Check if this is media metadata JSON — download chunks and save file
-				if len(decrypted) > 20 && decrypted[0] == '{' {
-					// Check for profile update messages
-					var profileMsg struct {
-						Type         string `json:"type"`
-						Nickname     string `json:"nickname"`
-						Bio          string `json:"bio"`
-						ImageDataB64 string `json:"image_data_b64"`
-						Mime         string `json:"mime"`
-					}
-					if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_update" && fromPeer != "" {
-						// Update peer's nickname
-						d.peersMu.Lock()
-						if entry, ok := d.peers[fromPeer]; ok && profileMsg.Nickname != "" {
-							entry.Nickname = profileMsg.Nickname
-							d.debugWrite("PollMessages: profile_update from=%s nickname=%s", fromPeer[:min(16, len(fromPeer))], profileMsg.Nickname)
+					// Check for JSON-typed messages: profile updates, profile pics, media metadata.
+					// Only recognized types skip the text message path; everything else falls through.
+					if len(decrypted) > 20 && decrypted[0] == '{' {
+						// Check for profile update messages
+						var profileMsg struct {
+							Type         string `json:"type"`
+							Nickname     string `json:"nickname"`
+							Bio          string `json:"bio"`
+							FileID       string `json:"file_id"`
+							FileKeyB64   string `json:"file_key_b64"`
+							Transport    string `json:"transport"`
+							Mime         string `json:"mime"`
 						}
-						d.peersMu.Unlock()
-						d.savePeers()
-						continue
-					}
-					if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_pic" && fromPeer != "" {
-						picData, err := base64.StdEncoding.DecodeString(profileMsg.ImageDataB64)
-						if err == nil && len(picData) > 0 {
-							picDir := filepath.Join(d.dataDir, "peer_pics")
-							os.MkdirAll(picDir, 0700)
-							picPath := filepath.Join(picDir, fromPeer+".jpg")
-							os.WriteFile(picPath, picData, 0600)
-							d.debugWrite("PollMessages: profile_pic saved for %s (%d bytes)", fromPeer[:min(16, len(fromPeer))], len(picData))
-						}
-						continue
-					}
-
-					// Media metadata check
-					var maybeMeta struct {
-					FileKeyB64  string   `json:"file_key_b64"`
-					ChunkMsgIDs []string `json:"chunk_msg_ids"`
-					MimeType    string   `json:"mime_type"`
-					FileName    string   `json:"file_name"`
-					Transport   string   `json:"transport"`
-					FileID      string   `json:"file_id"`
-				}
-				if json.Unmarshal(decrypted, &maybeMeta) == nil && maybeMeta.FileKeyB64 != "" {
-					fileKey, _ := base64.StdEncoding.DecodeString(maybeMeta.FileKeyB64)
-					relays := d.engine.GetRelays()
-					if len(relays) == 0 {
-						d.debugWrite("PollMessages: no relays for media download")
-						continue
-					}
-					relay := relays[0]
-
-					var fileData []byte
-
-					if maybeMeta.Transport == "tcp" && maybeMeta.FileID != "" {
-						// TCP transport — download file from relay's HTTP media server
-						d.debugWrite("PollMessages: detected TCP media msgID=%x fileID=%s", pm.MsgID, maybeMeta.FileID)
-						tcpT := media.NewTCPTransport(relay)
-						encryptedFile, err := tcpT.DownloadFile(ctx, maybeMeta.FileID)
-						if err != nil {
-							d.debugWrite("PollMessages: TCP download failed fileID=%s err=%v", maybeMeta.FileID, err)
-						} else if fileKey != nil {
-							fileData, err = media.DecryptFile(fileKey, encryptedFile)
-							if err != nil {
-								d.debugWrite("PollMessages: TCP media decrypt failed err=%v", err)
+						if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_update" && fromPeer != "" {
+							d.peersMu.Lock()
+							if entry, ok := d.peers[fromPeer]; ok && profileMsg.Nickname != "" {
+								entry.Nickname = profileMsg.Nickname
+								d.debugWrite("PollMessages: profile_update from=%s nickname=%s", fromPeer[:min(16, len(fromPeer))], profileMsg.Nickname)
 							}
+							d.peersMu.Unlock()
+							d.savePeers()
+							// Also save bio to a file so Flutter can read it
+							if profileMsg.Bio != "" {
+								bioDir := filepath.Join(d.dataDir, "peer_bios")
+								os.MkdirAll(bioDir, 0700)
+								bioPath := filepath.Join(bioDir, fromPeer+".json")
+								bioJSON, _ := json.Marshal(map[string]string{"bio": profileMsg.Bio})
+								os.WriteFile(bioPath, bioJSON, 0600)
+							}
+							continue
 						}
-					} else if len(maybeMeta.ChunkMsgIDs) > 0 {
-						// DNS transport — download chunks from relay
-						d.debugWrite("PollMessages: detected DNS media msgID=%x chunks=%d", pm.MsgID, len(maybeMeta.ChunkMsgIDs))
-						zone := d.engine.GetZone()
-						mode := d.engine.GetTransportMode()
-						var encryptedFile []byte
-						for _, cid := range maybeMeta.ChunkMsgIDs {
-							midBytes, _ := base64.StdEncoding.DecodeString(cid)
-							if len(midBytes) != 8 {
+						if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_pic" && fromPeer != "" && profileMsg.FileID != "" {
+							// Profile pic sent via TCP relay — download, decrypt, save
+							relays := d.engine.GetRelays()
+							if len(relays) > 0 {
+								fileKey, _ := base64.StdEncoding.DecodeString(profileMsg.FileKeyB64)
+								tcpT := media.NewTCPTransport(relays[0])
+								encryptedPic, err := tcpT.DownloadFile(ctx, profileMsg.FileID)
+								if err == nil && fileKey != nil {
+									picData, err := media.DecryptFile(fileKey, encryptedPic)
+									if err == nil && len(picData) > 0 {
+										picDir := filepath.Join(d.dataDir, "peer_pics")
+										os.MkdirAll(picDir, 0700)
+										picPath := filepath.Join(picDir, fromPeer+".jpg")
+										os.WriteFile(picPath, picData, 0600)
+										d.debugWrite("PollMessages: profile_pic saved for %s (%d bytes)", fromPeer[:min(16, len(fromPeer))], len(picData))
+									}
+								}
+							}
+							continue
+						}
+
+						// Media metadata check
+						var maybeMeta struct {
+							FileKeyB64  string   `json:"file_key_b64"`
+							ChunkMsgIDs []string `json:"chunk_msg_ids"`
+							MimeType    string   `json:"mime_type"`
+							FileName    string   `json:"file_name"`
+							Transport   string   `json:"transport"`
+							FileID      string   `json:"file_id"`
+						}
+						if json.Unmarshal(decrypted, &maybeMeta) == nil && maybeMeta.FileKeyB64 != "" {
+							fileKey, _ := base64.StdEncoding.DecodeString(maybeMeta.FileKeyB64)
+							relays := d.engine.GetRelays()
+							if len(relays) == 0 {
+								d.debugWrite("PollMessages: no relays for media download")
 								continue
 							}
-							var mid [8]byte
-							copy(mid[:], midBytes)
-							chunkData, err := fetchAndReassemble(relay, zone, mid, mode)
-							if err != nil {
-								d.debugWrite("PollMessages: media chunk fetch failed cid=%s err=%v", cid, err)
-								break
-							}
-							encryptedFile = append(encryptedFile, chunkData...)
-						}
-						if len(encryptedFile) > 0 && fileKey != nil {
-							fileData, err = media.DecryptFile(fileKey, encryptedFile)
-							if err != nil {
-								d.debugWrite("PollMessages: DNS media decrypt failed err=%v", err)
-							}
-						}
-					}
+							relay := relays[0]
 
-					if fileData != nil {
-						// Always save a meta sidecar so Flutter can report download status.
-						ext := ".bin"
-						if maybeMeta.MimeType == "image/jpeg" {
-							ext = ".jpg"
-						} else if maybeMeta.MimeType == "image/png" {
-							ext = ".png"
-						} else if maybeMeta.MimeType == "video/mp4" {
-							ext = ".mp4"
-						} else if maybeMeta.MimeType == "audio/m4a" {
-							ext = ".m4a"
-						}
-						recvDir := filepath.Join(d.dataDir, "media_received")
-						os.MkdirAll(recvDir, 0700)
-						mediaMsgID := hex.EncodeToString(pm.MsgID[:])
-						filePath := filepath.Join(recvDir, mediaMsgID+ext)
+							var fileData []byte
 
-						if fileData != nil {
-							if err := os.WriteFile(filePath, fileData, 0600); err != nil {
-								d.debugWrite("PollMessages: media save failed err=%v", err)
+							if maybeMeta.Transport == "tcp" && maybeMeta.FileID != "" {
+								d.debugWrite("PollMessages: detected TCP media msgID=%x fileID=%s", pm.MsgID, maybeMeta.FileID)
+								tcpT := media.NewTCPTransport(relay)
+								encryptedFile, err := tcpT.DownloadFile(ctx, maybeMeta.FileID)
+								if err != nil {
+									d.debugWrite("PollMessages: TCP download failed fileID=%s err=%v", maybeMeta.FileID, err)
+								} else if fileKey != nil {
+									fileData, err = media.DecryptFile(fileKey, encryptedFile)
+									if err != nil {
+										d.debugWrite("PollMessages: TCP media decrypt failed err=%v", err)
+									}
+								}
+							} else if len(maybeMeta.ChunkMsgIDs) > 0 {
+								d.debugWrite("PollMessages: detected DNS media msgID=%x chunks=%d", pm.MsgID, len(maybeMeta.ChunkMsgIDs))
+								zone := d.engine.GetZone()
+								mode := d.engine.GetTransportMode()
+								var encryptedFile []byte
+								for _, cid := range maybeMeta.ChunkMsgIDs {
+									midBytes, _ := base64.StdEncoding.DecodeString(cid)
+									if len(midBytes) != 8 {
+										continue
+									}
+									var mid [8]byte
+									copy(mid[:], midBytes)
+									chunkData, err := fetchAndReassemble(relay, zone, mid, mode)
+									if err != nil {
+										d.debugWrite("PollMessages: media chunk fetch failed cid=%s err=%v", cid, err)
+										break
+									}
+									encryptedFile = append(encryptedFile, chunkData...)
+								}
+								if len(encryptedFile) > 0 && fileKey != nil {
+									fileData, err = media.DecryptFile(fileKey, encryptedFile)
+									if err != nil {
+										d.debugWrite("PollMessages: DNS media decrypt failed err=%v", err)
+									}
+								}
+							}
+
+							// Save media file (or placeholder) + meta sidecar
+							ext := ".bin"
+							if maybeMeta.MimeType == "image/jpeg" {
+								ext = ".jpg"
+							} else if maybeMeta.MimeType == "image/png" {
+								ext = ".png"
+							} else if maybeMeta.MimeType == "video/mp4" {
+								ext = ".mp4"
+							} else if maybeMeta.MimeType == "audio/m4a" {
+								ext = ".m4a"
+							}
+							recvDir := filepath.Join(d.dataDir, "media_received")
+							os.MkdirAll(recvDir, 0700)
+							mediaMsgID := hex.EncodeToString(pm.MsgID[:])
+							filePath := filepath.Join(recvDir, mediaMsgID+ext)
+
+							if fileData != nil {
+								if err := os.WriteFile(filePath, fileData, 0600); err != nil {
+									d.debugWrite("PollMessages: media save failed err=%v", err)
+								} else {
+									d.debugWrite("PollMessages: media saved to %s", filePath)
+								}
 							} else {
-								d.debugWrite("PollMessages: media saved to %s", filePath)
+								d.debugWrite("PollMessages: media download failed for %s, saving placeholder", mediaMsgID)
+								os.WriteFile(filePath, []byte{}, 0600)
 							}
-						} else {
-							// Save empty placeholder so Flutter's receivedMediaProvider
-							// picks it up and shows a failed-download message.
-							d.debugWrite("PollMessages: media download failed for %s, saving placeholder", mediaMsgID)
-							os.WriteFile(filePath, []byte{}, 0600)
+							status := "complete"
+							if fileData == nil {
+								status = "failed"
+							}
+							metaPath := filePath + ".meta"
+							metaJSON, _ := json.Marshal(map[string]string{
+								"mime":               maybeMeta.MimeType,
+								"filename":           maybeMeta.FileName,
+								"sender_pubkey":      fromPeer,
+								"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
+								"status":             status,
+							})
+							os.WriteFile(metaPath, metaJSON, 0600)
+							// Don't add media metadata as a text message
+							continue
 						}
-						// Always write meta sidecar with status so Flutter knows.
-						status := "complete"
-						if fileData == nil {
-							status = "failed"
-						}
-						metaPath := filePath + ".meta"
-						metaJSON, _ := json.Marshal(map[string]string{
-							"mime":               maybeMeta.MimeType,
-							"filename":           maybeMeta.FileName,
-							"sender_pubkey":      fromPeer,
-							"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
-							"status":             status,
-						})
-						os.WriteFile(metaPath, metaJSON, 0600)
 					}
-				}
-				// Don't add media metadata as a text message
-				continue
-			}
 
 		msgID := hex.EncodeToString(pm.MsgID[:])
 		received := &pb.ReceivedMessage{
@@ -1032,17 +1044,45 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 		return &pb.Empty{}, nil
 	}
 
-	// broadcastProfilePic sends the profile picture to every known peer.
+	// broadcastProfilePic uploads the picture to the relay (via TCP) and sends
+	// a lightweight metadata message to each peer instead of inline base64 (which
+	// is too large for DNS chunking within the 10s deadline).
 	func (d *Daemon) broadcastProfilePic(imageData []byte, mimeType string) {
-		imageB64 := base64.StdEncoding.EncodeToString(imageData)
-		payload := fmt.Sprintf(`{"type":"profile_pic","image_data_b64":"%s","mime":"%s"}`, imageB64, mimeType)
+		relays := d.engine.GetRelays()
+		if len(relays) == 0 {
+			slog.Warn("broadcastProfilePic: no relays, skipping")
+			return
+		}
+		// Encrypt + upload via TCP transport (same as media files).
+		fileKey, err := media.GenerateFileKey()
+		if err != nil {
+			slog.Warn("broadcastProfilePic: generate file key failed", "error", err)
+			return
+		}
+		encryptedPic, err := media.EncryptFile(fileKey, imageData)
+		if err != nil {
+			slog.Warn("broadcastProfilePic: encrypt failed", "error", err)
+			return
+		}
+		tcpT := media.NewTCPTransport(relays[0])
+		var mid [8]byte
+		rand.Read(mid[:])
+		// Use SendChunks which uploads to relay via HTTP POST /upload
+		meta, err := tcpT.SendChunks(context.Background(), mid, encryptedPic, "profile_pic.jpg", mimeType, media.MediaTypeImage)
+		if err != nil {
+			slog.Warn("broadcastProfilePic: TCP upload failed", "error", err)
+			return
+		}
+		fileKeyB64 := base64.StdEncoding.EncodeToString(fileKey)
+		payload := fmt.Sprintf(`{"type":"profile_pic","file_id":"%s","file_key_b64":"%s","mime":"%s","transport":"tcp"}`,
+			meta.FileID, fileKeyB64, mimeType)
+
 		d.peersMu.RLock()
 		peers := make([]string, 0, len(d.peers))
 		for pubkey := range d.peers {
 			peers = append(peers, pubkey)
 		}
 		d.peersMu.RUnlock()
-
 		for _, peerPubkey := range peers {
 			d.sendProfileToPeer(peerPubkey, payload)
 		}
