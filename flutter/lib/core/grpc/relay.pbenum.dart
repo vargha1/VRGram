@@ -19,14 +19,11 @@ class SendMediaRequest_Transport extends $pb.ProtobufEnum {
       SendMediaRequest_Transport._(0, _omitEnumNames ? '' : 'AUTO');
   static const SendMediaRequest_Transport DNS =
       SendMediaRequest_Transport._(1, _omitEnumNames ? '' : 'DNS');
-  static const SendMediaRequest_Transport LIBP2P =
-      SendMediaRequest_Transport._(2, _omitEnumNames ? '' : 'LIBP2P');
 
   static const $core.List<SendMediaRequest_Transport> values =
       <SendMediaRequest_Transport>[
     AUTO,
     DNS,
-    LIBP2P,
   ];
 
   static final $core.List<SendMediaRequest_Transport?> _byValue =

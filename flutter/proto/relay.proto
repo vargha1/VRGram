@@ -40,7 +40,7 @@ message SendMediaRequest {
   enum Transport {
     AUTO = 0;
     DNS = 1;
-    LIBP2P = 2;
+    // LIBP2P = 2; — removed, unused
   }
   Transport preferred_transport = 5;
 }

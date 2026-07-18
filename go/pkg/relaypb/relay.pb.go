@@ -24,9 +24,8 @@ const (
 type SendMediaRequest_Transport int32
 
 const (
-	SendMediaRequest_AUTO   SendMediaRequest_Transport = 0
-	SendMediaRequest_DNS    SendMediaRequest_Transport = 1
-	SendMediaRequest_LIBP2P SendMediaRequest_Transport = 2
+	SendMediaRequest_AUTO SendMediaRequest_Transport = 0
+	SendMediaRequest_DNS  SendMediaRequest_Transport = 1
 )
 
 // Enum value maps for SendMediaRequest_Transport.
@@ -34,12 +33,10 @@ var (
 	SendMediaRequest_Transport_name = map[int32]string{
 		0: "AUTO",
 		1: "DNS",
-		2: "LIBP2P",
 	}
 	SendMediaRequest_Transport_value = map[string]int32{
-		"AUTO":   0,
-		"DNS":    1,
-		"LIBP2P": 2,
+		"AUTO": 0,
+		"DNS":  1,
 	}
 )
 
@@ -1693,8 +1690,6 @@ type TransportStatusResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	DhtConnected     bool                   `protobuf:"varint,1,opt,name=dht_connected,json=dhtConnected,proto3" json:"dht_connected,omitempty"`
 	DiscoveredRelays int32                  `protobuf:"varint,2,opt,name=discovered_relays,json=discoveredRelays,proto3" json:"discovered_relays,omitempty"`
-	Libp2PDirect     bool                   `protobuf:"varint,3,opt,name=libp2p_direct,json=libp2pDirect,proto3" json:"libp2p_direct,omitempty"`
-	Libp2PCircuit    bool                   `protobuf:"varint,4,opt,name=libp2p_circuit,json=libp2pCircuit,proto3" json:"libp2p_circuit,omitempty"`
 	DnsMode          string                 `protobuf:"bytes,5,opt,name=dns_mode,json=dnsMode,proto3" json:"dns_mode,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1742,20 +1737,6 @@ func (x *TransportStatusResponse) GetDiscoveredRelays() int32 {
 		return x.DiscoveredRelays
 	}
 	return 0
-}
-
-func (x *TransportStatusResponse) GetLibp2PDirect() bool {
-	if x != nil {
-		return x.Libp2PDirect
-	}
-	return false
-}
-
-func (x *TransportStatusResponse) GetLibp2PCircuit() bool {
-	if x != nil {
-		return x.Libp2PCircuit
-	}
-	return false
 }
 
 func (x *TransportStatusResponse) GetDnsMode() string {

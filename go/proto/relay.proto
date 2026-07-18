@@ -40,7 +40,7 @@ message SendMediaRequest {
   enum Transport {
     AUTO = 0;
     DNS = 1;
-    LIBP2P = 2;
+    // LIBP2P = 2; — removed, unused
   }
   Transport preferred_transport = 5;
 }
@@ -186,8 +186,8 @@ message GroupMember {
 message TransportStatusResponse {
   bool dht_connected = 1;
   int32 discovered_relays = 2;
-  bool libp2p_direct = 3;
-  bool libp2p_circuit = 4;
+  // bool libp2p_direct = 3;  — removed, unused
+  // bool libp2p_circuit = 4; — removed, unused
   string dns_mode = 5;
 }
 

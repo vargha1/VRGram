@@ -1361,12 +1361,21 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	var meta *media.MediaMessage
 	var mid [8]byte
 	rand.Read(mid[:])
+	var err error
 
-	// Decide transport strategy:
-	//   AUTO / unset → DNS for <60KB, TCP otherwise; DNS→TCP fallback on failure.
-	//   DIRECT_TCP   → TCP always.
-	useDNS := req.PreferredTransport != pb.SendMediaRequest_DIRECT_TCP &&
-		len(req.MediaData) < media.MediaDNSSizeThreshold
+	// Determine transport strategy based on PreferredTransport:
+	//   AUTO (0) → daemon decides: DNS for <60KB, TCP otherwise; DNS→TCP fallback.
+	//   DNS  (1) → force DNS (no fallback).
+	//   other    → TCP (LIBP2P was removed).
+	useDNS := false
+	switch req.PreferredTransport {
+	case pb.SendMediaRequest_AUTO:
+		useDNS = len(req.MediaData) < media.MediaDNSSizeThreshold
+	case pb.SendMediaRequest_DNS:
+		useDNS = true
+	default:
+		useDNS = false // LIBP2P or unknown → TCP
+	}
 
 	if useDNS {
 		// DNS path
@@ -1464,7 +1473,8 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	transfer.mu.Unlock()
 
 	if d.transferStore != nil {
-		d.transferStore.Update(msgID, media.TransferComplete, 100, int32(len(req.MediaData)/256/1024+1))
+		chunkEstimate := int32(len(req.MediaData)/(256*1024)) + 1
+		d.transferStore.Update(msgID, media.TransferComplete, 100, chunkEstimate)
 	}
 
 	return &pb.SendMediaResponse{

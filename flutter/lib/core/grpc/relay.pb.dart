@@ -2003,15 +2003,11 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
   factory TransportStatusResponse({
     $core.bool? dhtConnected,
     $core.int? discoveredRelays,
-    $core.bool? libp2pDirect,
-    $core.bool? libp2pCircuit,
     $core.String? dnsMode,
   }) {
     final result = create();
     if (dhtConnected != null) result.dhtConnected = dhtConnected;
     if (discoveredRelays != null) result.discoveredRelays = discoveredRelays;
-    if (libp2pDirect != null) result.libp2pDirect = libp2pDirect;
-    if (libp2pCircuit != null) result.libp2pCircuit = libp2pCircuit;
     if (dnsMode != null) result.dnsMode = dnsMode;
     return result;
   }
@@ -2031,8 +2027,6 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'dhtConnected')
     ..aI(2, _omitFieldNames ? '' : 'discoveredRelays')
-    ..aOB(3, _omitFieldNames ? '' : 'libp2pDirect')
-    ..aOB(4, _omitFieldNames ? '' : 'libp2pCircuit')
     ..aOS(5, _omitFieldNames ? '' : 'dnsMode')
     ..hasRequiredFields = false;
 
@@ -2074,30 +2068,12 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearDiscoveredRelays() => $_clearField(2);
 
-  @$pb.TagNumber(3)
-  $core.bool get libp2pDirect => $_getBF(2);
-  @$pb.TagNumber(3)
-  set libp2pDirect($core.bool value) => $_setBool(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasLibp2pDirect() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearLibp2pDirect() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.bool get libp2pCircuit => $_getBF(3);
-  @$pb.TagNumber(4)
-  set libp2pCircuit($core.bool value) => $_setBool(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasLibp2pCircuit() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLibp2pCircuit() => $_clearField(4);
-
   @$pb.TagNumber(5)
-  $core.String get dnsMode => $_getSZ(4);
+  $core.String get dnsMode => $_getSZ(2);
   @$pb.TagNumber(5)
-  set dnsMode($core.String value) => $_setString(4, value);
+  set dnsMode($core.String value) => $_setString(2, value);
   @$pb.TagNumber(5)
-  $core.bool hasDnsMode() => $_has(4);
+  $core.bool hasDnsMode() => $_has(2);
   @$pb.TagNumber(5)
   void clearDnsMode() => $_clearField(5);
 }

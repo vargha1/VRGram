@@ -37,12 +37,11 @@ const SendMediaRequest$json = {
 
 @$core.Deprecated('Use sendMediaRequestDescriptor instead')
 const SendMediaRequest_Transport$json = {
-  '1': 'Transport',
-  '2': [
-    {'1': 'AUTO', '2': 0},
-    {'1': 'DNS', '2': 1},
-    {'1': 'LIBP2P', '2': 2},
-  ],
+	  '1': 'Transport',
+	  '2': [
+	    {'1': 'AUTO', '2': 0},
+	    {'1': 'DNS', '2': 1},
+	  ],
 };
 
 /// Descriptor for `SendMediaRequest`. Decode as a `google.protobuf.DescriptorProto`.
@@ -537,8 +536,6 @@ const TransportStatusResponse$json = {
       '5': 5,
       '10': 'discoveredRelays'
     },
-    {'1': 'libp2p_direct', '3': 3, '4': 1, '5': 8, '10': 'libp2pDirect'},
-    {'1': 'libp2p_circuit', '3': 4, '4': 1, '5': 8, '10': 'libp2pCircuit'},
     {'1': 'dns_mode', '3': 5, '4': 1, '5': 9, '10': 'dnsMode'},
   ],
 };

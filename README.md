@@ -28,24 +28,24 @@ Flutter's GoBridge auto-finds relayd.exe in `../go/` and spawns it.
 
 ## One Binary Architecture
 
-`relayd` (single binary) embeds libp2p + DHT + DNS engine + gRPC server.
-Flutter auto-starts it. No separate p2pd process needed anymore.
+`relayd` (single binary) embeds DNS engine + gRPC server.
+Flutter auto-starts it.
 
 ```
 ┌──────────┐  gRPC :9877  ┌────────────────────────────────────┐
 │  Flutter  │◄────────────►│  relayd (Go)                       │
-│  (UI)     │              │  ┌──────────┐  ┌───────────────┐  │
-│           │              │  │ DNS eng  │  │ libp2p+DHT    │  │
-│           │              │  │ +queue   │  │ +media stream │  │
-│           │              │  └──────────┘  └───────────────┘  │
+│  (UI)     │              │  ┌──────────┐                     │
+│           │              │  │ DNS eng  │                     │
+│           │              │  │ +queue   │                     │
+│           │              │  └──────────┘                     │
 │           │              │  E2E crypto (X25519+XChaCha20)     │
 │           │              │  Media: AES-256-GCM per file       │
 └──────────┘              └────────────────────────────────────┘
 ```
 
-Text messages: DNS TXT chunks via DHT-discovered relays.
-Small media (< 240 KB): Parallel DNS.
-Large media (>= 240 KB): libp2p fast lane.
+Text messages: DNS TXT chunks via relays.
+Small media (< 60 KB): DNS, falls back to TCP on failure.
+Large media (>= 60 KB): TCP via relay HTTP media server.
 
 ## Build Variants
 
