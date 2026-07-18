@@ -741,7 +741,7 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 					}
 
 					if fileData != nil {
-						// Save to dataDir/media_received/<msgID>.<ext>
+						// Always save a meta sidecar so Flutter can report download status.
 						ext := ".bin"
 						if maybeMeta.MimeType == "image/jpeg" {
 							ext = ".jpg"
@@ -756,19 +756,33 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 						os.MkdirAll(recvDir, 0700)
 						mediaMsgID := hex.EncodeToString(pm.MsgID[:])
 						filePath := filepath.Join(recvDir, mediaMsgID+ext)
-						if err := os.WriteFile(filePath, fileData, 0600); err != nil {
-							d.debugWrite("PollMessages: media save failed err=%v", err)
+
+						if fileData != nil {
+							if err := os.WriteFile(filePath, fileData, 0600); err != nil {
+								d.debugWrite("PollMessages: media save failed err=%v", err)
+							} else {
+								d.debugWrite("PollMessages: media saved to %s", filePath)
+							}
 						} else {
-							d.debugWrite("PollMessages: media saved to %s", filePath)
-								metaPath := filePath + ".meta"
-								metaJSON, _ := json.Marshal(map[string]string{
-									"mime":               maybeMeta.MimeType,
-									"filename":           maybeMeta.FileName,
-									"sender_pubkey":      fromPeer,
-									"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
-								})
-								os.WriteFile(metaPath, metaJSON, 0600)
+							// Save empty placeholder so Flutter's receivedMediaProvider
+							// picks it up and shows a failed-download message.
+							d.debugWrite("PollMessages: media download failed for %s, saving placeholder", mediaMsgID)
+							os.WriteFile(filePath, []byte{}, 0600)
 						}
+						// Always write meta sidecar with status so Flutter knows.
+						status := "complete"
+						if fileData == nil {
+							status = "failed"
+						}
+						metaPath := filePath + ".meta"
+						metaJSON, _ := json.Marshal(map[string]string{
+							"mime":               maybeMeta.MimeType,
+							"filename":           maybeMeta.FileName,
+							"sender_pubkey":      fromPeer,
+							"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
+							"status":             status,
+						})
+						os.WriteFile(metaPath, metaJSON, 0600)
 					}
 				}
 				// Don't add media metadata as a text message

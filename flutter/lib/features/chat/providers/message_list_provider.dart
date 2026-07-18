@@ -91,6 +91,7 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
         String filename = name;
         String? senderPubkey;
         DateTime? serverTimestamp;
+        String? downloadStatus;
         final metaFile = File('$path.meta');
         if (await metaFile.exists()) {
           try {
@@ -98,6 +99,7 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
             mimeType = meta['mime'] as String? ?? mimeType;
             filename = meta['filename'] as String? ?? filename;
             senderPubkey = meta['sender_pubkey'] as String?;
+            downloadStatus = meta['status'] as String?;
             final tsMs = meta['server_timestamp_ms'] as String?;
             if (tsMs != null) {
               final ts = int.tryParse(tsMs);
@@ -111,17 +113,20 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
         // Use file modification time as fallback timestamp
         final fileTimestamp = serverTimestamp ?? File(path).statSync().modified;
 
+        // If download failed, show as text message with the filename.
+        final isFailed = downloadStatus == 'failed';
+
         ref.read(chatProvider.notifier).addMessage(ChatMessage(
               id: msgId,
-              text: filename,
+              text: isFailed ? '📎 $filename (download failed)' : filename,
               timestamp: fileTimestamp,
               serverTimestamp: serverTimestamp,
               isSent: false,
               status: MessageStatus.received,
               fromPeer: senderPubkey,
-              mimeType: mimeType,
+              mimeType: isFailed ? null : mimeType,
               filename: filename,
-              localFilePath: path,
+              localFilePath: isFailed ? null : path,
             ));
 
         // Show local notification for received media

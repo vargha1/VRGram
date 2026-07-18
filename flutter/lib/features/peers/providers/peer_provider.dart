@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -19,10 +20,17 @@ class Peer {
 
 class PeerList extends Notifier<List<Peer>> {
   static const _fileName = 'peers.json';
+  Timer? _refreshTimer;
 
   @override
   List<Peer> build() {
     _load();
+    // Periodically refresh peer list from daemon so profile_updates
+    // (nickname changes from other peers) propagate to UI.
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      refreshFromDaemon();
+    });
+    ref.onDispose(() => _refreshTimer?.cancel());
     return [];
   }
 
