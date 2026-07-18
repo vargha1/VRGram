@@ -29,9 +29,11 @@ class MediaService {
     // Trailing zeros are harmless for JPEG/M4A/MP4; for other types the
     // extra bytes are a small price for reliable delivery.
     if (fileBytes.length < _tcpThreshold) {
-      final padded = List<int>.of(fileBytes, growable: true);
-      padded.length = _tcpThreshold + 1;
-      fileBytes = Uint8List.fromList(padded);
+      // Use Uint8List directly — avoid List<int>.length growth which can
+      // insert nulls on some Dart runtimes.
+      final padded = Uint8List(_tcpThreshold + 1);
+      padded.setRange(0, fileBytes.length, fileBytes);
+      fileBytes = padded;
     }
 
     final filename = filePath.split('/').last.split('\\').last;
