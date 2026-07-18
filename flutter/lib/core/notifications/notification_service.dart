@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -18,6 +16,10 @@ class NotificationService {
 
   /// IDs already notified, to avoid duplicate notifications per session.
   final Set<String> _notifiedMessageIds = {};
+
+  /// Fires when a notification is tapped (foreground or background).
+  /// Widget subscribes in initState to navigate to the peer's chat.
+  static final pendingNavigation = ValueNotifier<String?>(null);
 
   /// Initialize notification channels and permissions.
   Future<void> init() async {
@@ -61,6 +63,16 @@ class NotificationService {
 
     _initialized = true;
     debugPrint('[NotificationService] initialized');
+  }
+
+  /// Check if app was launched by tapping a notification.
+  /// Call after [init()] to capture cold-start navigation payload.
+  Future<String?> getLaunchNotificationPubkey() async {
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp ?? false) {
+      return details?.notificationResponse?.payload;
+    }
+    return null;
   }
 
   /// Show a notification for a new incoming message.
@@ -127,19 +139,9 @@ class NotificationService {
     if (payload == null || payload.isEmpty) return;
     debugPrint(
         '[NotificationService] notification tapped, payload=$payload');
-    // Store payload so app.dart can pick it up and navigate
-    _pendingNavigatePubkey = payload;
+    // Set ValueNotifier so the widget's listener fires and navigates
+    pendingNavigation.value = payload;
   }
-
-  /// Pubkey to navigate to when the app gains focus from a notification tap.
-  /// App reads this once, then clears it.
-  static String? getPendingNavigationPubkey() {
-    final key = _pendingNavigatePubkey;
-    _pendingNavigatePubkey = null;
-    return key;
-  }
-
-  static String? _pendingNavigatePubkey;
 
   /// Simple hash of a string to a positive int for notification IDs.
   int _hashToId(String s) {

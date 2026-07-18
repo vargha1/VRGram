@@ -154,9 +154,26 @@ class ChatList extends Notifier<List<ChatMessage>> {
             }
             return m;
           }).toList();
+          // Merge with messages added by sendMessage / sendMediaProvider
+          // before _load() completed (e.g., during startup race).
+          for (final msg in state) {
+            if (!stale.any((m) => m.id == msg.id)) {
+              stale.add(msg);
+            }
+          }
+          stale.sort((a, b) {
+            final aTime = a.serverTimestamp ?? a.timestamp;
+            final bTime = b.serverTimestamp ?? b.timestamp;
+            final timeCmp = aTime.compareTo(bTime);
+            if (timeCmp != 0) return timeCmp;
+            final aSeq = a.sequenceNumber;
+            final bSeq = b.sequenceNumber;
+            if (aSeq != null && bSeq != null) return aSeq.compareTo(bSeq);
+            return a.id.compareTo(b.id);
+          });
           state = stale;
           _loaded = true;
-          debugPrint('[ChatList] loaded ${state.length} messages');
+          debugPrint('[ChatList] loaded ${stale.length} messages (${state.length} in state)');
         }
       } else {
         _loaded = true;
@@ -396,7 +413,20 @@ final sendMediaProvider =
 
     return resp;
   } catch (e) {
-    ref.read(chatProvider.notifier).updateStatus(msgId, MessageStatus.failed);
+    // Show error in chat bubble so user sees what went wrong
+    ref.read(chatProvider.notifier).updateMessage(
+      msgId,
+      ChatMessage(
+        id: msgId,
+        text: 'Send failed: $e',
+        timestamp: DateTime.now(),
+        isSent: true,
+        status: MessageStatus.failed,
+        toPeer: params.peerPubkey,
+        mimeType: null,
+        filename: filename,
+      ),
+    );
     rethrow;
   }
 });

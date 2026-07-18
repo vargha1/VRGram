@@ -50,6 +50,40 @@ class VRGramApp extends ConsumerStatefulWidget {
 
 class _VRGramAppState extends ConsumerState<VRGramApp> {
   @override
+  void initState() {
+    super.initState();
+    // Listen for notification taps — navigates to peer's chat.
+    // Covers both foreground taps and the cold-start value (set in main()).
+    NotificationService.pendingNavigation.addListener(_onNavigationPending);
+    // Cold-start payload was set before runApp, but the listener above
+    // only fires on *changes*.  Check the initial value manually.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onNavigationPending();
+    });
+  }
+
+  @override
+  void dispose() {
+    NotificationService.pendingNavigation.removeListener(_onNavigationPending);
+    super.dispose();
+  }
+
+  void _onNavigationPending() {
+    final pubkey = NotificationService.pendingNavigation.value;
+    if (pubkey == null || !mounted) return;
+    // Clear immediately to avoid re-triggering on next rebuild.
+    NotificationService.pendingNavigation.value = null;
+
+    final peers = ref.read(peerProvider);
+    final peer = peers.where((p) => p.pubkey == pubkey).firstOrNull;
+    if (peer != null) {
+      context.go('/chat', extra: peer);
+    } else {
+      context.go('/peers');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
@@ -57,22 +91,6 @@ class _VRGramAppState extends ConsumerState<VRGramApp> {
     ref.watch(pollMessagesProvider);
     // Start media file scanner (checks daemon-downloaded media files)
     ref.watch(receivedMediaProvider);
-
-    // Handle notification tap navigation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final peerPubkey = NotificationService.getPendingNavigationPubkey();
-      if (peerPubkey != null && context.mounted) {
-        // Find peer in the peer list
-        final peers = ref.read(peerProvider);
-        final peer = peers.where((p) => p.pubkey == peerPubkey).firstOrNull;
-        if (peer != null) {
-          context.go('/chat', extra: peer);
-        } else {
-          // Peer not found — navigate to peers list so user can add them
-          context.go('/peers');
-        }
-      }
-    });
 
     return MaterialApp.router(
       title: AppStrings.appName,

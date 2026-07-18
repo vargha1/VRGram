@@ -38,10 +38,18 @@ void main() async {
   // Sync persisted data to daemon (blocking — ensures daemon knows relays)
   await _syncRelays();
 
-  runApp(const ProviderScope(child: VRGramApp()));
-
-  // Initialize local notifications for incoming messages
+  // Initialize local notifications BEFORE runApp so onDidReceiveNotificationResponse
+  // callback is registered in time for cold-start notification taps.
   await NotificationService().init();
+
+  // Check if app was launched from a notification tap (cold start).
+  // Store payload so VRGramApp can navigate to the peer's chat on first build.
+  final launchPubkey = await NotificationService().getLaunchNotificationPubkey();
+  if (launchPubkey != null) {
+    NotificationService.pendingNavigation.value = launchPubkey;
+  }
+
+  runApp(const ProviderScope(child: VRGramApp()));
 }
 
 /// Sync persisted relays from JSON to daemon via gRPC.

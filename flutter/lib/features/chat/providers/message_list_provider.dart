@@ -123,6 +123,24 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
               filename: filename,
               localFilePath: path,
             ));
+
+        // Show local notification for received media
+        if (senderPubkey != null && senderPubkey.isNotEmpty) {
+          final peerNickname = ref.read(peerProvider)
+              .where((p) => p.pubkey == senderPubkey)
+              .map((p) => p.nickname)
+              .firstOrNull;
+          final displayName = peerNickname ??
+              '${senderPubkey.substring(0, min(8, senderPubkey.length))}…';
+          // Human-readable preview based on MIME type
+          final preview = _mediaPreviewText(mimeType, filename);
+          NotificationService().showMessageNotification(
+            peerPubkey: senderPubkey,
+            peerNickname: displayName,
+            messagePreview: preview,
+            messageId: msgId,
+          );
+        }
       }
     } catch (e) {
       // Directory may not exist yet
@@ -130,3 +148,12 @@ final receivedMediaProvider = StreamProvider<void>((ref) async* {
     yield null;
   }
 });
+
+/// Build human-readable notification preview for a media file.
+String _mediaPreviewText(String mimeType, String filename) {
+  if (mimeType.startsWith('image/')) return '📷 Image';
+  if (mimeType.startsWith('video/')) return '🎬 Video';
+  if (mimeType.startsWith('audio/')) return '🎵 Voice message';
+  if (mimeType.startsWith('text/')) return '📄 $filename';
+  return '📎 $filename';
+}

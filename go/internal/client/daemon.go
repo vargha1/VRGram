@@ -647,8 +647,40 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 				}
 
 				// Check if this is media metadata JSON — download chunks and save file
-			if len(decrypted) > 20 && decrypted[0] == '{' {
-				var maybeMeta struct {
+				if len(decrypted) > 20 && decrypted[0] == '{' {
+					// Check for profile update messages
+					var profileMsg struct {
+						Type         string `json:"type"`
+						Nickname     string `json:"nickname"`
+						Bio          string `json:"bio"`
+						ImageDataB64 string `json:"image_data_b64"`
+						Mime         string `json:"mime"`
+					}
+					if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_update" && fromPeer != "" {
+						// Update peer's nickname
+						d.peersMu.Lock()
+						if entry, ok := d.peers[fromPeer]; ok && profileMsg.Nickname != "" {
+							entry.Nickname = profileMsg.Nickname
+							d.debugWrite("PollMessages: profile_update from=%s nickname=%s", fromPeer[:min(16, len(fromPeer))], profileMsg.Nickname)
+						}
+						d.peersMu.Unlock()
+						d.savePeers()
+						continue
+					}
+					if json.Unmarshal(decrypted, &profileMsg) == nil && profileMsg.Type == "profile_pic" && fromPeer != "" {
+						picData, err := base64.StdEncoding.DecodeString(profileMsg.ImageDataB64)
+						if err == nil && len(picData) > 0 {
+							picDir := filepath.Join(d.dataDir, "peer_pics")
+							os.MkdirAll(picDir, 0700)
+							picPath := filepath.Join(picDir, fromPeer+".jpg")
+							os.WriteFile(picPath, picData, 0600)
+							d.debugWrite("PollMessages: profile_pic saved for %s (%d bytes)", fromPeer[:min(16, len(fromPeer))], len(picData))
+						}
+						continue
+					}
+
+					// Media metadata check
+					var maybeMeta struct {
 					FileKeyB64  string   `json:"file_key_b64"`
 					ChunkMsgIDs []string `json:"chunk_msg_ids"`
 					MimeType    string   `json:"mime_type"`
@@ -848,7 +880,10 @@ func (d *Daemon) GenerateInviteCode(ctx context.Context, req *pb.GenerateInviteC
 	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
 	nickname := req.Nickname
 	if nickname == "" {
-		nickname = "Unknown"
+		nickname = d.getMyNickname()
+		if nickname == "" {
+			nickname = "Me"
+		}
 	}
 	code, nonce, err := crypto.GenerateInviteCode(d.identity.PublicKey, nickname)
 	if err != nil {
@@ -901,7 +936,7 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 			}, nil
 		}
 
-	// UpdateProfile saves the user's nickname and bio.
+	// UpdateProfile saves the user's nickname and bio, then broadcasts to all peers.
 	func (d *Daemon) UpdateProfile(ctx context.Context, req *pb.ProfileInfo) (*pb.Empty, error) {
 		d.profileMu.Lock()
 		if d.profile == nil {
@@ -912,7 +947,45 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 		d.profileMu.Unlock()
 		d.saveProfile()
 		slog.Info("profile updated", "nickname", req.Nickname)
+
+		// Broadcast profile to all known peers
+		go d.broadcastProfileUpdate(req.Nickname, req.Bio)
+
 		return &pb.Empty{}, nil
+	}
+
+	// broadcastProfileUpdate sends the user's profile to every known peer.
+	func (d *Daemon) broadcastProfileUpdate(nickname, bio string) {
+		payload := fmt.Sprintf(`{"type":"profile_update","nickname":"%s","bio":"%s"}`,
+			strings.ReplaceAll(nickname, `"`, `\"`),
+			strings.ReplaceAll(bio, `"`, `\"`))
+		d.peersMu.RLock()
+		peers := make([]string, 0, len(d.peers))
+		for pubkey := range d.peers {
+			peers = append(peers, pubkey)
+		}
+		d.peersMu.RUnlock()
+
+		for _, peerPubkey := range peers {
+			d.sendProfileToPeer(peerPubkey, payload)
+		}
+	}
+
+	// sendProfileToPeer encrypts payload and sends it to a specific peer.
+	func (d *Daemon) sendProfileToPeer(peerPubkeyB64, payload string) {
+		pubkey, err := base64.StdEncoding.DecodeString(peerPubkeyB64)
+		if err != nil {
+			return
+		}
+		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
+		if err != nil {
+			return
+		}
+		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, []byte(payload))
+		if err != nil {
+			return
+		}
+		d.engine.SendMessage(context.Background(), ciphertext, peerPubkeyB64)
 	}
 
 	// GetProfilePic returns the user's profile picture.
@@ -928,7 +1001,7 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 		}, nil
 	}
 
-	// SetProfilePic saves the user's profile picture.
+	// SetProfilePic saves the user's profile picture and broadcasts to peers.
 	func (d *Daemon) SetProfilePic(ctx context.Context, req *pb.SetProfilePicRequest) (*pb.Empty, error) {
 		if len(req.ImageData) > 5*1024*1024 {
 			return nil, status.Error(codes.InvalidArgument, "image too large (max 5MB)")
@@ -938,7 +1011,27 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 			return nil, status.Error(codes.Internal, "failed to save profile picture")
 		}
 		slog.Info("profile picture saved", "size", len(req.ImageData))
+
+		// Broadcast profile pic to all peers
+		go d.broadcastProfilePic(req.ImageData, req.MimeType)
+
 		return &pb.Empty{}, nil
+	}
+
+	// broadcastProfilePic sends the profile picture to every known peer.
+	func (d *Daemon) broadcastProfilePic(imageData []byte, mimeType string) {
+		imageB64 := base64.StdEncoding.EncodeToString(imageData)
+		payload := fmt.Sprintf(`{"type":"profile_pic","image_data_b64":"%s","mime":"%s"}`, imageB64, mimeType)
+		d.peersMu.RLock()
+		peers := make([]string, 0, len(d.peers))
+		for pubkey := range d.peers {
+			peers = append(peers, pubkey)
+		}
+		d.peersMu.RUnlock()
+
+		for _, peerPubkey := range peers {
+			d.sendProfileToPeer(peerPubkey, payload)
+		}
 	}
 
 	// ListPeers returns all known peers from the daemon.
@@ -1249,6 +1342,7 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 }
 
 // SendMedia sends media data (file, image, etc.) to a peer over DNS or TCP transport.
+// Tries DNS first for small files; falls back to TCP on failure.
 func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
 	transport := "dns"
 	estimatedSec := int32(len(req.MediaData) / 1000)
@@ -1264,14 +1358,17 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	d.transfers[msgID] = transfer
 	d.transferMu.Unlock()
 
-		var meta *media.MediaMessage
-		var mid [8]byte
-		rand.Read(mid[:])
-		var err error
+	var meta *media.MediaMessage
+	var mid [8]byte
+	rand.Read(mid[:])
 
-	// Choose transport: DNS for small files, TCP (HTTP) for larger ones.
-	// TCP requires the relay's HTTP media server on port 9877.
-	if len(req.MediaData) < media.MediaDNSSizeThreshold {
+	// Decide transport strategy:
+	//   AUTO / unset → DNS for <60KB, TCP otherwise; DNS→TCP fallback on failure.
+	//   DIRECT_TCP   → TCP always.
+	useDNS := req.PreferredTransport != pb.SendMediaRequest_DIRECT_TCP &&
+		len(req.MediaData) < media.MediaDNSSizeThreshold
+
+	if useDNS {
 		// DNS path
 		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{
 			Engine:          d.engine,
@@ -1279,15 +1376,19 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 		})
 		meta, err = dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
 		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, err
+			d.debugWrite("SendMedia DNS failed (%v), falling back to TCP", err)
+			slog.Warn("DNS media send failed, falling back to TCP", "error", err, "size", len(req.MediaData))
+			useDNS = false // fall through to TCP
+		} else {
+			transport = "dns"
+			estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000)
+			if estimatedSec < 10 {
+				estimatedSec = 10
+			}
 		}
-		transport = "dns"
-		estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000)
-	} else if len(req.MediaData) < media.MediaMaxHardCap {
+	}
+
+	if !useDNS {
 		// TCP path — upload file to relay's HTTP media server
 		relays := d.engine.GetRelays()
 		if len(relays) == 0 {
@@ -1304,26 +1405,19 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 			transfer.Status = TransferFailed
 			transfer.Error = err.Error()
 			transfer.mu.Unlock()
-			return nil, err
+			return nil, fmt.Errorf("TCP upload: %w", err)
 		}
 		transport = "tcp"
-		// TCP is fast — estimate a few seconds
 		estimatedSec = int32(len(req.MediaData) / (100 * 1024) * 100 / 1000)
 		if estimatedSec < 5 {
 			estimatedSec = 5
 		}
-		} else {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = fmt.Sprintf("file too large (max %d bytes)", media.MediaMaxHardCap)
-			transfer.mu.Unlock()
-			return nil, status.Errorf(codes.FailedPrecondition, "file too large (max %d bytes)", media.MediaMaxHardCap)
-		}
+	}
 
-		meta.Timestamp = time.Now().UnixMilli()
-		meta.MessageID = msgID
+	meta.Timestamp = time.Now().UnixMilli()
+	meta.MessageID = msgID
 
-		// Send metadata as E2E-encrypted message addressed to peer
+	// Send metadata as E2E-encrypted message addressed to peer
 	metaBytes, err := meta.Marshal()
 	if err != nil {
 		transfer.mu.Lock()
@@ -1365,14 +1459,13 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	}
 
 	transfer.mu.Lock()
-	transfer.Status = TransferSending
-	transfer.Progress = 50
-	transfer.mu.Unlock()
-
-	transfer.mu.Lock()
 	transfer.Status = TransferComplete
 	transfer.Progress = 100
 	transfer.mu.Unlock()
+
+	if d.transferStore != nil {
+		d.transferStore.Update(msgID, media.TransferComplete, 100, int32(len(req.MediaData)/256/1024+1))
+	}
 
 	return &pb.SendMediaResponse{
 		MessageId:       msgID,
