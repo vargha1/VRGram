@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/chat_provider.dart';
 import '../../peers/providers/peer_provider.dart';
 import '../../peers/screens/peer_list_screen.dart';
+import '../../peers/widgets/peer_avatar.dart';
 import '../../group/screens/group_list_screen.dart';
 import '../../../shared/constants.dart';
 import '../../../core/theme_provider.dart';
@@ -85,8 +86,10 @@ class ChatListScreen extends ConsumerWidget {
               final lastMsg = peerMessages.isNotEmpty ? peerMessages.last : null;
 
               return ListTile(
-                leading: CircleAvatar(
-                  child: Text(peer.nickname[0].toUpperCase()),
+                leading: PeerAvatar(
+                  pubkey: peer.pubkey,
+                  nickname: peer.nickname,
+                  radius: 20,
                 ),
                 title: Text(peer.nickname),
                 subtitle: lastMsg == null

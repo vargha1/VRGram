@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,3 +139,12 @@ class PeerParams {
   final String pubkey;
   PeerParams({required this.nickname, required this.pubkey});
 }
+
+/// Load a peer's profile picture from daemon's peer_pics/ storage.
+/// Returns file path if picture exists, null otherwise.
+final peerProfilePicProvider = FutureProvider.family<String?, String>((ref, pubkey) async {
+  final picPath = '${AppDataDir.path}/peer_pics/$pubkey.jpg';
+  final file = File(picPath);
+  if (await file.exists()) return picPath;
+  return null;
+});

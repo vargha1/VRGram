@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../providers/peer_provider.dart';
+import 'peer_avatar.dart';
 
 class PeerTile extends StatelessWidget {
   final Peer peer;
@@ -16,12 +17,10 @@ class PeerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        child: Text(
-          peer.nickname.isNotEmpty
-              ? peer.nickname[0].toUpperCase()
-              : '?',
-        ),
+      leading: PeerAvatar(
+        pubkey: peer.pubkey,
+        nickname: peer.nickname,
+        radius: 20,
       ),
       title: Text(peer.nickname),
       subtitle: Text(

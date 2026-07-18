@@ -8,6 +8,7 @@ import '../widgets/message_bubble.dart';
 import '../widgets/chat_input.dart';
 import '../widgets/media_picker.dart';
 import '../../peers/providers/peer_provider.dart';
+import '../../peers/widgets/peer_avatar.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final Peer peer;
@@ -42,7 +43,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         m.toPeer == peer.pubkey || m.fromPeer == peer.pubkey).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(peer.nickname)),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            PeerAvatar(
+              pubkey: peer.pubkey,
+              nickname: peer.nickname,
+              radius: 16,
+            ),
+            const SizedBox(width: 10),
+            Text(peer.nickname),
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(
