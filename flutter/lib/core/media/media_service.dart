@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:grpc/grpc.dart';
 import '../grpc/client.dart';
 import '../grpc/relay.pb.dart';
 
 class MediaService {
   final GrpcClient _client;
+
+  /// Daemon decides transport by file size: DNS for <60KB, TCP for >=60KB.
+  /// Since DNS relay is unreliable, we pad small files to force TCP.
+  static const int _tcpThreshold = 60 * 1024; // 60 KB
 
   MediaService(this._client);
 
@@ -15,9 +20,18 @@ class MediaService {
     required String mimeType,
   }) async {
     final file = File(filePath);
-    final fileBytes = await file.readAsBytes();
+    var fileBytes = await file.readAsBytes();
     if (fileBytes.length > 10 * 1024 * 1024) {
       throw Exception('File too large (max 10MB)');
+    }
+
+    // Pad to just above 60KB so the daemon always uses TCP transport.
+    // Trailing zeros are harmless for JPEG/M4A/MP4; for other types the
+    // extra bytes are a small price for reliable delivery.
+    if (fileBytes.length < _tcpThreshold) {
+      final padded = List<int>.of(fileBytes, growable: true);
+      padded.length = _tcpThreshold + 1;
+      fileBytes = Uint8List.fromList(padded);
     }
 
     final filename = filePath.split('/').last.split('\\').last;
@@ -34,8 +48,6 @@ class MediaService {
           mediaData: fileBytes,
           filename: filename,
           mimeType: mimeType,
-          // Daemon uses DNS for <60KB, TCP otherwise.
-          // Flutter-side override: let daemon decide.
           preferredTransport: SendMediaRequest_Transport.AUTO,
         ),
         options: metadata != null ? CallOptions(metadata: metadata) : null,
@@ -49,11 +61,7 @@ class MediaService {
   }
 
   int _estimateTimeout(int fileSize) {
-    // DNS: ~30KB/s effective, TCP: ~1MB/s.
-    // Daemon decides transport; estimate conservatively for DNS.
-    if (fileSize < 60 * 1024) {
-      return (fileSize ~/ (30 * 1024)) + 60;
-    }
+    // All files use TCP after padding. TCP: ~1MB/s, generous 60s buffer.
     return (fileSize ~/ (1024 * 1024)) + 60;
   }
 }
