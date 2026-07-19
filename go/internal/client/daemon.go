@@ -1119,15 +1119,16 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 		transfer.mu.Unlock()
 		return nil, err
 	}
-	ciphertext, _, err := crypto.EncryptMessage(sharedSecret, metaBytes)
-	if err != nil {
-		transfer.mu.Lock()
-		transfer.Status = TransferFailed
-		transfer.Error = err.Error()
-		transfer.mu.Unlock()
-		return nil, err
-	}
-	if _, _, err := d.engine.SendMessage(ctx, ciphertext, req.PeerPubkey); err != nil {
+		ciphertext, nonce, err := crypto.EncryptMessage(sharedSecret, metaBytes)
+		if err != nil {
+			transfer.mu.Lock()
+			transfer.Status = TransferFailed
+			transfer.Error = err.Error()
+			transfer.mu.Unlock()
+			return nil, err
+		}
+		transportPayload := append(nonce, ciphertext...)
+		if _, _, err := d.engine.SendMessage(ctx, transportPayload, req.PeerPubkey); err != nil {
 		transfer.mu.Lock()
 		transfer.Status = TransferFailed
 		transfer.Error = err.Error()

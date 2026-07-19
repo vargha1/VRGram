@@ -149,33 +149,24 @@ func (d *Daemon) broadcastProfileUpdate(nickname, bio string) {
 
 // broadcastProfilePic uploads the picture to the relay (via TCP) and sends
 // a lightweight metadata message to each peer instead of inline base64.
+// SendChunks handles encryption internally — pass raw imageData, not pre-encrypted.
 func (d *Daemon) broadcastProfilePic(imageData []byte, mimeType string) {
 	relays := d.engine.GetRelays()
 	if len(relays) == 0 {
 		slog.Warn("broadcastProfilePic: no relays, skipping")
 		return
 	}
-	fileKey, err := media.GenerateFileKey()
-	if err != nil {
-		slog.Warn("broadcastProfilePic: generate file key failed", "error", err)
-		return
-	}
-	encryptedPic, err := media.EncryptFile(fileKey, imageData)
-	if err != nil {
-		slog.Warn("broadcastProfilePic: encrypt failed", "error", err)
-		return
-	}
 	tcpT := media.NewTCPTransport(relays[0], d.authToken)
 	var mid [8]byte
 	rand.Read(mid[:])
-	meta, err := tcpT.SendChunks(context.Background(), mid, encryptedPic, "profile_pic.jpg", mimeType, media.MediaTypeImage)
+	meta, err := tcpT.SendChunks(context.Background(), mid, imageData, "profile_pic.jpg", mimeType, media.MediaTypeImage)
 	if err != nil {
 		slog.Warn("broadcastProfilePic: TCP upload failed", "error", err)
 		return
 	}
-	fileKeyB64 := base64.StdEncoding.EncodeToString(fileKey)
+	// Use the file key from SendChunks — it's what the recipient needs to decrypt.
 	payload := fmt.Sprintf(`{"type":"profile_pic","file_id":"%s","file_key_b64":"%s","mime":"%s","transport":"tcp"}`,
-		meta.FileID, fileKeyB64, mimeType)
+		meta.FileID, meta.FileKeyB64, mimeType)
 
 	d.peersMu.RLock()
 	peers := make([]string, 0, len(d.peers))
@@ -198,9 +189,10 @@ func (d *Daemon) sendProfileToPeer(peerPubkeyB64, payload string) {
 	if err != nil {
 		return
 	}
-	ciphertext, _, err := crypto.EncryptMessage(sharedSecret, []byte(payload))
-	if err != nil {
-		return
-	}
-	d.engine.SendMessage(context.Background(), ciphertext, peerPubkeyB64)
+		ciphertext, nonce, err := crypto.EncryptMessage(sharedSecret, []byte(payload))
+		if err != nil {
+			return
+		}
+		transportPayload := append(nonce, ciphertext...)
+		d.engine.SendMessage(context.Background(), transportPayload, peerPubkeyB64)
 }

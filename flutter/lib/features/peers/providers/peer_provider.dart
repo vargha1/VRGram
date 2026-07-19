@@ -116,6 +116,10 @@ class PeerList extends Notifier<List<Peer>> {
           .map((p) => Peer(nickname: p.nickname, pubkey: sanitizePubkey(p.pubkey)))
           .toList();
       await _save();
+      // Invalidate peer profile pic providers so they re-check for new pics
+      for (final peer in state) {
+        ref.invalidate(peerProfilePicProvider(peer.pubkey));
+      }
     } catch (e) {
       debugPrint('refreshFromDaemon failed: $e');
     }
@@ -142,6 +146,8 @@ class PeerParams {
 
 /// Load a peer's profile picture from daemon's peer_pics/ storage.
 /// Returns file path if picture exists, null otherwise.
+/// Invalidated by PeerList.refreshFromDaemon() so newly downloaded profile
+/// pics appear in UI.
 final peerProfilePicProvider = FutureProvider.family<String?, String>((ref, pubkey) async {
   final picPath = '${AppDataDir.path}/peer_pics/$pubkey.jpg';
   final file = File(picPath);
