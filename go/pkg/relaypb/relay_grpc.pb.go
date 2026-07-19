@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v5.29.3
-// source: relay.proto
+// source: proto/relay.proto
 
 package relaypb
 
@@ -42,6 +42,8 @@ const (
 	RelayClient_UpdateProfile_FullMethodName      = "/relaypb.RelayClient/UpdateProfile"
 	RelayClient_GetProfilePic_FullMethodName      = "/relaypb.RelayClient/GetProfilePic"
 	RelayClient_SetProfilePic_FullMethodName      = "/relaypb.RelayClient/SetProfilePic"
+	RelayClient_SetTransportMode_FullMethodName   = "/relaypb.RelayClient/SetTransportMode"
+	RelayClient_SetChunkSize_FullMethodName       = "/relaypb.RelayClient/SetChunkSize"
 )
 
 // RelayClientClient is the client API for RelayClient service.
@@ -73,6 +75,9 @@ type RelayClientClient interface {
 	UpdateProfile(ctx context.Context, in *ProfileInfo, opts ...grpc.CallOption) (*Empty, error)
 	GetProfilePic(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ProfilePicResponse, error)
 	SetProfilePic(ctx context.Context, in *SetProfilePicRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Config RPCs (replaces file-watchers)
+	SetTransportMode(ctx context.Context, in *SetTransportModeRequest, opts ...grpc.CallOption) (*Empty, error)
+	SetChunkSize(ctx context.Context, in *SetChunkSizeRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type relayClientClient struct {
@@ -316,6 +321,26 @@ func (c *relayClientClient) SetProfilePic(ctx context.Context, in *SetProfilePic
 	return out, nil
 }
 
+func (c *relayClientClient) SetTransportMode(ctx context.Context, in *SetTransportModeRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_SetTransportMode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *relayClientClient) SetChunkSize(ctx context.Context, in *SetChunkSizeRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, RelayClient_SetChunkSize_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RelayClientServer is the server API for RelayClient service.
 // All implementations must embed UnimplementedRelayClientServer
 // for forward compatibility.
@@ -345,6 +370,9 @@ type RelayClientServer interface {
 	UpdateProfile(context.Context, *ProfileInfo) (*Empty, error)
 	GetProfilePic(context.Context, *Empty) (*ProfilePicResponse, error)
 	SetProfilePic(context.Context, *SetProfilePicRequest) (*Empty, error)
+	// Config RPCs (replaces file-watchers)
+	SetTransportMode(context.Context, *SetTransportModeRequest) (*Empty, error)
+	SetChunkSize(context.Context, *SetChunkSizeRequest) (*Empty, error)
 	mustEmbedUnimplementedRelayClientServer()
 }
 
@@ -423,6 +451,12 @@ func (UnimplementedRelayClientServer) GetProfilePic(context.Context, *Empty) (*P
 }
 func (UnimplementedRelayClientServer) SetProfilePic(context.Context, *SetProfilePicRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetProfilePic not implemented")
+}
+func (UnimplementedRelayClientServer) SetTransportMode(context.Context, *SetTransportModeRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetTransportMode not implemented")
+}
+func (UnimplementedRelayClientServer) SetChunkSize(context.Context, *SetChunkSizeRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetChunkSize not implemented")
 }
 func (UnimplementedRelayClientServer) mustEmbedUnimplementedRelayClientServer() {}
 func (UnimplementedRelayClientServer) testEmbeddedByValue()                     {}
@@ -848,6 +882,42 @@ func _RelayClient_SetProfilePic_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RelayClient_SetTransportMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTransportModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).SetTransportMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_SetTransportMode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).SetTransportMode(ctx, req.(*SetTransportModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RelayClient_SetChunkSize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetChunkSizeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayClientServer).SetChunkSize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RelayClient_SetChunkSize_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayClientServer).SetChunkSize(ctx, req.(*SetChunkSizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RelayClient_ServiceDesc is the grpc.ServiceDesc for RelayClient service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -943,6 +1013,14 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "SetProfilePic",
 			Handler:    _RelayClient_SetProfilePic_Handler,
 		},
+		{
+			MethodName: "SetTransportMode",
+			Handler:    _RelayClient_SetTransportMode_Handler,
+		},
+		{
+			MethodName: "SetChunkSize",
+			Handler:    _RelayClient_SetChunkSize_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -951,5 +1029,5 @@ var RelayClient_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "relay.proto",
+	Metadata: "proto/relay.proto",
 }

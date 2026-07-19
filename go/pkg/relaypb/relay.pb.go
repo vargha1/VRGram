@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v5.29.3
-// source: relay.proto
+// source: proto/relay.proto
 
 package relaypb
 
@@ -20,52 +20,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-type SendMediaRequest_Transport int32
-
-const (
-	SendMediaRequest_AUTO SendMediaRequest_Transport = 0
-	SendMediaRequest_DNS  SendMediaRequest_Transport = 1
-)
-
-// Enum value maps for SendMediaRequest_Transport.
-var (
-	SendMediaRequest_Transport_name = map[int32]string{
-		0: "AUTO",
-		1: "DNS",
-	}
-	SendMediaRequest_Transport_value = map[string]int32{
-		"AUTO": 0,
-		"DNS":  1,
-	}
-)
-
-func (x SendMediaRequest_Transport) Enum() *SendMediaRequest_Transport {
-	p := new(SendMediaRequest_Transport)
-	*p = x
-	return p
-}
-
-func (x SendMediaRequest_Transport) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SendMediaRequest_Transport) Descriptor() protoreflect.EnumDescriptor {
-	return file_relay_proto_enumTypes[0].Descriptor()
-}
-
-func (SendMediaRequest_Transport) Type() protoreflect.EnumType {
-	return &file_relay_proto_enumTypes[0]
-}
-
-func (x SendMediaRequest_Transport) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use SendMediaRequest_Transport.Descriptor instead.
-func (SendMediaRequest_Transport) EnumDescriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{0, 0}
-}
 
 type MediaStatusResponse_Status int32
 
@@ -106,11 +60,11 @@ func (x MediaStatusResponse_Status) String() string {
 }
 
 func (MediaStatusResponse_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_relay_proto_enumTypes[1].Descriptor()
+	return file_proto_relay_proto_enumTypes[0].Descriptor()
 }
 
 func (MediaStatusResponse_Status) Type() protoreflect.EnumType {
-	return &file_relay_proto_enumTypes[1]
+	return &file_proto_relay_proto_enumTypes[0]
 }
 
 func (x MediaStatusResponse_Status) Number() protoreflect.EnumNumber {
@@ -119,23 +73,71 @@ func (x MediaStatusResponse_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MediaStatusResponse_Status.Descriptor instead.
 func (MediaStatusResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{3, 0}
+	return file_proto_relay_proto_rawDescGZIP(), []int{3, 0}
+}
+
+type SetTransportModeRequest_Mode int32
+
+const (
+	SetTransportModeRequest_AUTO SetTransportModeRequest_Mode = 0
+	SetTransportModeRequest_TCP  SetTransportModeRequest_Mode = 1
+	SetTransportModeRequest_UDP  SetTransportModeRequest_Mode = 2
+)
+
+// Enum value maps for SetTransportModeRequest_Mode.
+var (
+	SetTransportModeRequest_Mode_name = map[int32]string{
+		0: "AUTO",
+		1: "TCP",
+		2: "UDP",
+	}
+	SetTransportModeRequest_Mode_value = map[string]int32{
+		"AUTO": 0,
+		"TCP":  1,
+		"UDP":  2,
+	}
+)
+
+func (x SetTransportModeRequest_Mode) Enum() *SetTransportModeRequest_Mode {
+	p := new(SetTransportModeRequest_Mode)
+	*p = x
+	return p
+}
+
+func (x SetTransportModeRequest_Mode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SetTransportModeRequest_Mode) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_relay_proto_enumTypes[1].Descriptor()
+}
+
+func (SetTransportModeRequest_Mode) Type() protoreflect.EnumType {
+	return &file_proto_relay_proto_enumTypes[1]
+}
+
+func (x SetTransportModeRequest_Mode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SetTransportModeRequest_Mode.Descriptor instead.
+func (SetTransportModeRequest_Mode) EnumDescriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{33, 0}
 }
 
 type SendMediaRequest struct {
-	state              protoimpl.MessageState     `protogen:"open.v1"`
-	PeerPubkey         string                     `protobuf:"bytes,1,opt,name=peer_pubkey,json=peerPubkey,proto3" json:"peer_pubkey,omitempty"`
-	MediaData          []byte                     `protobuf:"bytes,2,opt,name=media_data,json=mediaData,proto3" json:"media_data,omitempty"`
-	Filename           string                     `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
-	MimeType           string                     `protobuf:"bytes,4,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	PreferredTransport SendMediaRequest_Transport `protobuf:"varint,5,opt,name=preferred_transport,json=preferredTransport,proto3,enum=relaypb.SendMediaRequest_Transport" json:"preferred_transport,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerPubkey    string                 `protobuf:"bytes,1,opt,name=peer_pubkey,json=peerPubkey,proto3" json:"peer_pubkey,omitempty"`
+	MediaData     []byte                 `protobuf:"bytes,2,opt,name=media_data,json=mediaData,proto3" json:"media_data,omitempty"`
+	Filename      string                 `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
+	MimeType      string                 `protobuf:"bytes,4,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SendMediaRequest) Reset() {
 	*x = SendMediaRequest{}
-	mi := &file_relay_proto_msgTypes[0]
+	mi := &file_proto_relay_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -147,7 +149,7 @@ func (x *SendMediaRequest) String() string {
 func (*SendMediaRequest) ProtoMessage() {}
 
 func (x *SendMediaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[0]
+	mi := &file_proto_relay_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +162,7 @@ func (x *SendMediaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendMediaRequest.ProtoReflect.Descriptor instead.
 func (*SendMediaRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{0}
+	return file_proto_relay_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SendMediaRequest) GetPeerPubkey() string {
@@ -191,13 +193,6 @@ func (x *SendMediaRequest) GetMimeType() string {
 	return ""
 }
 
-func (x *SendMediaRequest) GetPreferredTransport() SendMediaRequest_Transport {
-	if x != nil {
-		return x.PreferredTransport
-	}
-	return SendMediaRequest_AUTO
-}
-
 type SendMediaResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	MessageId        string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
@@ -209,7 +204,7 @@ type SendMediaResponse struct {
 
 func (x *SendMediaResponse) Reset() {
 	*x = SendMediaResponse{}
-	mi := &file_relay_proto_msgTypes[1]
+	mi := &file_proto_relay_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -221,7 +216,7 @@ func (x *SendMediaResponse) String() string {
 func (*SendMediaResponse) ProtoMessage() {}
 
 func (x *SendMediaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[1]
+	mi := &file_proto_relay_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -234,7 +229,7 @@ func (x *SendMediaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendMediaResponse.ProtoReflect.Descriptor instead.
 func (*SendMediaResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{1}
+	return file_proto_relay_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SendMediaResponse) GetMessageId() string {
@@ -267,7 +262,7 @@ type GetMediaStatusRequest struct {
 
 func (x *GetMediaStatusRequest) Reset() {
 	*x = GetMediaStatusRequest{}
-	mi := &file_relay_proto_msgTypes[2]
+	mi := &file_proto_relay_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -279,7 +274,7 @@ func (x *GetMediaStatusRequest) String() string {
 func (*GetMediaStatusRequest) ProtoMessage() {}
 
 func (x *GetMediaStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[2]
+	mi := &file_proto_relay_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -292,7 +287,7 @@ func (x *GetMediaStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMediaStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetMediaStatusRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{2}
+	return file_proto_relay_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetMediaStatusRequest) GetMessageId() string {
@@ -314,7 +309,7 @@ type MediaStatusResponse struct {
 
 func (x *MediaStatusResponse) Reset() {
 	*x = MediaStatusResponse{}
-	mi := &file_relay_proto_msgTypes[3]
+	mi := &file_proto_relay_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -326,7 +321,7 @@ func (x *MediaStatusResponse) String() string {
 func (*MediaStatusResponse) ProtoMessage() {}
 
 func (x *MediaStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[3]
+	mi := &file_proto_relay_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -339,7 +334,7 @@ func (x *MediaStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaStatusResponse.ProtoReflect.Descriptor instead.
 func (*MediaStatusResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{3}
+	return file_proto_relay_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *MediaStatusResponse) GetMessageId() string {
@@ -379,7 +374,7 @@ type CancelSendRequest struct {
 
 func (x *CancelSendRequest) Reset() {
 	*x = CancelSendRequest{}
-	mi := &file_relay_proto_msgTypes[4]
+	mi := &file_proto_relay_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -391,7 +386,7 @@ func (x *CancelSendRequest) String() string {
 func (*CancelSendRequest) ProtoMessage() {}
 
 func (x *CancelSendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[4]
+	mi := &file_proto_relay_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -404,7 +399,7 @@ func (x *CancelSendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelSendRequest.ProtoReflect.Descriptor instead.
 func (*CancelSendRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{4}
+	return file_proto_relay_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CancelSendRequest) GetMessageId() string {
@@ -425,7 +420,7 @@ type MediaUploadChunk struct {
 
 func (x *MediaUploadChunk) Reset() {
 	*x = MediaUploadChunk{}
-	mi := &file_relay_proto_msgTypes[5]
+	mi := &file_proto_relay_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +432,7 @@ func (x *MediaUploadChunk) String() string {
 func (*MediaUploadChunk) ProtoMessage() {}
 
 func (x *MediaUploadChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[5]
+	mi := &file_proto_relay_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +445,7 @@ func (x *MediaUploadChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaUploadChunk.ProtoReflect.Descriptor instead.
 func (*MediaUploadChunk) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{5}
+	return file_proto_relay_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MediaUploadChunk) GetTransferId() string {
@@ -486,7 +481,7 @@ type SendRequest struct {
 
 func (x *SendRequest) Reset() {
 	*x = SendRequest{}
-	mi := &file_relay_proto_msgTypes[6]
+	mi := &file_proto_relay_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -498,7 +493,7 @@ func (x *SendRequest) String() string {
 func (*SendRequest) ProtoMessage() {}
 
 func (x *SendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[6]
+	mi := &file_proto_relay_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -511,7 +506,7 @@ func (x *SendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendRequest.ProtoReflect.Descriptor instead.
 func (*SendRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{6}
+	return file_proto_relay_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SendRequest) GetPeerPubkey() string {
@@ -553,7 +548,7 @@ type SendResponse struct {
 
 func (x *SendResponse) Reset() {
 	*x = SendResponse{}
-	mi := &file_relay_proto_msgTypes[7]
+	mi := &file_proto_relay_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -565,7 +560,7 @@ func (x *SendResponse) String() string {
 func (*SendResponse) ProtoMessage() {}
 
 func (x *SendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[7]
+	mi := &file_proto_relay_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -578,7 +573,7 @@ func (x *SendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendResponse.ProtoReflect.Descriptor instead.
 func (*SendResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{7}
+	return file_proto_relay_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SendResponse) GetMessageId() string {
@@ -610,7 +605,7 @@ type PollRequest struct {
 
 func (x *PollRequest) Reset() {
 	*x = PollRequest{}
-	mi := &file_relay_proto_msgTypes[8]
+	mi := &file_proto_relay_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -622,7 +617,7 @@ func (x *PollRequest) String() string {
 func (*PollRequest) ProtoMessage() {}
 
 func (x *PollRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[8]
+	mi := &file_proto_relay_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -635,7 +630,7 @@ func (x *PollRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollRequest.ProtoReflect.Descriptor instead.
 func (*PollRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{8}
+	return file_proto_relay_proto_rawDescGZIP(), []int{8}
 }
 
 type PollResponse struct {
@@ -647,7 +642,7 @@ type PollResponse struct {
 
 func (x *PollResponse) Reset() {
 	*x = PollResponse{}
-	mi := &file_relay_proto_msgTypes[9]
+	mi := &file_proto_relay_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +654,7 @@ func (x *PollResponse) String() string {
 func (*PollResponse) ProtoMessage() {}
 
 func (x *PollResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[9]
+	mi := &file_proto_relay_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -672,7 +667,7 @@ func (x *PollResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollResponse.ProtoReflect.Descriptor instead.
 func (*PollResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{9}
+	return file_proto_relay_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *PollResponse) GetMessages() []*ReceivedMessage {
@@ -697,7 +692,7 @@ type ReceivedMessage struct {
 
 func (x *ReceivedMessage) Reset() {
 	*x = ReceivedMessage{}
-	mi := &file_relay_proto_msgTypes[10]
+	mi := &file_proto_relay_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -709,7 +704,7 @@ func (x *ReceivedMessage) String() string {
 func (*ReceivedMessage) ProtoMessage() {}
 
 func (x *ReceivedMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[10]
+	mi := &file_proto_relay_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +717,7 @@ func (x *ReceivedMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReceivedMessage.ProtoReflect.Descriptor instead.
 func (*ReceivedMessage) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{10}
+	return file_proto_relay_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ReceivedMessage) GetFromPeer() string {
@@ -782,7 +777,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_relay_proto_msgTypes[11]
+	mi := &file_proto_relay_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -794,7 +789,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[11]
+	mi := &file_proto_relay_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -807,7 +802,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{11}
+	return file_proto_relay_proto_rawDescGZIP(), []int{11}
 }
 
 type RelayEndpoint struct {
@@ -819,7 +814,7 @@ type RelayEndpoint struct {
 
 func (x *RelayEndpoint) Reset() {
 	*x = RelayEndpoint{}
-	mi := &file_relay_proto_msgTypes[12]
+	mi := &file_proto_relay_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -831,7 +826,7 @@ func (x *RelayEndpoint) String() string {
 func (*RelayEndpoint) ProtoMessage() {}
 
 func (x *RelayEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[12]
+	mi := &file_proto_relay_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -844,7 +839,7 @@ func (x *RelayEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayEndpoint.ProtoReflect.Descriptor instead.
 func (*RelayEndpoint) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{12}
+	return file_proto_relay_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RelayEndpoint) GetAddress() string {
@@ -863,7 +858,7 @@ type RelayStatusList struct {
 
 func (x *RelayStatusList) Reset() {
 	*x = RelayStatusList{}
-	mi := &file_relay_proto_msgTypes[13]
+	mi := &file_proto_relay_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -875,7 +870,7 @@ func (x *RelayStatusList) String() string {
 func (*RelayStatusList) ProtoMessage() {}
 
 func (x *RelayStatusList) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[13]
+	mi := &file_proto_relay_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -888,7 +883,7 @@ func (x *RelayStatusList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayStatusList.ProtoReflect.Descriptor instead.
 func (*RelayStatusList) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{13}
+	return file_proto_relay_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RelayStatusList) GetEndpoints() []*RelayStatus {
@@ -911,7 +906,7 @@ type RelayStatus struct {
 
 func (x *RelayStatus) Reset() {
 	*x = RelayStatus{}
-	mi := &file_relay_proto_msgTypes[14]
+	mi := &file_proto_relay_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +918,7 @@ func (x *RelayStatus) String() string {
 func (*RelayStatus) ProtoMessage() {}
 
 func (x *RelayStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[14]
+	mi := &file_proto_relay_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +931,7 @@ func (x *RelayStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayStatus.ProtoReflect.Descriptor instead.
 func (*RelayStatus) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{14}
+	return file_proto_relay_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RelayStatus) GetAddress() string {
@@ -985,7 +980,7 @@ type IdentityInfo struct {
 
 func (x *IdentityInfo) Reset() {
 	*x = IdentityInfo{}
-	mi := &file_relay_proto_msgTypes[15]
+	mi := &file_proto_relay_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -997,7 +992,7 @@ func (x *IdentityInfo) String() string {
 func (*IdentityInfo) ProtoMessage() {}
 
 func (x *IdentityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[15]
+	mi := &file_proto_relay_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1010,7 +1005,7 @@ func (x *IdentityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentityInfo.ProtoReflect.Descriptor instead.
 func (*IdentityInfo) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{15}
+	return file_proto_relay_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *IdentityInfo) GetPubkey() string {
@@ -1044,7 +1039,7 @@ type PeerInfo struct {
 
 func (x *PeerInfo) Reset() {
 	*x = PeerInfo{}
-	mi := &file_relay_proto_msgTypes[16]
+	mi := &file_proto_relay_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1056,7 +1051,7 @@ func (x *PeerInfo) String() string {
 func (*PeerInfo) ProtoMessage() {}
 
 func (x *PeerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[16]
+	mi := &file_proto_relay_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1064,7 @@ func (x *PeerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerInfo.ProtoReflect.Descriptor instead.
 func (*PeerInfo) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{16}
+	return file_proto_relay_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PeerInfo) GetNickname() string {
@@ -1095,7 +1090,7 @@ type GenerateInviteCodeRequest struct {
 
 func (x *GenerateInviteCodeRequest) Reset() {
 	*x = GenerateInviteCodeRequest{}
-	mi := &file_relay_proto_msgTypes[17]
+	mi := &file_proto_relay_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1102,7 @@ func (x *GenerateInviteCodeRequest) String() string {
 func (*GenerateInviteCodeRequest) ProtoMessage() {}
 
 func (x *GenerateInviteCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[17]
+	mi := &file_proto_relay_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1115,7 @@ func (x *GenerateInviteCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateInviteCodeRequest.ProtoReflect.Descriptor instead.
 func (*GenerateInviteCodeRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{17}
+	return file_proto_relay_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GenerateInviteCodeRequest) GetNickname() string {
@@ -1139,7 +1134,7 @@ type GenerateInviteCodeResponse struct {
 
 func (x *GenerateInviteCodeResponse) Reset() {
 	*x = GenerateInviteCodeResponse{}
-	mi := &file_relay_proto_msgTypes[18]
+	mi := &file_proto_relay_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +1146,7 @@ func (x *GenerateInviteCodeResponse) String() string {
 func (*GenerateInviteCodeResponse) ProtoMessage() {}
 
 func (x *GenerateInviteCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[18]
+	mi := &file_proto_relay_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +1159,7 @@ func (x *GenerateInviteCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateInviteCodeResponse.ProtoReflect.Descriptor instead.
 func (*GenerateInviteCodeResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{18}
+	return file_proto_relay_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GenerateInviteCodeResponse) GetCode() string {
@@ -1183,7 +1178,7 @@ type JoinViaCodeRequest struct {
 
 func (x *JoinViaCodeRequest) Reset() {
 	*x = JoinViaCodeRequest{}
-	mi := &file_relay_proto_msgTypes[19]
+	mi := &file_proto_relay_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1195,7 +1190,7 @@ func (x *JoinViaCodeRequest) String() string {
 func (*JoinViaCodeRequest) ProtoMessage() {}
 
 func (x *JoinViaCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[19]
+	mi := &file_proto_relay_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1208,7 +1203,7 @@ func (x *JoinViaCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinViaCodeRequest.ProtoReflect.Descriptor instead.
 func (*JoinViaCodeRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{19}
+	return file_proto_relay_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *JoinViaCodeRequest) GetCode() string {
@@ -1228,7 +1223,7 @@ type JoinViaCodeResponse struct {
 
 func (x *JoinViaCodeResponse) Reset() {
 	*x = JoinViaCodeResponse{}
-	mi := &file_relay_proto_msgTypes[20]
+	mi := &file_proto_relay_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1240,7 +1235,7 @@ func (x *JoinViaCodeResponse) String() string {
 func (*JoinViaCodeResponse) ProtoMessage() {}
 
 func (x *JoinViaCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[20]
+	mi := &file_proto_relay_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1253,7 +1248,7 @@ func (x *JoinViaCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinViaCodeResponse.ProtoReflect.Descriptor instead.
 func (*JoinViaCodeResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{20}
+	return file_proto_relay_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *JoinViaCodeResponse) GetPeerNickname() string {
@@ -1279,7 +1274,7 @@ type ListPeersResponse struct {
 
 func (x *ListPeersResponse) Reset() {
 	*x = ListPeersResponse{}
-	mi := &file_relay_proto_msgTypes[21]
+	mi := &file_proto_relay_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1286,7 @@ func (x *ListPeersResponse) String() string {
 func (*ListPeersResponse) ProtoMessage() {}
 
 func (x *ListPeersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[21]
+	mi := &file_proto_relay_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1299,7 @@ func (x *ListPeersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPeersResponse.ProtoReflect.Descriptor instead.
 func (*ListPeersResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{21}
+	return file_proto_relay_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListPeersResponse) GetPeers() []*PeerInfo {
@@ -1324,7 +1319,7 @@ type CreateGroupRequest struct {
 
 func (x *CreateGroupRequest) Reset() {
 	*x = CreateGroupRequest{}
-	mi := &file_relay_proto_msgTypes[22]
+	mi := &file_proto_relay_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1336,7 +1331,7 @@ func (x *CreateGroupRequest) String() string {
 func (*CreateGroupRequest) ProtoMessage() {}
 
 func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[22]
+	mi := &file_proto_relay_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1349,7 +1344,7 @@ func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGroupRequest.ProtoReflect.Descriptor instead.
 func (*CreateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{22}
+	return file_proto_relay_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreateGroupRequest) GetName() string {
@@ -1375,7 +1370,7 @@ type CreateGroupResponse struct {
 
 func (x *CreateGroupResponse) Reset() {
 	*x = CreateGroupResponse{}
-	mi := &file_relay_proto_msgTypes[23]
+	mi := &file_proto_relay_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1387,7 +1382,7 @@ func (x *CreateGroupResponse) String() string {
 func (*CreateGroupResponse) ProtoMessage() {}
 
 func (x *CreateGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[23]
+	mi := &file_proto_relay_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1400,7 +1395,7 @@ func (x *CreateGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGroupResponse.ProtoReflect.Descriptor instead.
 func (*CreateGroupResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{23}
+	return file_proto_relay_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CreateGroupResponse) GetGroupId() string {
@@ -1419,7 +1414,7 @@ type LeaveGroupRequest struct {
 
 func (x *LeaveGroupRequest) Reset() {
 	*x = LeaveGroupRequest{}
-	mi := &file_relay_proto_msgTypes[24]
+	mi := &file_proto_relay_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1431,7 +1426,7 @@ func (x *LeaveGroupRequest) String() string {
 func (*LeaveGroupRequest) ProtoMessage() {}
 
 func (x *LeaveGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[24]
+	mi := &file_proto_relay_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1444,7 +1439,7 @@ func (x *LeaveGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaveGroupRequest.ProtoReflect.Descriptor instead.
 func (*LeaveGroupRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{24}
+	return file_proto_relay_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *LeaveGroupRequest) GetGroupId() string {
@@ -1464,7 +1459,7 @@ type RemoveGroupMemberRequest struct {
 
 func (x *RemoveGroupMemberRequest) Reset() {
 	*x = RemoveGroupMemberRequest{}
-	mi := &file_relay_proto_msgTypes[25]
+	mi := &file_proto_relay_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1476,7 +1471,7 @@ func (x *RemoveGroupMemberRequest) String() string {
 func (*RemoveGroupMemberRequest) ProtoMessage() {}
 
 func (x *RemoveGroupMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[25]
+	mi := &file_proto_relay_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1489,7 +1484,7 @@ func (x *RemoveGroupMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveGroupMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemoveGroupMemberRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{25}
+	return file_proto_relay_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RemoveGroupMemberRequest) GetGroupId() string {
@@ -1515,7 +1510,7 @@ type ListGroupsResponse struct {
 
 func (x *ListGroupsResponse) Reset() {
 	*x = ListGroupsResponse{}
-	mi := &file_relay_proto_msgTypes[26]
+	mi := &file_proto_relay_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1527,7 +1522,7 @@ func (x *ListGroupsResponse) String() string {
 func (*ListGroupsResponse) ProtoMessage() {}
 
 func (x *ListGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[26]
+	mi := &file_proto_relay_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1540,7 +1535,7 @@ func (x *ListGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGroupsResponse.ProtoReflect.Descriptor instead.
 func (*ListGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{26}
+	return file_proto_relay_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListGroupsResponse) GetGroups() []*GroupInfo {
@@ -1563,7 +1558,7 @@ type GroupInfo struct {
 
 func (x *GroupInfo) Reset() {
 	*x = GroupInfo{}
-	mi := &file_relay_proto_msgTypes[27]
+	mi := &file_proto_relay_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1575,7 +1570,7 @@ func (x *GroupInfo) String() string {
 func (*GroupInfo) ProtoMessage() {}
 
 func (x *GroupInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[27]
+	mi := &file_proto_relay_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1588,7 +1583,7 @@ func (x *GroupInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupInfo.ProtoReflect.Descriptor instead.
 func (*GroupInfo) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{27}
+	return file_proto_relay_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GroupInfo) GetGroupId() string {
@@ -1637,7 +1632,7 @@ type GroupMember struct {
 
 func (x *GroupMember) Reset() {
 	*x = GroupMember{}
-	mi := &file_relay_proto_msgTypes[28]
+	mi := &file_proto_relay_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1649,7 +1644,7 @@ func (x *GroupMember) String() string {
 func (*GroupMember) ProtoMessage() {}
 
 func (x *GroupMember) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[28]
+	mi := &file_proto_relay_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1662,7 +1657,7 @@ func (x *GroupMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupMember.ProtoReflect.Descriptor instead.
 func (*GroupMember) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{28}
+	return file_proto_relay_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GroupMember) GetPubkey() string {
@@ -1690,14 +1685,16 @@ type TransportStatusResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	DhtConnected     bool                   `protobuf:"varint,1,opt,name=dht_connected,json=dhtConnected,proto3" json:"dht_connected,omitempty"`
 	DiscoveredRelays int32                  `protobuf:"varint,2,opt,name=discovered_relays,json=discoveredRelays,proto3" json:"discovered_relays,omitempty"`
-	DnsMode          string                 `protobuf:"bytes,5,opt,name=dns_mode,json=dnsMode,proto3" json:"dns_mode,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// bool libp2p_direct = 3;  — removed, unused
+	// bool libp2p_circuit = 4; — removed, unused
+	DnsMode       string `protobuf:"bytes,5,opt,name=dns_mode,json=dnsMode,proto3" json:"dns_mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TransportStatusResponse) Reset() {
 	*x = TransportStatusResponse{}
-	mi := &file_relay_proto_msgTypes[29]
+	mi := &file_proto_relay_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1709,7 +1706,7 @@ func (x *TransportStatusResponse) String() string {
 func (*TransportStatusResponse) ProtoMessage() {}
 
 func (x *TransportStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[29]
+	mi := &file_proto_relay_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1722,7 +1719,7 @@ func (x *TransportStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransportStatusResponse.ProtoReflect.Descriptor instead.
 func (*TransportStatusResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{29}
+	return file_proto_relay_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *TransportStatusResponse) GetDhtConnected() bool {
@@ -1757,7 +1754,7 @@ type ProfileInfo struct {
 
 func (x *ProfileInfo) Reset() {
 	*x = ProfileInfo{}
-	mi := &file_relay_proto_msgTypes[30]
+	mi := &file_proto_relay_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1769,7 +1766,7 @@ func (x *ProfileInfo) String() string {
 func (*ProfileInfo) ProtoMessage() {}
 
 func (x *ProfileInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[30]
+	mi := &file_proto_relay_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1782,7 +1779,7 @@ func (x *ProfileInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProfileInfo.ProtoReflect.Descriptor instead.
 func (*ProfileInfo) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{30}
+	return file_proto_relay_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ProfileInfo) GetNickname() string {
@@ -1809,7 +1806,7 @@ type SetProfilePicRequest struct {
 
 func (x *SetProfilePicRequest) Reset() {
 	*x = SetProfilePicRequest{}
-	mi := &file_relay_proto_msgTypes[31]
+	mi := &file_proto_relay_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +1818,7 @@ func (x *SetProfilePicRequest) String() string {
 func (*SetProfilePicRequest) ProtoMessage() {}
 
 func (x *SetProfilePicRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[31]
+	mi := &file_proto_relay_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +1831,7 @@ func (x *SetProfilePicRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetProfilePicRequest.ProtoReflect.Descriptor instead.
 func (*SetProfilePicRequest) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{31}
+	return file_proto_relay_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SetProfilePicRequest) GetImageData() []byte {
@@ -1861,7 +1858,7 @@ type ProfilePicResponse struct {
 
 func (x *ProfilePicResponse) Reset() {
 	*x = ProfilePicResponse{}
-	mi := &file_relay_proto_msgTypes[32]
+	mi := &file_proto_relay_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1873,7 +1870,7 @@ func (x *ProfilePicResponse) String() string {
 func (*ProfilePicResponse) ProtoMessage() {}
 
 func (x *ProfilePicResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_relay_proto_msgTypes[32]
+	mi := &file_proto_relay_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1886,7 +1883,7 @@ func (x *ProfilePicResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProfilePicResponse.ProtoReflect.Descriptor instead.
 func (*ProfilePicResponse) Descriptor() ([]byte, []int) {
-	return file_relay_proto_rawDescGZIP(), []int{32}
+	return file_proto_relay_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ProfilePicResponse) GetImageData() []byte {
@@ -1903,24 +1900,106 @@ func (x *ProfilePicResponse) GetMimeType() string {
 	return ""
 }
 
-var File_relay_proto protoreflect.FileDescriptor
+type SetTransportModeRequest struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Mode          SetTransportModeRequest_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=relaypb.SetTransportModeRequest_Mode" json:"mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_relay_proto_rawDesc = "" +
+func (x *SetTransportModeRequest) Reset() {
+	*x = SetTransportModeRequest{}
+	mi := &file_proto_relay_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetTransportModeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetTransportModeRequest) ProtoMessage() {}
+
+func (x *SetTransportModeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetTransportModeRequest.ProtoReflect.Descriptor instead.
+func (*SetTransportModeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *SetTransportModeRequest) GetMode() SetTransportModeRequest_Mode {
+	if x != nil {
+		return x.Mode
+	}
+	return SetTransportModeRequest_AUTO
+}
+
+type SetChunkSizeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Size          int32                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetChunkSizeRequest) Reset() {
+	*x = SetChunkSizeRequest{}
+	mi := &file_proto_relay_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetChunkSizeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetChunkSizeRequest) ProtoMessage() {}
+
+func (x *SetChunkSizeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_relay_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetChunkSizeRequest.ProtoReflect.Descriptor instead.
+func (*SetChunkSizeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_relay_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *SetChunkSizeRequest) GetSize() int32 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+var File_proto_relay_proto protoreflect.FileDescriptor
+
+const file_proto_relay_proto_rawDesc = "" +
 	"\n" +
-	"\vrelay.proto\x12\arelaypb\"\x8d\x02\n" +
+	"\x11proto/relay.proto\x12\arelaypb\"\x8b\x01\n" +
 	"\x10SendMediaRequest\x12\x1f\n" +
 	"\vpeer_pubkey\x18\x01 \x01(\tR\n" +
 	"peerPubkey\x12\x1d\n" +
 	"\n" +
 	"media_data\x18\x02 \x01(\fR\tmediaData\x12\x1a\n" +
 	"\bfilename\x18\x03 \x01(\tR\bfilename\x12\x1b\n" +
-	"\tmime_type\x18\x04 \x01(\tR\bmimeType\x12T\n" +
-	"\x13preferred_transport\x18\x05 \x01(\x0e2#.relaypb.SendMediaRequest.TransportR\x12preferredTransport\"*\n" +
-	"\tTransport\x12\b\n" +
-	"\x04AUTO\x10\x00\x12\a\n" +
-	"\x03DNS\x10\x01\x12\n" +
-	"\n" +
-	"\x06LIBP2P\x10\x02\"}\n" +
+	"\tmime_type\x18\x04 \x01(\tR\bmimeType\"}\n" +
 	"\x11SendMediaResponse\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12+\n" +
@@ -2029,12 +2108,10 @@ const file_relay_proto_rawDesc = "" +
 	"\vGroupMember\x12\x16\n" +
 	"\x06pubkey\x18\x01 \x01(\tR\x06pubkey\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\"\xd2\x01\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\"\x86\x01\n" +
 	"\x17TransportStatusResponse\x12#\n" +
 	"\rdht_connected\x18\x01 \x01(\bR\fdhtConnected\x12+\n" +
-	"\x11discovered_relays\x18\x02 \x01(\x05R\x10discoveredRelays\x12#\n" +
-	"\rlibp2p_direct\x18\x03 \x01(\bR\flibp2pDirect\x12%\n" +
-	"\x0elibp2p_circuit\x18\x04 \x01(\bR\rlibp2pCircuit\x12\x19\n" +
+	"\x11discovered_relays\x18\x02 \x01(\x05R\x10discoveredRelays\x12\x19\n" +
 	"\bdns_mode\x18\x05 \x01(\tR\adnsMode\";\n" +
 	"\vProfileInfo\x12\x1a\n" +
 	"\bnickname\x18\x01 \x01(\tR\bnickname\x12\x10\n" +
@@ -2046,7 +2123,15 @@ const file_relay_proto_rawDesc = "" +
 	"\x12ProfilePicResponse\x12\x1d\n" +
 	"\n" +
 	"image_data\x18\x01 \x01(\fR\timageData\x12\x1b\n" +
-	"\tmime_type\x18\x02 \x01(\tR\bmimeType2\xc2\v\n" +
+	"\tmime_type\x18\x02 \x01(\tR\bmimeType\"x\n" +
+	"\x17SetTransportModeRequest\x129\n" +
+	"\x04mode\x18\x01 \x01(\x0e2%.relaypb.SetTransportModeRequest.ModeR\x04mode\"\"\n" +
+	"\x04Mode\x12\b\n" +
+	"\x04AUTO\x10\x00\x12\a\n" +
+	"\x03TCP\x10\x01\x12\a\n" +
+	"\x03UDP\x10\x02\")\n" +
+	"\x13SetChunkSizeRequest\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x05R\x04size2\xc6\f\n" +
 	"\vRelayClient\x12:\n" +
 	"\vSendMessage\x12\x14.relaypb.SendRequest\x1a\x15.relaypb.SendResponse\x12;\n" +
 	"\fPollMessages\x12\x14.relaypb.PollRequest\x1a\x15.relaypb.PollResponse\x12:\n" +
@@ -2074,25 +2159,27 @@ const file_relay_proto_rawDesc = "" +
 	"\x11RemoveGroupMember\x12!.relaypb.RemoveGroupMemberRequest\x1a\x0e.relaypb.Empty\x125\n" +
 	"\rUpdateProfile\x12\x14.relaypb.ProfileInfo\x1a\x0e.relaypb.Empty\x12<\n" +
 	"\rGetProfilePic\x12\x0e.relaypb.Empty\x1a\x1b.relaypb.ProfilePicResponse\x12>\n" +
-	"\rSetProfilePic\x12\x1d.relaypb.SetProfilePicRequest\x1a\x0e.relaypb.EmptyB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
+	"\rSetProfilePic\x12\x1d.relaypb.SetProfilePicRequest\x1a\x0e.relaypb.Empty\x12D\n" +
+	"\x10SetTransportMode\x12 .relaypb.SetTransportModeRequest\x1a\x0e.relaypb.Empty\x12<\n" +
+	"\fSetChunkSize\x12\x1c.relaypb.SetChunkSizeRequest\x1a\x0e.relaypb.EmptyB+Z)github.com/user/dns-transport/pkg/relaypbb\x06proto3"
 
 var (
-	file_relay_proto_rawDescOnce sync.Once
-	file_relay_proto_rawDescData []byte
+	file_proto_relay_proto_rawDescOnce sync.Once
+	file_proto_relay_proto_rawDescData []byte
 )
 
-func file_relay_proto_rawDescGZIP() []byte {
-	file_relay_proto_rawDescOnce.Do(func() {
-		file_relay_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_relay_proto_rawDesc), len(file_relay_proto_rawDesc)))
+func file_proto_relay_proto_rawDescGZIP() []byte {
+	file_proto_relay_proto_rawDescOnce.Do(func() {
+		file_proto_relay_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_relay_proto_rawDesc), len(file_proto_relay_proto_rawDesc)))
 	})
-	return file_relay_proto_rawDescData
+	return file_proto_relay_proto_rawDescData
 }
 
-var file_relay_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
-var file_relay_proto_goTypes = []any{
-	(SendMediaRequest_Transport)(0),    // 0: relaypb.SendMediaRequest.Transport
-	(MediaStatusResponse_Status)(0),    // 1: relaypb.MediaStatusResponse.Status
+var file_proto_relay_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_proto_relay_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_proto_relay_proto_goTypes = []any{
+	(MediaStatusResponse_Status)(0),    // 0: relaypb.MediaStatusResponse.Status
+	(SetTransportModeRequest_Mode)(0),  // 1: relaypb.SetTransportModeRequest.Mode
 	(*SendMediaRequest)(nil),           // 2: relaypb.SendMediaRequest
 	(*SendMediaResponse)(nil),          // 3: relaypb.SendMediaResponse
 	(*GetMediaStatusRequest)(nil),      // 4: relaypb.GetMediaStatusRequest
@@ -2126,15 +2213,17 @@ var file_relay_proto_goTypes = []any{
 	(*ProfileInfo)(nil),                // 32: relaypb.ProfileInfo
 	(*SetProfilePicRequest)(nil),       // 33: relaypb.SetProfilePicRequest
 	(*ProfilePicResponse)(nil),         // 34: relaypb.ProfilePicResponse
+	(*SetTransportModeRequest)(nil),    // 35: relaypb.SetTransportModeRequest
+	(*SetChunkSizeRequest)(nil),        // 36: relaypb.SetChunkSizeRequest
 }
-var file_relay_proto_depIdxs = []int32{
-	0,  // 0: relaypb.SendMediaRequest.preferred_transport:type_name -> relaypb.SendMediaRequest.Transport
-	1,  // 1: relaypb.MediaStatusResponse.status:type_name -> relaypb.MediaStatusResponse.Status
-	12, // 2: relaypb.PollResponse.messages:type_name -> relaypb.ReceivedMessage
-	16, // 3: relaypb.RelayStatusList.endpoints:type_name -> relaypb.RelayStatus
-	18, // 4: relaypb.ListPeersResponse.peers:type_name -> relaypb.PeerInfo
-	29, // 5: relaypb.ListGroupsResponse.groups:type_name -> relaypb.GroupInfo
-	30, // 6: relaypb.GroupInfo.members:type_name -> relaypb.GroupMember
+var file_proto_relay_proto_depIdxs = []int32{
+	0,  // 0: relaypb.MediaStatusResponse.status:type_name -> relaypb.MediaStatusResponse.Status
+	12, // 1: relaypb.PollResponse.messages:type_name -> relaypb.ReceivedMessage
+	16, // 2: relaypb.RelayStatusList.endpoints:type_name -> relaypb.RelayStatus
+	18, // 3: relaypb.ListPeersResponse.peers:type_name -> relaypb.PeerInfo
+	29, // 4: relaypb.ListGroupsResponse.groups:type_name -> relaypb.GroupInfo
+	30, // 5: relaypb.GroupInfo.members:type_name -> relaypb.GroupMember
+	1,  // 6: relaypb.SetTransportModeRequest.mode:type_name -> relaypb.SetTransportModeRequest.Mode
 	8,  // 7: relaypb.RelayClient.SendMessage:input_type -> relaypb.SendRequest
 	10, // 8: relaypb.RelayClient.PollMessages:input_type -> relaypb.PollRequest
 	13, // 9: relaypb.RelayClient.GetRelayStatus:input_type -> relaypb.Empty
@@ -2158,57 +2247,61 @@ var file_relay_proto_depIdxs = []int32{
 	32, // 27: relaypb.RelayClient.UpdateProfile:input_type -> relaypb.ProfileInfo
 	13, // 28: relaypb.RelayClient.GetProfilePic:input_type -> relaypb.Empty
 	33, // 29: relaypb.RelayClient.SetProfilePic:input_type -> relaypb.SetProfilePicRequest
-	9,  // 30: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
-	11, // 31: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
-	15, // 32: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
-	13, // 33: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
-	13, // 34: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
-	17, // 35: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
-	13, // 36: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
-	31, // 37: relaypb.RelayClient.GetTransportStatus:output_type -> relaypb.TransportStatusResponse
-	3,  // 38: relaypb.RelayClient.SendMedia:output_type -> relaypb.SendMediaResponse
-	5,  // 39: relaypb.RelayClient.GetMediaStatus:output_type -> relaypb.MediaStatusResponse
-	13, // 40: relaypb.RelayClient.CancelSend:output_type -> relaypb.Empty
-	3,  // 41: relaypb.RelayClient.SendMediaStream:output_type -> relaypb.SendMediaResponse
-	20, // 42: relaypb.RelayClient.GenerateInviteCode:output_type -> relaypb.GenerateInviteCodeResponse
-	22, // 43: relaypb.RelayClient.JoinViaCode:output_type -> relaypb.JoinViaCodeResponse
-	13, // 44: relaypb.RelayClient.RemovePeer:output_type -> relaypb.Empty
-	23, // 45: relaypb.RelayClient.ListPeers:output_type -> relaypb.ListPeersResponse
-	25, // 46: relaypb.RelayClient.CreateGroup:output_type -> relaypb.CreateGroupResponse
-	28, // 47: relaypb.RelayClient.ListGroups:output_type -> relaypb.ListGroupsResponse
-	13, // 48: relaypb.RelayClient.LeaveGroup:output_type -> relaypb.Empty
-	13, // 49: relaypb.RelayClient.RemoveGroupMember:output_type -> relaypb.Empty
-	13, // 50: relaypb.RelayClient.UpdateProfile:output_type -> relaypb.Empty
-	34, // 51: relaypb.RelayClient.GetProfilePic:output_type -> relaypb.ProfilePicResponse
-	13, // 52: relaypb.RelayClient.SetProfilePic:output_type -> relaypb.Empty
-	30, // [30:53] is the sub-list for method output_type
-	7,  // [7:30] is the sub-list for method input_type
+	35, // 30: relaypb.RelayClient.SetTransportMode:input_type -> relaypb.SetTransportModeRequest
+	36, // 31: relaypb.RelayClient.SetChunkSize:input_type -> relaypb.SetChunkSizeRequest
+	9,  // 32: relaypb.RelayClient.SendMessage:output_type -> relaypb.SendResponse
+	11, // 33: relaypb.RelayClient.PollMessages:output_type -> relaypb.PollResponse
+	15, // 34: relaypb.RelayClient.GetRelayStatus:output_type -> relaypb.RelayStatusList
+	13, // 35: relaypb.RelayClient.AddRelay:output_type -> relaypb.Empty
+	13, // 36: relaypb.RelayClient.RemoveRelay:output_type -> relaypb.Empty
+	17, // 37: relaypb.RelayClient.GetIdentity:output_type -> relaypb.IdentityInfo
+	13, // 38: relaypb.RelayClient.AddPeer:output_type -> relaypb.Empty
+	31, // 39: relaypb.RelayClient.GetTransportStatus:output_type -> relaypb.TransportStatusResponse
+	3,  // 40: relaypb.RelayClient.SendMedia:output_type -> relaypb.SendMediaResponse
+	5,  // 41: relaypb.RelayClient.GetMediaStatus:output_type -> relaypb.MediaStatusResponse
+	13, // 42: relaypb.RelayClient.CancelSend:output_type -> relaypb.Empty
+	3,  // 43: relaypb.RelayClient.SendMediaStream:output_type -> relaypb.SendMediaResponse
+	20, // 44: relaypb.RelayClient.GenerateInviteCode:output_type -> relaypb.GenerateInviteCodeResponse
+	22, // 45: relaypb.RelayClient.JoinViaCode:output_type -> relaypb.JoinViaCodeResponse
+	13, // 46: relaypb.RelayClient.RemovePeer:output_type -> relaypb.Empty
+	23, // 47: relaypb.RelayClient.ListPeers:output_type -> relaypb.ListPeersResponse
+	25, // 48: relaypb.RelayClient.CreateGroup:output_type -> relaypb.CreateGroupResponse
+	28, // 49: relaypb.RelayClient.ListGroups:output_type -> relaypb.ListGroupsResponse
+	13, // 50: relaypb.RelayClient.LeaveGroup:output_type -> relaypb.Empty
+	13, // 51: relaypb.RelayClient.RemoveGroupMember:output_type -> relaypb.Empty
+	13, // 52: relaypb.RelayClient.UpdateProfile:output_type -> relaypb.Empty
+	34, // 53: relaypb.RelayClient.GetProfilePic:output_type -> relaypb.ProfilePicResponse
+	13, // 54: relaypb.RelayClient.SetProfilePic:output_type -> relaypb.Empty
+	13, // 55: relaypb.RelayClient.SetTransportMode:output_type -> relaypb.Empty
+	13, // 56: relaypb.RelayClient.SetChunkSize:output_type -> relaypb.Empty
+	32, // [32:57] is the sub-list for method output_type
+	7,  // [7:32] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_relay_proto_init() }
-func file_relay_proto_init() {
-	if File_relay_proto != nil {
+func init() { file_proto_relay_proto_init() }
+func file_proto_relay_proto_init() {
+	if File_proto_relay_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_relay_proto_rawDesc), len(file_relay_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_relay_proto_rawDesc), len(file_proto_relay_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   33,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_relay_proto_goTypes,
-		DependencyIndexes: file_relay_proto_depIdxs,
-		EnumInfos:         file_relay_proto_enumTypes,
-		MessageInfos:      file_relay_proto_msgTypes,
+		GoTypes:           file_proto_relay_proto_goTypes,
+		DependencyIndexes: file_proto_relay_proto_depIdxs,
+		EnumInfos:         file_proto_relay_proto_enumTypes,
+		MessageInfos:      file_proto_relay_proto_msgTypes,
 	}.Build()
-	File_relay_proto = out.File
-	file_relay_proto_goTypes = nil
-	file_relay_proto_depIdxs = nil
+	File_proto_relay_proto = out.File
+	file_proto_relay_proto_goTypes = nil
+	file_proto_relay_proto_depIdxs = nil
 }

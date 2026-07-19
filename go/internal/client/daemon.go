@@ -681,9 +681,9 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 							// Profile pic sent via TCP relay — download, decrypt, save
 							relays := d.engine.GetRelays()
 							if len(relays) > 0 {
-								fileKey, _ := base64.StdEncoding.DecodeString(profileMsg.FileKeyB64)
-								tcpT := media.NewTCPTransport(relays[0])
-								encryptedPic, err := tcpT.DownloadFile(ctx, profileMsg.FileID)
+fileKey, _ := base64.StdEncoding.DecodeString(profileMsg.FileKeyB64)
+									tcpT := media.NewTCPTransport(relays[0], d.authToken)
+									encryptedPic, err := tcpT.DownloadFile(ctx, profileMsg.FileID)
 								if err == nil && fileKey != nil {
 									picData, err := media.DecryptFile(fileKey, encryptedPic)
 									if err == nil && len(picData) > 0 {
@@ -698,64 +698,37 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 							continue
 						}
 
-						// Media metadata check
-						var maybeMeta struct {
-							FileKeyB64  string   `json:"file_key_b64"`
-							ChunkMsgIDs []string `json:"chunk_msg_ids"`
-							MimeType    string   `json:"mime_type"`
-							FileName    string   `json:"file_name"`
-							Transport   string   `json:"transport"`
-							FileID      string   `json:"file_id"`
-						}
-						if json.Unmarshal(decrypted, &maybeMeta) == nil && maybeMeta.FileKeyB64 != "" {
-							fileKey, _ := base64.StdEncoding.DecodeString(maybeMeta.FileKeyB64)
-							relays := d.engine.GetRelays()
-							if len(relays) == 0 {
-								d.debugWrite("PollMessages: no relays for media download")
-								continue
+							// Media metadata check
+							var maybeMeta struct {
+								FileKeyB64 string `json:"file_key_b64"`
+								MimeType   string `json:"mime_type"`
+								FileName   string `json:"file_name"`
+								FileID     string `json:"file_id"`
 							}
-							relay := relays[0]
+							if json.Unmarshal(decrypted, &maybeMeta) == nil && maybeMeta.FileKeyB64 != "" {
+								fileKey, _ := base64.StdEncoding.DecodeString(maybeMeta.FileKeyB64)
+								relays := d.engine.GetRelays()
+								if len(relays) == 0 {
+									d.debugWrite("PollMessages: no relays for media download")
+									continue
+								}
+								relay := relays[0]
 
-							var fileData []byte
+								var fileData []byte
 
-							if maybeMeta.Transport == "tcp" && maybeMeta.FileID != "" {
-								d.debugWrite("PollMessages: detected TCP media msgID=%x fileID=%s", pm.MsgID, maybeMeta.FileID)
-								tcpT := media.NewTCPTransport(relay)
-								encryptedFile, err := tcpT.DownloadFile(ctx, maybeMeta.FileID)
-								if err != nil {
-									d.debugWrite("PollMessages: TCP download failed fileID=%s err=%v", maybeMeta.FileID, err)
-								} else if fileKey != nil {
-									fileData, err = media.DecryptFile(fileKey, encryptedFile)
+								if maybeMeta.FileID != "" {
+									d.debugWrite("PollMessages: downloading TCP media msgID=%x fileID=%s", pm.MsgID, maybeMeta.FileID)
+									tcpT := media.NewTCPTransport(relay, d.authToken)
+									encryptedFile, err := tcpT.DownloadFile(ctx, maybeMeta.FileID)
 									if err != nil {
-										d.debugWrite("PollMessages: TCP media decrypt failed err=%v", err)
+										d.debugWrite("PollMessages: TCP download failed fileID=%s err=%v", maybeMeta.FileID, err)
+									} else if fileKey != nil {
+										fileData, err = media.DecryptFile(fileKey, encryptedFile)
+										if err != nil {
+											d.debugWrite("PollMessages: TCP media decrypt failed err=%v", err)
+										}
 									}
 								}
-							} else if len(maybeMeta.ChunkMsgIDs) > 0 {
-								d.debugWrite("PollMessages: detected DNS media msgID=%x chunks=%d", pm.MsgID, len(maybeMeta.ChunkMsgIDs))
-								zone := d.engine.GetZone()
-								mode := d.engine.GetTransportMode()
-								var encryptedFile []byte
-								for _, cid := range maybeMeta.ChunkMsgIDs {
-									midBytes, _ := base64.StdEncoding.DecodeString(cid)
-									if len(midBytes) != 8 {
-										continue
-									}
-									var mid [8]byte
-									copy(mid[:], midBytes)
-									chunkData, err := fetchAndReassemble(relay, zone, mid, mode)
-									if err != nil {
-										d.debugWrite("PollMessages: media chunk fetch failed cid=%s err=%v", cid, err)
-										break
-									}
-									encryptedFile = append(encryptedFile, chunkData...)
-								}
-								if len(encryptedFile) > 0 && fileKey != nil {
-									fileData, err = media.DecryptFile(fileKey, encryptedFile)
-									if err != nil {
-										d.debugWrite("PollMessages: DNS media decrypt failed err=%v", err)
-									}
-								}
-							}
 
 							// Save media file (or placeholder) + meta sidecar
 							ext := ".bin"
@@ -768,34 +741,38 @@ func (d *Daemon) PollMessages(ctx context.Context, req *pb.PollRequest) (*pb.Pol
 							} else if maybeMeta.MimeType == "audio/m4a" {
 								ext = ".m4a"
 							}
-							recvDir := filepath.Join(d.dataDir, "media_received")
-							os.MkdirAll(recvDir, 0700)
-							mediaMsgID := hex.EncodeToString(pm.MsgID[:])
-							filePath := filepath.Join(recvDir, mediaMsgID+ext)
+								recvDir := filepath.Join(d.dataDir, "media_received")
+								os.MkdirAll(recvDir, 0700)
+								mediaMsgID := hex.EncodeToString(pm.MsgID[:])
+								filePath := filepath.Join(recvDir, mediaMsgID+ext)
 
-							if fileData != nil {
-								if err := os.WriteFile(filePath, fileData, 0600); err != nil {
-									d.debugWrite("PollMessages: media save failed err=%v", err)
-								} else {
-									d.debugWrite("PollMessages: media saved to %s", filePath)
+								// Write meta sidecar FIRST so Flutter's file scanner
+								// never sees a body without its metadata.
+								status := "complete"
+								if fileData == nil {
+									status = "failed"
 								}
-							} else {
-								d.debugWrite("PollMessages: media download failed for %s, saving placeholder", mediaMsgID)
-								os.WriteFile(filePath, []byte{}, 0600)
-							}
-							status := "complete"
-							if fileData == nil {
-								status = "failed"
-							}
-							metaPath := filePath + ".meta"
-							metaJSON, _ := json.Marshal(map[string]string{
-								"mime":               maybeMeta.MimeType,
-								"filename":           maybeMeta.FileName,
-								"sender_pubkey":      fromPeer,
-								"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
-								"status":             status,
-							})
-							os.WriteFile(metaPath, metaJSON, 0600)
+								metaPath := filePath + ".meta"
+								metaJSON, _ := json.Marshal(map[string]string{
+									"mime":               maybeMeta.MimeType,
+									"filename":           maybeMeta.FileName,
+									"sender_pubkey":      fromPeer,
+									"server_timestamp_ms": fmt.Sprintf("%d", pm.Timestamp),
+									"status":             status,
+								})
+								os.WriteFile(metaPath, metaJSON, 0600)
+
+								// Write body file (only after meta is safely on disk)
+								if fileData != nil {
+									if err := os.WriteFile(filePath, fileData, 0600); err != nil {
+										d.debugWrite("PollMessages: media save failed err=%v", err)
+									} else {
+										d.debugWrite("PollMessages: media saved to %s", filePath)
+									}
+								} else {
+									d.debugWrite("PollMessages: media download failed for %s, saving placeholder", mediaMsgID)
+									os.WriteFile(filePath, []byte{}, 0600)
+								}
 							// Don't add media metadata as a text message
 							continue
 						}
@@ -981,38 +958,7 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 	}
 
 	// broadcastProfileUpdate sends the user's profile to every known peer.
-	func (d *Daemon) broadcastProfileUpdate(nickname, bio string) {
-		payload := fmt.Sprintf(`{"type":"profile_update","nickname":"%s","bio":"%s"}`,
-			strings.ReplaceAll(nickname, `"`, `\"`),
-			strings.ReplaceAll(bio, `"`, `\"`))
-		d.peersMu.RLock()
-		peers := make([]string, 0, len(d.peers))
-		for pubkey := range d.peers {
-			peers = append(peers, pubkey)
-		}
-		d.peersMu.RUnlock()
-
-		for _, peerPubkey := range peers {
-			d.sendProfileToPeer(peerPubkey, payload)
-		}
-	}
-
 	// sendProfileToPeer encrypts payload and sends it to a specific peer.
-	func (d *Daemon) sendProfileToPeer(peerPubkeyB64, payload string) {
-		pubkey, err := base64.StdEncoding.DecodeString(peerPubkeyB64)
-		if err != nil {
-			return
-		}
-		sharedSecret, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
-		if err != nil {
-			return
-		}
-		ciphertext, _, err := crypto.EncryptMessage(sharedSecret, []byte(payload))
-		if err != nil {
-			return
-		}
-		d.engine.SendMessage(context.Background(), ciphertext, peerPubkeyB64)
-	}
 
 	// GetProfilePic returns the user's profile picture.
 	func (d *Daemon) GetProfilePic(ctx context.Context, req *pb.Empty) (*pb.ProfilePicResponse, error) {
@@ -1047,46 +993,6 @@ func (d *Daemon) JoinViaCode(ctx context.Context, req *pb.JoinViaCodeRequest) (*
 	// broadcastProfilePic uploads the picture to the relay (via TCP) and sends
 	// a lightweight metadata message to each peer instead of inline base64 (which
 	// is too large for DNS chunking within the 10s deadline).
-	func (d *Daemon) broadcastProfilePic(imageData []byte, mimeType string) {
-		relays := d.engine.GetRelays()
-		if len(relays) == 0 {
-			slog.Warn("broadcastProfilePic: no relays, skipping")
-			return
-		}
-		// Encrypt + upload via TCP transport (same as media files).
-		fileKey, err := media.GenerateFileKey()
-		if err != nil {
-			slog.Warn("broadcastProfilePic: generate file key failed", "error", err)
-			return
-		}
-		encryptedPic, err := media.EncryptFile(fileKey, imageData)
-		if err != nil {
-			slog.Warn("broadcastProfilePic: encrypt failed", "error", err)
-			return
-		}
-		tcpT := media.NewTCPTransport(relays[0])
-		var mid [8]byte
-		rand.Read(mid[:])
-		// Use SendChunks which uploads to relay via HTTP POST /upload
-		meta, err := tcpT.SendChunks(context.Background(), mid, encryptedPic, "profile_pic.jpg", mimeType, media.MediaTypeImage)
-		if err != nil {
-			slog.Warn("broadcastProfilePic: TCP upload failed", "error", err)
-			return
-		}
-		fileKeyB64 := base64.StdEncoding.EncodeToString(fileKey)
-		payload := fmt.Sprintf(`{"type":"profile_pic","file_id":"%s","file_key_b64":"%s","mime":"%s","transport":"tcp"}`,
-			meta.FileID, fileKeyB64, mimeType)
-
-		d.peersMu.RLock()
-		peers := make([]string, 0, len(d.peers))
-		for pubkey := range d.peers {
-			peers = append(peers, pubkey)
-		}
-		d.peersMu.RUnlock()
-		for _, peerPubkey := range peers {
-			d.sendProfileToPeer(peerPubkey, payload)
-		}
-	}
 
 	// ListPeers returns all known peers from the daemon.
 func (d *Daemon) ListPeers(ctx context.Context, req *pb.Empty) (*pb.ListPeersResponse, error) {
@@ -1103,286 +1009,21 @@ func (d *Daemon) ListPeers(ctx context.Context, req *pb.Empty) (*pb.ListPeersRes
 }
 
 // CreateGroup creates a new chat group, generates a group key, and distributes it to all members.
-func (d *Daemon) CreateGroup(ctx context.Context, req *pb.CreateGroupRequest) (*pb.CreateGroupResponse, error) {
-	groupKey, err := crypto.GenerateGroupKey()
-	if err != nil {
-		return nil, status.Error(codes.Internal, "generate group key failed")
-	}
-
-	groupID := fmt.Sprintf("g%d", time.Now().UnixNano())
-	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-
-	members := make(map[string]*GroupMember)
-	members[myPubkey] = &GroupMember{Pubkey: myPubkey, Nickname: req.Name + "_admin", Role: "admin"}
-	for _, mpk := range req.MemberPubkeys {
-		members[mpk] = &GroupMember{Pubkey: mpk, Nickname: "", Role: "member"}
-	}
-
-	group := &Group{
-		GroupID:     groupID,
-		Name:        req.Name,
-		AdminPubkey: myPubkey,
-		Members:     members,
-		GroupKey:    groupKey,
-		KeyEpoch:    1,
-	}
-	d.groupsMu.Lock()
-	d.groups[groupID] = group
-	d.groupsMu.Unlock()
-	d.saveGroups()
-
-	// Distribute group key to each member via pairwise ECDH
-	for pubkeyB64 := range members {
-		if pubkeyB64 == myPubkey {
-			continue
-		}
-		pubkey, err := base64.StdEncoding.DecodeString(pubkeyB64)
-		if err != nil {
-			continue
-		}
-		ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
-		if err != nil {
-			continue
-		}
-		distribution := fmt.Sprintf(`{"type":"group_key","group_id":"%s","group_key_b64":"%s","key_epoch":%d,"name":"%s"}`,
-			groupID, base64.StdEncoding.EncodeToString(groupKey), uint64(1), req.Name)
-		ciphertext, _, _ := crypto.EncryptMessage(ss, []byte(distribution))
-		d.engine.SendMessage(context.Background(), ciphertext, pubkeyB64)
-	}
-
-	return &pb.CreateGroupResponse{GroupId: groupID}, nil
-}
 
 // ListGroups returns all groups this node is a member of.
-func (d *Daemon) ListGroups(ctx context.Context, req *pb.Empty) (*pb.ListGroupsResponse, error) {
-	d.groupsMu.RLock()
-	defer d.groupsMu.RUnlock()
-	var pbGroups []*pb.GroupInfo
-	for _, g := range d.groups {
-		var pbMembers []*pb.GroupMember
-		for _, m := range g.Members {
-			pbMembers = append(pbMembers, &pb.GroupMember{
-				Pubkey:   m.Pubkey,
-				Nickname: m.Nickname,
-				Role:     m.Role,
-			})
-		}
-		pbGroups = append(pbGroups, &pb.GroupInfo{
-			GroupId:     g.GroupID,
-			Name:        g.Name,
-			AdminPubkey: g.AdminPubkey,
-			Members:     pbMembers,
-			KeyEpoch:    g.KeyEpoch,
-		})
-	}
-	return &pb.ListGroupsResponse{Groups: pbGroups}, nil
-}
 
 // LeaveGroup removes the current node from a group. If admin leaves, reassigns admin.
 // If no members remain, the group is deleted.
-func (d *Daemon) LeaveGroup(ctx context.Context, req *pb.LeaveGroupRequest) (*pb.Empty, error) {
-	d.groupsMu.Lock()
-	group, ok := d.groups[req.GroupId]
-	if !ok {
-		d.groupsMu.Unlock()
-		return nil, status.Errorf(codes.NotFound, "group not found: %s", req.GroupId)
-	}
-	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	delete(group.Members, myPubkey)
-	// If admin leaves, reassign admin to first remaining member
-	if group.AdminPubkey == myPubkey && len(group.Members) > 0 {
-		for pubkey := range group.Members {
-			group.AdminPubkey = pubkey
-			group.Members[pubkey].Role = "admin"
-			break
-		}
-	}
-	// If no members left, delete the group
-	if len(group.Members) == 0 {
-		delete(d.groups, req.GroupId)
-	}
-	d.groupsMu.Unlock()
-	d.saveGroups()
-	return &pb.Empty{}, nil
-}
 
 // RemoveGroupMember removes a member from a group (admin only). Rotates group key.
-func (d *Daemon) RemoveGroupMember(ctx context.Context, req *pb.RemoveGroupMemberRequest) (*pb.Empty, error) {
-	d.groupsMu.Lock()
-	group, ok := d.groups[req.GroupId]
-	if !ok {
-		d.groupsMu.Unlock()
-		return nil, status.Errorf(codes.NotFound, "group not found: %s", req.GroupId)
-	}
-	myPubkey := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	if group.AdminPubkey != myPubkey {
-		d.groupsMu.Unlock()
-		return nil, status.Error(codes.PermissionDenied, "only admin can remove members")
-	}
-	if _, exists := group.Members[req.MemberPubkey]; !exists {
-		d.groupsMu.Unlock()
-		return nil, status.Errorf(codes.NotFound, "member not in group")
-	}
-	delete(group.Members, req.MemberPubkey)
-	// Rotate group key since membership changed
-	newKey, err := crypto.RotateGroupKey(group.GroupKey)
-	if err == nil {
-		group.GroupKey = newKey
-		group.KeyEpoch++
-	}
-	d.groupsMu.Unlock()
-	d.saveGroups()
-	// Distribute new key to remaining members
-	d.distributeGroupKey(group.GroupID)
-	return &pb.Empty{}, nil
-}
-
-// distributeGroupKey sends the current group key to all members via pairwise ECDH.
-func (d *Daemon) distributeGroupKey(groupID string) {
-	d.groupsMu.RLock()
-	group, ok := d.groups[groupID]
-	d.groupsMu.RUnlock()
-	if !ok {
-		return
-	}
-
-	myPubkeyB64 := base64.StdEncoding.EncodeToString(d.identity.PublicKey)
-	for pubkeyB64, member := range group.Members {
-		if pubkeyB64 == myPubkeyB64 {
-			continue
-		}
-		pubkey, err := base64.StdEncoding.DecodeString(pubkeyB64)
-		if err != nil {
-			continue
-		}
-		ss, err := crypto.SharedSecret(d.identity.PrivateKey, pubkey)
-		if err != nil {
-			continue
-		}
-		distribution := fmt.Sprintf(`{"type":"group_key","group_id":"%s","group_key_b64":"%s","key_epoch":%d}`,
-			groupID, base64.StdEncoding.EncodeToString(group.GroupKey), group.KeyEpoch)
-		ciphertext, _, _ := crypto.EncryptMessage(ss, []byte(distribution))
-		d.engine.SendMessage(context.Background(), ciphertext, pubkeyB64)
-		_ = member
-	}
-}
 
 // loadPeers reads peers from JSON file into memory.
-func (d *Daemon) loadPeers() {
-	data, err := os.ReadFile(d.peersPath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			slog.Warn("failed to read peers file", "error", err)
-		}
-		return
-	}
-	var loaded map[string]*PeerInfoEntry
-	if err := json.Unmarshal(data, &loaded); err != nil {
-		slog.Warn("failed to parse peers file", "error", err)
-		return
-	}
-	d.peersMu.Lock()
-	for k, v := range loaded {
-		d.peers[k] = v
-	}
-	d.peersMu.Unlock()
-	slog.Info("loaded peers from disk", "count", len(loaded))
-}
-
 // savePeers writes the peers map to JSON file.
-func (d *Daemon) savePeers() {
-	d.peersMu.RLock()
-	data, err := json.MarshalIndent(d.peers, "", "  ")
-	d.peersMu.RUnlock()
-	if err != nil {
-		slog.Warn("failed to marshal peers", "error", err)
-		return
-	}
-		if err := os.WriteFile(d.peersPath, data, 0600); err != nil {
-			slog.Warn("failed to save peers file", "error", err)
-		}
-	}
-
 // saveGroups writes the groups map to JSON file.
-func (d *Daemon) saveGroups() {
-	d.groupsMu.RLock()
-	data, err := json.MarshalIndent(d.groups, "", "  ")
-	d.groupsMu.RUnlock()
-	if err != nil {
-		slog.Warn("failed to marshal groups", "error", err)
-		return
-	}
-	if err := os.WriteFile(d.groupsPath, data, 0600); err != nil {
-		slog.Warn("failed to save groups file", "error", err)
-	}
-}
-
 // loadGroups reads groups from JSON file into memory.
-func (d *Daemon) loadGroups() {
-	data, err := os.ReadFile(d.groupsPath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			slog.Warn("failed to read groups file", "error", err)
-		}
-		return
-	}
-	var loaded map[string]*Group
-	if err := json.Unmarshal(data, &loaded); err != nil {
-		slog.Warn("failed to parse groups file", "error", err)
-		return
-	}
-	d.groupsMu.Lock()
-	for k, v := range loaded {
-		d.groups[k] = v
-	}
-	d.groupsMu.Unlock()
-		slog.Info("loaded groups from disk", "count", len(loaded))
-	}
-
 // loadProfile reads profile from JSON file into memory.
-func (d *Daemon) loadProfile() {
-	data, err := os.ReadFile(d.profilePath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			slog.Warn("failed to read profile", "error", err)
-		}
-		return
-	}
-	var p Profile
-	if err := json.Unmarshal(data, &p); err != nil {
-		slog.Warn("failed to parse profile", "error", err)
-		return
-	}
-	d.profileMu.Lock()
-	d.profile = &p
-	d.profileMu.Unlock()
-	slog.Info("loaded profile", "nickname", p.Nickname)
-}
-
 // saveProfile writes the profile to JSON file.
-func (d *Daemon) saveProfile() {
-	d.profileMu.RLock()
-	data, err := json.MarshalIndent(d.profile, "", "  ")
-	d.profileMu.RUnlock()
-	if err != nil {
-		slog.Warn("failed to marshal profile", "error", err)
-		return
-	}
-	if err := os.WriteFile(d.profilePath, data, 0600); err != nil {
-		slog.Warn("failed to save profile", "error", err)
-	}
-}
-
 // getMyNickname returns the user's nickname, or "Me" if not set.
-func (d *Daemon) getMyNickname() string {
-	d.profileMu.RLock()
-	defer d.profileMu.RUnlock()
-	if d.profile != nil && d.profile.Nickname != "" {
-		return d.profile.Nickname
-	}
-	return "Me"
-}
-
 // GetTransportStatus returns the current transport layer status.
 func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.TransportStatusResponse, error) {
 	status := &pb.TransportStatusResponse{
@@ -1395,11 +1036,13 @@ func (d *Daemon) GetTransportStatus(ctx context.Context, req *pb.Empty) (*pb.Tra
 	return status, nil
 }
 
-// SendMedia sends media data (file, image, etc.) to a peer over DNS or TCP transport.
-// Tries DNS first for small files; falls back to TCP on failure.
+// SendMedia sends media data (file, image, etc.) to a peer over TCP transport.
 func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.SendMediaResponse, error) {
-	transport := "dns"
-	estimatedSec := int32(len(req.MediaData) / 1000)
+	transport := "tcp"
+	estimatedSec := int32(len(req.MediaData) / (100 * 1024) * 100 / 1000)
+	if estimatedSec < 5 {
+		estimatedSec = 5
+	}
 	msgID := fmt.Sprintf("%x", time.Now().UnixNano())
 
 	// Create transfer tracking entry
@@ -1417,65 +1060,36 @@ func (d *Daemon) SendMedia(ctx context.Context, req *pb.SendMediaRequest) (*pb.S
 	rand.Read(mid[:])
 	var err error
 
-	// Determine transport strategy based on PreferredTransport:
-	//   AUTO (0) → daemon decides: DNS for <60KB, TCP otherwise; DNS→TCP fallback.
-	//   DNS  (1) → force DNS (no fallback).
-	//   other    → TCP (LIBP2P was removed).
-	useDNS := false
-	switch req.PreferredTransport {
-	case pb.SendMediaRequest_AUTO:
-		useDNS = len(req.MediaData) < media.MediaDNSSizeThreshold
-	case pb.SendMediaRequest_DNS:
-		useDNS = true
-	default:
-		useDNS = false // LIBP2P or unknown → TCP
+	// TCP path — upload file to relay's HTTP media server
+	relays := d.engine.GetRelays()
+	if len(relays) == 0 {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = "no relays configured for TCP upload"
+		transfer.mu.Unlock()
+		return nil, status.Error(codes.FailedPrecondition, "no relays configured")
+	}
+	tcpTransport := media.NewTCPTransport(relays[0], d.authToken)
+	
+	// Update status to sending before upload
+	transfer.mu.Lock()
+	transfer.Status = TransferSending
+	transfer.Progress = 10
+	transfer.mu.Unlock()
+	
+	meta, err = tcpTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
+	if err != nil {
+		transfer.mu.Lock()
+		transfer.Status = TransferFailed
+		transfer.Error = err.Error()
+		transfer.mu.Unlock()
+		return nil, fmt.Errorf("TCP upload: %w", err)
 	}
 
-	if useDNS {
-		// DNS path
-		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{
-			Engine:          d.engine,
-			RecipientPubkey: req.PeerPubkey,
-		})
-		meta, err = dnsTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
-		if err != nil {
-			d.debugWrite("SendMedia DNS failed (%v), falling back to TCP", err)
-			slog.Warn("DNS media send failed, falling back to TCP", "error", err, "size", len(req.MediaData))
-			useDNS = false // fall through to TCP
-		} else {
-			transport = "dns"
-			estimatedSec = int32(len(req.MediaData) / (15 * 200) * 100 / 1000)
-			if estimatedSec < 10 {
-				estimatedSec = 10
-			}
-		}
-	}
-
-	if !useDNS {
-		// TCP path — upload file to relay's HTTP media server
-		relays := d.engine.GetRelays()
-		if len(relays) == 0 {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = "no relays configured for TCP upload"
-			transfer.mu.Unlock()
-			return nil, status.Error(codes.FailedPrecondition, "no relays configured")
-		}
-		tcpTransport := media.NewTCPTransport(relays[0])
-		meta, err = tcpTransport.SendChunks(ctx, mid, req.MediaData, req.Filename, req.MimeType, media.MediaTypeFile)
-		if err != nil {
-			transfer.mu.Lock()
-			transfer.Status = TransferFailed
-			transfer.Error = err.Error()
-			transfer.mu.Unlock()
-			return nil, fmt.Errorf("TCP upload: %w", err)
-		}
-		transport = "tcp"
-		estimatedSec = int32(len(req.MediaData) / (100 * 1024) * 100 / 1000)
-		if estimatedSec < 5 {
-			estimatedSec = 5
-		}
-	}
+	// Update progress after upload
+	transfer.mu.Lock()
+	transfer.Progress = 50
+	transfer.mu.Unlock()
 
 	meta.Timestamp = time.Now().UnixMilli()
 	meta.MessageID = msgID
@@ -1719,8 +1333,8 @@ func (d *Daemon) SendMediaStream(stream pb.RelayClient_SendMediaStreamServer) er
 		return status.Error(codes.Internal, "read temp file failed")
 	}
 
-	// Choose transport and send
-	transport := "dns"
+	// Choose transport: TCP-only (media always via HTTP relay)
+	transport := "tcp"
 	var meta *media.MediaMessage
 	var mid [8]byte
 	rand.Read(mid[:])
@@ -1730,7 +1344,7 @@ func (d *Daemon) SendMediaStream(stream pb.RelayClient_SendMediaStreamServer) er
 		if d.transferStore != nil {
 			d.transferStore.Update(transferID, media.TransferComplete, 100, chunkCount)
 		}
-		estimatedSec := media.EstimateSeconds(totalSize, false)
+		estimatedSec := media.EstimateSeconds(totalSize, true)
 		return stream.SendAndClose(&pb.SendMediaResponse{
 			MessageId:       transferID,
 			EstimatedSeconds: estimatedSec,
@@ -1738,61 +1352,37 @@ func (d *Daemon) SendMediaStream(stream pb.RelayClient_SendMediaStreamServer) er
 		})
 	}
 
-	if len(fileData) < media.MediaDNSSizeThreshold {
-		// DNS path
-		dnsTransport := media.NewDNSTransport(&media.SendMessageAdapter{
-			Engine:          d.engine,
-			RecipientPubkey: peerPubkey,
-		})
-		meta, err = dnsTransport.SendChunks(stream.Context(), mid, fileData, fileName, mimeType, media.MediaTypeFile)
-		if err != nil {
-			d.transferMu.Lock()
-			if t, ok := d.transfers[transferID]; ok {
-				t.mu.Lock()
-				t.Status = TransferFailed
-				t.Error = err.Error()
-				t.mu.Unlock()
-			}
-			d.transferMu.Unlock()
-			if d.transferStore != nil {
-				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
-			}
-			return err
+	// TCP path — requires relay HTTP media server
+	relays := d.engine.GetRelays()
+	if len(relays) == 0 {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = "no relays configured for TCP upload"
+			t.mu.Unlock()
 		}
-	} else {
-		// TCP path — requires relay HTTP media server
-		relays := d.engine.GetRelays()
-		if len(relays) == 0 {
-			d.transferMu.Lock()
-			if t, ok := d.transfers[transferID]; ok {
-				t.mu.Lock()
-				t.Status = TransferFailed
-				t.Error = "no relays configured for TCP upload"
-				t.mu.Unlock()
-			}
-			d.transferMu.Unlock()
-			if d.transferStore != nil {
-				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
-			}
-			return status.Error(codes.FailedPrecondition, "no relays configured for TCP upload")
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
 		}
-		tcpTransport := media.NewTCPTransport(relays[0])
-		meta, err = tcpTransport.SendChunks(stream.Context(), mid, fileData, fileName, mimeType, media.MediaTypeFile)
-		if err != nil {
-			d.transferMu.Lock()
-			if t, ok := d.transfers[transferID]; ok {
-				t.mu.Lock()
-				t.Status = TransferFailed
-				t.Error = err.Error()
-				t.mu.Unlock()
-			}
-			d.transferMu.Unlock()
-			if d.transferStore != nil {
-				d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
-			}
-			return err
+		return status.Error(codes.FailedPrecondition, "no relays configured for TCP upload")
+	}
+	tcpTransport := media.NewTCPTransport(relays[0], d.authToken)
+	meta, err = tcpTransport.SendChunks(stream.Context(), mid, fileData, fileName, mimeType, media.MediaTypeFile)
+	if err != nil {
+		d.transferMu.Lock()
+		if t, ok := d.transfers[transferID]; ok {
+			t.mu.Lock()
+			t.Status = TransferFailed
+			t.Error = err.Error()
+			t.mu.Unlock()
 		}
-		transport = "tcp"
+		d.transferMu.Unlock()
+		if d.transferStore != nil {
+			d.transferStore.Update(transferID, media.TransferFailed, 0, chunkCount)
+		}
+		return err
 	}
 
 	// Update status to confirming
@@ -1908,9 +1498,33 @@ func (d *Daemon) cleanupTransfers() {
 
 const maxQueueRetries = 20 // give up after ~10 minutes (20 × 30s)
 
+// SetTransportMode sets the DNS transport mode via gRPC (replaces file-watcher).
+func (d *Daemon) SetTransportMode(ctx context.Context, req *pb.SetTransportModeRequest) (*pb.Empty, error) {
+	mode := dns.TransportAuto
+	switch req.Mode {
+	case pb.SetTransportModeRequest_TCP:
+		mode = dns.TransportTCP
+	case pb.SetTransportModeRequest_UDP:
+		mode = dns.TransportUDP
+	default:
+		mode = dns.TransportAuto
+	}
+	d.engine.SetTransportMode(mode)
+	slog.Info("transport mode set via gRPC", "mode", mode.String())
+	return &pb.Empty{}, nil
+}
+
+// SetChunkSize sets the DNS chunk size via gRPC (replaces file-watcher).
+func (d *Daemon) SetChunkSize(ctx context.Context, req *pb.SetChunkSizeRequest) (*pb.Empty, error) {
+	d.engine.SetChunkSize(int(req.Size))
+	slog.Info("chunk size set via gRPC", "size", req.Size)
+	return &pb.Empty{}, nil
+}
+
 // watchTransportMode reads dataDir/transport_mode every 5 seconds.
 // Flutter writes this file when the user changes the DNS transport mode
 // (Auto / TCP / UDP). The mode is applied to the engine immediately.
+// DEPRECATED: replaced by SetTransportMode gRPC. Kept for backward compat.
 func (d *Daemon) watchTransportMode() {
 	path := filepath.Join(d.dataDir, "transport_mode")
 	ticker := time.NewTicker(5 * time.Second)

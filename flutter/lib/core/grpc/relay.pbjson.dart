@@ -23,34 +23,14 @@ const SendMediaRequest$json = {
     {'1': 'media_data', '3': 2, '4': 1, '5': 12, '10': 'mediaData'},
     {'1': 'filename', '3': 3, '4': 1, '5': 9, '10': 'filename'},
     {'1': 'mime_type', '3': 4, '4': 1, '5': 9, '10': 'mimeType'},
-    {
-      '1': 'preferred_transport',
-      '3': 5,
-      '4': 1,
-      '5': 14,
-      '6': '.relaypb.SendMediaRequest.Transport',
-      '10': 'preferredTransport'
-    },
   ],
-  '4': [SendMediaRequest_Transport$json],
-};
-
-@$core.Deprecated('Use sendMediaRequestDescriptor instead')
-const SendMediaRequest_Transport$json = {
-	  '1': 'Transport',
-	  '2': [
-	    {'1': 'AUTO', '2': 0},
-	    {'1': 'DNS', '2': 1},
-	  ],
 };
 
 /// Descriptor for `SendMediaRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List sendMediaRequestDescriptor = $convert.base64Decode(
     'ChBTZW5kTWVkaWFSZXF1ZXN0Eh8KC3BlZXJfcHVia2V5GAEgASgJUgpwZWVyUHVia2V5Eh0KCm'
     '1lZGlhX2RhdGEYAiABKAxSCW1lZGlhRGF0YRIaCghmaWxlbmFtZRgDIAEoCVIIZmlsZW5hbWUS'
-    'GwoJbWltZV90eXBlGAQgASgJUghtaW1lVHlwZRJUChNwcmVmZXJyZWRfdHJhbnNwb3J0GAUgAS'
-    'gOMiMucmVsYXlwYi5TZW5kTWVkaWFSZXF1ZXN0LlRyYW5zcG9ydFIScHJlZmVycmVkVHJhbnNw'
-    'b3J0IioKCVRyYW5zcG9ydBIICgRBVVRPEAASBwoDRE5TEAESCgoGTElCUDJQEAI=');
+    'GwoJbWltZV90eXBlGAQgASgJUghtaW1lVHlwZQ==');
 
 @$core.Deprecated('Use sendMediaResponseDescriptor instead')
 const SendMediaResponse$json = {
@@ -543,9 +523,8 @@ const TransportStatusResponse$json = {
 /// Descriptor for `TransportStatusResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List transportStatusResponseDescriptor = $convert.base64Decode(
     'ChdUcmFuc3BvcnRTdGF0dXNSZXNwb25zZRIjCg1kaHRfY29ubmVjdGVkGAEgASgIUgxkaHRDb2'
-    '5uZWN0ZWQSKwoRZGlzY292ZXJlZF9yZWxheXMYAiABKAVSEGRpc2NvdmVyZWRSZWxheXMSIwoN'
-    'bGlicDJwX2RpcmVjdBgDIAEoCFIMbGlicDJwRGlyZWN0EiUKDmxpYnAycF9jaXJjdWl0GAQgAS'
-    'gIUg1saWJwMnBDaXJjdWl0EhkKCGRuc19tb2RlGAUgASgJUgdkbnNNb2Rl');
+    '5uZWN0ZWQSKwoRZGlzY292ZXJlZF9yZWxheXMYAiABKAVSEGRpc2NvdmVyZWRSZWxheXMSGQoI'
+    'ZG5zX21vZGUYBSABKAlSB2Ruc01vZGU=');
 
 @$core.Deprecated('Use profileInfoDescriptor instead')
 const ProfileInfo$json = {
@@ -588,3 +567,227 @@ const ProfilePicResponse$json = {
 final $typed_data.Uint8List profilePicResponseDescriptor = $convert.base64Decode(
     'ChJQcm9maWxlUGljUmVzcG9uc2USHQoKaW1hZ2VfZGF0YRgBIAEoDFIJaW1hZ2VEYXRhEhsKCW'
     '1pbWVfdHlwZRgCIAEoCVIIbWltZVR5cGU=');
+
+@$core.Deprecated('Use setTransportModeRequestDescriptor instead')
+const SetTransportModeRequest$json = {
+  '1': 'SetTransportModeRequest',
+  '2': [
+    {
+      '1': 'mode',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.relaypb.SetTransportModeRequest.Mode',
+      '10': 'mode'
+    },
+  ],
+  '4': [SetTransportModeRequest_Mode$json],
+};
+
+@$core.Deprecated('Use setTransportModeRequestDescriptor instead')
+const SetTransportModeRequest_Mode$json = {
+  '1': 'Mode',
+  '2': [
+    {'1': 'AUTO', '2': 0},
+    {'1': 'TCP', '2': 1},
+    {'1': 'UDP', '2': 2},
+  ],
+};
+
+/// Descriptor for `SetTransportModeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setTransportModeRequestDescriptor = $convert.base64Decode(
+    'ChdTZXRUcmFuc3BvcnRNb2RlUmVxdWVzdBI5CgRtb2RlGAEgASgOMiUucmVsYXlwYi5TZXRUcm'
+    'Fuc3BvcnRNb2RlUmVxdWVzdC5Nb2RlUgRtb2RlIiIKBE1vZGUSCAoEQVVUTxAAEgcKA1RDUBAB'
+    'EgcKA1VEUBAC');
+
+@$core.Deprecated('Use setChunkSizeRequestDescriptor instead')
+const SetChunkSizeRequest$json = {
+  '1': 'SetChunkSizeRequest',
+  '2': [
+    {'1': 'size', '3': 1, '4': 1, '5': 5, '10': 'size'},
+  ],
+};
+
+/// Descriptor for `SetChunkSizeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setChunkSizeRequestDescriptor = $convert
+    .base64Decode('ChNTZXRDaHVua1NpemVSZXF1ZXN0EhIKBHNpemUYASABKAVSBHNpemU=');
+
+const $core.Map<$core.String, $core.dynamic> RelayClientServiceBase$json = {
+  '1': 'RelayClient',
+  '2': [
+    {
+      '1': 'SendMessage',
+      '2': '.relaypb.SendRequest',
+      '3': '.relaypb.SendResponse'
+    },
+    {
+      '1': 'PollMessages',
+      '2': '.relaypb.PollRequest',
+      '3': '.relaypb.PollResponse'
+    },
+    {
+      '1': 'GetRelayStatus',
+      '2': '.relaypb.Empty',
+      '3': '.relaypb.RelayStatusList'
+    },
+    {'1': 'AddRelay', '2': '.relaypb.RelayEndpoint', '3': '.relaypb.Empty'},
+    {'1': 'RemoveRelay', '2': '.relaypb.RelayEndpoint', '3': '.relaypb.Empty'},
+    {'1': 'GetIdentity', '2': '.relaypb.Empty', '3': '.relaypb.IdentityInfo'},
+    {'1': 'AddPeer', '2': '.relaypb.PeerInfo', '3': '.relaypb.Empty'},
+    {
+      '1': 'GetTransportStatus',
+      '2': '.relaypb.Empty',
+      '3': '.relaypb.TransportStatusResponse'
+    },
+    {
+      '1': 'SendMedia',
+      '2': '.relaypb.SendMediaRequest',
+      '3': '.relaypb.SendMediaResponse'
+    },
+    {
+      '1': 'GetMediaStatus',
+      '2': '.relaypb.GetMediaStatusRequest',
+      '3': '.relaypb.MediaStatusResponse'
+    },
+    {
+      '1': 'CancelSend',
+      '2': '.relaypb.CancelSendRequest',
+      '3': '.relaypb.Empty'
+    },
+    {
+      '1': 'SendMediaStream',
+      '2': '.relaypb.MediaUploadChunk',
+      '3': '.relaypb.SendMediaResponse',
+      '5': true
+    },
+    {
+      '1': 'GenerateInviteCode',
+      '2': '.relaypb.GenerateInviteCodeRequest',
+      '3': '.relaypb.GenerateInviteCodeResponse'
+    },
+    {
+      '1': 'JoinViaCode',
+      '2': '.relaypb.JoinViaCodeRequest',
+      '3': '.relaypb.JoinViaCodeResponse'
+    },
+    {'1': 'RemovePeer', '2': '.relaypb.PeerInfo', '3': '.relaypb.Empty'},
+    {
+      '1': 'ListPeers',
+      '2': '.relaypb.Empty',
+      '3': '.relaypb.ListPeersResponse'
+    },
+    {
+      '1': 'CreateGroup',
+      '2': '.relaypb.CreateGroupRequest',
+      '3': '.relaypb.CreateGroupResponse'
+    },
+    {
+      '1': 'ListGroups',
+      '2': '.relaypb.Empty',
+      '3': '.relaypb.ListGroupsResponse'
+    },
+    {
+      '1': 'LeaveGroup',
+      '2': '.relaypb.LeaveGroupRequest',
+      '3': '.relaypb.Empty'
+    },
+    {
+      '1': 'RemoveGroupMember',
+      '2': '.relaypb.RemoveGroupMemberRequest',
+      '3': '.relaypb.Empty'
+    },
+    {'1': 'UpdateProfile', '2': '.relaypb.ProfileInfo', '3': '.relaypb.Empty'},
+    {
+      '1': 'GetProfilePic',
+      '2': '.relaypb.Empty',
+      '3': '.relaypb.ProfilePicResponse'
+    },
+    {
+      '1': 'SetProfilePic',
+      '2': '.relaypb.SetProfilePicRequest',
+      '3': '.relaypb.Empty'
+    },
+    {
+      '1': 'SetTransportMode',
+      '2': '.relaypb.SetTransportModeRequest',
+      '3': '.relaypb.Empty'
+    },
+    {
+      '1': 'SetChunkSize',
+      '2': '.relaypb.SetChunkSizeRequest',
+      '3': '.relaypb.Empty'
+    },
+  ],
+};
+
+@$core.Deprecated('Use relayClientServiceDescriptor instead')
+const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+    RelayClientServiceBase$messageJson = {
+  '.relaypb.SendRequest': SendRequest$json,
+  '.relaypb.SendResponse': SendResponse$json,
+  '.relaypb.PollRequest': PollRequest$json,
+  '.relaypb.PollResponse': PollResponse$json,
+  '.relaypb.ReceivedMessage': ReceivedMessage$json,
+  '.relaypb.Empty': Empty$json,
+  '.relaypb.RelayStatusList': RelayStatusList$json,
+  '.relaypb.RelayStatus': RelayStatus$json,
+  '.relaypb.RelayEndpoint': RelayEndpoint$json,
+  '.relaypb.IdentityInfo': IdentityInfo$json,
+  '.relaypb.PeerInfo': PeerInfo$json,
+  '.relaypb.TransportStatusResponse': TransportStatusResponse$json,
+  '.relaypb.SendMediaRequest': SendMediaRequest$json,
+  '.relaypb.SendMediaResponse': SendMediaResponse$json,
+  '.relaypb.GetMediaStatusRequest': GetMediaStatusRequest$json,
+  '.relaypb.MediaStatusResponse': MediaStatusResponse$json,
+  '.relaypb.CancelSendRequest': CancelSendRequest$json,
+  '.relaypb.MediaUploadChunk': MediaUploadChunk$json,
+  '.relaypb.GenerateInviteCodeRequest': GenerateInviteCodeRequest$json,
+  '.relaypb.GenerateInviteCodeResponse': GenerateInviteCodeResponse$json,
+  '.relaypb.JoinViaCodeRequest': JoinViaCodeRequest$json,
+  '.relaypb.JoinViaCodeResponse': JoinViaCodeResponse$json,
+  '.relaypb.ListPeersResponse': ListPeersResponse$json,
+  '.relaypb.CreateGroupRequest': CreateGroupRequest$json,
+  '.relaypb.CreateGroupResponse': CreateGroupResponse$json,
+  '.relaypb.ListGroupsResponse': ListGroupsResponse$json,
+  '.relaypb.GroupInfo': GroupInfo$json,
+  '.relaypb.GroupMember': GroupMember$json,
+  '.relaypb.LeaveGroupRequest': LeaveGroupRequest$json,
+  '.relaypb.RemoveGroupMemberRequest': RemoveGroupMemberRequest$json,
+  '.relaypb.ProfileInfo': ProfileInfo$json,
+  '.relaypb.ProfilePicResponse': ProfilePicResponse$json,
+  '.relaypb.SetProfilePicRequest': SetProfilePicRequest$json,
+  '.relaypb.SetTransportModeRequest': SetTransportModeRequest$json,
+  '.relaypb.SetChunkSizeRequest': SetChunkSizeRequest$json,
+};
+
+/// Descriptor for `RelayClient`. Decode as a `google.protobuf.ServiceDescriptorProto`.
+final $typed_data.Uint8List relayClientServiceDescriptor = $convert.base64Decode(
+    'CgtSZWxheUNsaWVudBI6CgtTZW5kTWVzc2FnZRIULnJlbGF5cGIuU2VuZFJlcXVlc3QaFS5yZW'
+    'xheXBiLlNlbmRSZXNwb25zZRI7CgxQb2xsTWVzc2FnZXMSFC5yZWxheXBiLlBvbGxSZXF1ZXN0'
+    'GhUucmVsYXlwYi5Qb2xsUmVzcG9uc2USOgoOR2V0UmVsYXlTdGF0dXMSDi5yZWxheXBiLkVtcH'
+    'R5GhgucmVsYXlwYi5SZWxheVN0YXR1c0xpc3QSMgoIQWRkUmVsYXkSFi5yZWxheXBiLlJlbGF5'
+    'RW5kcG9pbnQaDi5yZWxheXBiLkVtcHR5EjUKC1JlbW92ZVJlbGF5EhYucmVsYXlwYi5SZWxheU'
+    'VuZHBvaW50Gg4ucmVsYXlwYi5FbXB0eRI0CgtHZXRJZGVudGl0eRIOLnJlbGF5cGIuRW1wdHka'
+    'FS5yZWxheXBiLklkZW50aXR5SW5mbxIsCgdBZGRQZWVyEhEucmVsYXlwYi5QZWVySW5mbxoOLn'
+    'JlbGF5cGIuRW1wdHkSRgoSR2V0VHJhbnNwb3J0U3RhdHVzEg4ucmVsYXlwYi5FbXB0eRogLnJl'
+    'bGF5cGIuVHJhbnNwb3J0U3RhdHVzUmVzcG9uc2USQgoJU2VuZE1lZGlhEhkucmVsYXlwYi5TZW'
+    '5kTWVkaWFSZXF1ZXN0GhoucmVsYXlwYi5TZW5kTWVkaWFSZXNwb25zZRJOCg5HZXRNZWRpYVN0'
+    'YXR1cxIeLnJlbGF5cGIuR2V0TWVkaWFTdGF0dXNSZXF1ZXN0GhwucmVsYXlwYi5NZWRpYVN0YX'
+    'R1c1Jlc3BvbnNlEjgKCkNhbmNlbFNlbmQSGi5yZWxheXBiLkNhbmNlbFNlbmRSZXF1ZXN0Gg4u'
+    'cmVsYXlwYi5FbXB0eRJKCg9TZW5kTWVkaWFTdHJlYW0SGS5yZWxheXBiLk1lZGlhVXBsb2FkQ2'
+    'h1bmsaGi5yZWxheXBiLlNlbmRNZWRpYVJlc3BvbnNlKAESXQoSR2VuZXJhdGVJbnZpdGVDb2Rl'
+    'EiIucmVsYXlwYi5HZW5lcmF0ZUludml0ZUNvZGVSZXF1ZXN0GiMucmVsYXlwYi5HZW5lcmF0ZU'
+    'ludml0ZUNvZGVSZXNwb25zZRJICgtKb2luVmlhQ29kZRIbLnJlbGF5cGIuSm9pblZpYUNvZGVS'
+    'ZXF1ZXN0GhwucmVsYXlwYi5Kb2luVmlhQ29kZVJlc3BvbnNlEi8KClJlbW92ZVBlZXISES5yZW'
+    'xheXBiLlBlZXJJbmZvGg4ucmVsYXlwYi5FbXB0eRI3CglMaXN0UGVlcnMSDi5yZWxheXBiLkVt'
+    'cHR5GhoucmVsYXlwYi5MaXN0UGVlcnNSZXNwb25zZRJICgtDcmVhdGVHcm91cBIbLnJlbGF5cG'
+    'IuQ3JlYXRlR3JvdXBSZXF1ZXN0GhwucmVsYXlwYi5DcmVhdGVHcm91cFJlc3BvbnNlEjkKCkxp'
+    'c3RHcm91cHMSDi5yZWxheXBiLkVtcHR5GhsucmVsYXlwYi5MaXN0R3JvdXBzUmVzcG9uc2USOA'
+    'oKTGVhdmVHcm91cBIaLnJlbGF5cGIuTGVhdmVHcm91cFJlcXVlc3QaDi5yZWxheXBiLkVtcHR5'
+    'EkYKEVJlbW92ZUdyb3VwTWVtYmVyEiEucmVsYXlwYi5SZW1vdmVHcm91cE1lbWJlclJlcXVlc3'
+    'QaDi5yZWxheXBiLkVtcHR5EjUKDVVwZGF0ZVByb2ZpbGUSFC5yZWxheXBiLlByb2ZpbGVJbmZv'
+    'Gg4ucmVsYXlwYi5FbXB0eRI8Cg1HZXRQcm9maWxlUGljEg4ucmVsYXlwYi5FbXB0eRobLnJlbG'
+    'F5cGIuUHJvZmlsZVBpY1Jlc3BvbnNlEj4KDVNldFByb2ZpbGVQaWMSHS5yZWxheXBiLlNldFBy'
+    'b2ZpbGVQaWNSZXF1ZXN0Gg4ucmVsYXlwYi5FbXB0eRJEChBTZXRUcmFuc3BvcnRNb2RlEiAucm'
+    'VsYXlwYi5TZXRUcmFuc3BvcnRNb2RlUmVxdWVzdBoOLnJlbGF5cGIuRW1wdHkSPAoMU2V0Q2h1'
+    'bmtTaXplEhwucmVsYXlwYi5TZXRDaHVua1NpemVSZXF1ZXN0Gg4ucmVsYXlwYi5FbXB0eQ==');

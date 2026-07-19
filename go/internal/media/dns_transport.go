@@ -93,20 +93,17 @@ func (t *DNSTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 
 	// 5. Build metadata message (this is also sent via DNS as a text-like message)
 	meta := &MediaMessage{
-		MessageID:   fmt.Sprintf("%x", msgID),
-		Timestamp:   time.Now().UnixMilli(),
-		MediaType:   mediaType,
-		FileName:    fileName,
-		MimeType:    mimeType,
-		FileSize:    int64(len(fileData)),
-		Chunks:      int32(len(chunks)),
-		ChunkSize:   MaxDNSChunkSize,
-		FileKeyB64:  base64.StdEncoding.EncodeToString(fileKey),
-		Checksum:    fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
-		ChunkMsgIDs: chunkMsgIDs,
-	}
+			MessageID:   fmt.Sprintf("%x", msgID),
+			Timestamp:   time.Now().UnixMilli(),
+			MediaType:   mediaType,
+			FileName:    fileName,
+			MimeType:    mimeType,
+			FileSize:    int64(len(fileData)),
+			FileKeyB64:  base64.StdEncoding.EncodeToString(fileKey),
+			Checksum:    fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
+		}
 
-	return meta, nil
+		return meta, nil
 }
 
 func sha256Hash(data []byte) []byte {
@@ -118,10 +115,11 @@ func sha256Hash(data []byte) []byte {
 type TCPTransport struct {
 	relayAddr string // relay IP:port (e.g., "1.2.3.4:9877")
 	client    *http.Client
+	authToken []byte
 }
 
 // NewTCPTransport creates a TCP transport for media using the relay's HTTP endpoint.
-func NewTCPTransport(relayAddr string) *TCPTransport {
+func NewTCPTransport(relayAddr string, authToken []byte) *TCPTransport {
 	// Remove :53 DNS port if present, use default media port
 	host := relayAddr
 	if _, _, err := net.SplitHostPort(relayAddr); err == nil {
@@ -130,6 +128,7 @@ func NewTCPTransport(relayAddr string) *TCPTransport {
 	return &TCPTransport{
 		relayAddr: host + ":9877",
 		client:    &http.Client{Timeout: 5 * time.Minute},
+		authToken: authToken,
 	}
 }
 
@@ -164,6 +163,9 @@ func (t *TCPTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	if len(t.authToken) > 0 {
+		req.Header.Set("X-Auth-Token", string(t.authToken))
+	}
 
 	resp, err := t.client.Do(req)
 	if err != nil {
@@ -181,22 +183,19 @@ func (t *TCPTransport) SendChunks(ctx context.Context, msgID [8]byte, fileData [
 	}
 
 	// 4. Build metadata message
-	meta := &MediaMessage{
-		MessageID:  fmt.Sprintf("%x", msgID),
-		Timestamp:  time.Now().UnixMilli(),
-		MediaType:  mediaType,
-		FileName:   fileName,
-		MimeType:   mimeType,
-		FileSize:   int64(len(fileData)),
-		Chunks:     0, // not chunked over TCP
-		ChunkSize:  0,
-		FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
-		Checksum:   fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
-		Transport:  "tcp",
-		FileID:     uploadResp.FileID,
-	}
+		meta := &MediaMessage{
+			MessageID:  fmt.Sprintf("%x", msgID),
+			Timestamp:  time.Now().UnixMilli(),
+			MediaType:  mediaType,
+			FileName:   fileName,
+			MimeType:   mimeType,
+			FileSize:   int64(len(fileData)),
+			FileKeyB64: base64.StdEncoding.EncodeToString(fileKey),
+			Checksum:   fmt.Sprintf("sha256:%x", sha256Hash(fileData)),
+			FileID:     uploadResp.FileID,
+		}
 
-	return meta, nil
+		return meta, nil
 }
 
 // DownloadFile downloads a file from the relay via TCP.
@@ -205,6 +204,9 @@ func (t *TCPTransport) DownloadFile(ctx context.Context, fileID string) ([]byte,
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
+	}
+	if len(t.authToken) > 0 {
+		req.Header.Set("X-Auth-Token", string(t.authToken))
 	}
 
 	resp, err := t.client.Do(req)

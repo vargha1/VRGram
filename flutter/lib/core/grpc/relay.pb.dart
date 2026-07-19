@@ -10,6 +10,7 @@
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
 // ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
+import 'dart:async' as $async;
 import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
@@ -27,15 +28,12 @@ class SendMediaRequest extends $pb.GeneratedMessage {
     $core.List<$core.int>? mediaData,
     $core.String? filename,
     $core.String? mimeType,
-    SendMediaRequest_Transport? preferredTransport,
   }) {
     final result = create();
     if (peerPubkey != null) result.peerPubkey = peerPubkey;
     if (mediaData != null) result.mediaData = mediaData;
     if (filename != null) result.filename = filename;
     if (mimeType != null) result.mimeType = mimeType;
-    if (preferredTransport != null)
-      result.preferredTransport = preferredTransport;
     return result;
   }
 
@@ -57,9 +55,6 @@ class SendMediaRequest extends $pb.GeneratedMessage {
         2, _omitFieldNames ? '' : 'mediaData', $pb.PbFieldType.OY)
     ..aOS(3, _omitFieldNames ? '' : 'filename')
     ..aOS(4, _omitFieldNames ? '' : 'mimeType')
-    ..aE<SendMediaRequest_Transport>(
-        5, _omitFieldNames ? '' : 'preferredTransport',
-        enumValues: SendMediaRequest_Transport.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -116,16 +111,6 @@ class SendMediaRequest extends $pb.GeneratedMessage {
   $core.bool hasMimeType() => $_has(3);
   @$pb.TagNumber(4)
   void clearMimeType() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  SendMediaRequest_Transport get preferredTransport => $_getN(4);
-  @$pb.TagNumber(5)
-  set preferredTransport(SendMediaRequest_Transport value) =>
-      $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasPreferredTransport() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearPreferredTransport() => $_clearField(5);
 }
 
 class SendMediaResponse extends $pb.GeneratedMessage {
@@ -2068,6 +2053,8 @@ class TransportStatusResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearDiscoveredRelays() => $_clearField(2);
 
+  /// bool libp2p_direct = 3;  — removed, unused
+  /// bool libp2p_circuit = 4; — removed, unused
   @$pb.TagNumber(5)
   $core.String get dnsMode => $_getSZ(2);
   @$pb.TagNumber(5)
@@ -2277,6 +2264,222 @@ class ProfilePicResponse extends $pb.GeneratedMessage {
   $core.bool hasMimeType() => $_has(1);
   @$pb.TagNumber(2)
   void clearMimeType() => $_clearField(2);
+}
+
+class SetTransportModeRequest extends $pb.GeneratedMessage {
+  factory SetTransportModeRequest({
+    SetTransportModeRequest_Mode? mode,
+  }) {
+    final result = create();
+    if (mode != null) result.mode = mode;
+    return result;
+  }
+
+  SetTransportModeRequest._();
+
+  factory SetTransportModeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetTransportModeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetTransportModeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aE<SetTransportModeRequest_Mode>(1, _omitFieldNames ? '' : 'mode',
+        enumValues: SetTransportModeRequest_Mode.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTransportModeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTransportModeRequest copyWith(
+          void Function(SetTransportModeRequest) updates) =>
+      super.copyWith((message) => updates(message as SetTransportModeRequest))
+          as SetTransportModeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetTransportModeRequest create() => SetTransportModeRequest._();
+  @$core.override
+  SetTransportModeRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetTransportModeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetTransportModeRequest>(create);
+  static SetTransportModeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SetTransportModeRequest_Mode get mode => $_getN(0);
+  @$pb.TagNumber(1)
+  set mode(SetTransportModeRequest_Mode value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMode() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMode() => $_clearField(1);
+}
+
+class SetChunkSizeRequest extends $pb.GeneratedMessage {
+  factory SetChunkSizeRequest({
+    $core.int? size,
+  }) {
+    final result = create();
+    if (size != null) result.size = size;
+    return result;
+  }
+
+  SetChunkSizeRequest._();
+
+  factory SetChunkSizeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetChunkSizeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetChunkSizeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'relaypb'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'size')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetChunkSizeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetChunkSizeRequest copyWith(void Function(SetChunkSizeRequest) updates) =>
+      super.copyWith((message) => updates(message as SetChunkSizeRequest))
+          as SetChunkSizeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetChunkSizeRequest create() => SetChunkSizeRequest._();
+  @$core.override
+  SetChunkSizeRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetChunkSizeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetChunkSizeRequest>(create);
+  static SetChunkSizeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get size => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set size($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSize() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSize() => $_clearField(1);
+}
+
+class RelayClientApi {
+  final $pb.RpcClient _client;
+
+  RelayClientApi(this._client);
+
+  $async.Future<SendResponse> sendMessage(
+          $pb.ClientContext? ctx, SendRequest request) =>
+      _client.invoke<SendResponse>(
+          ctx, 'RelayClient', 'SendMessage', request, SendResponse());
+  $async.Future<PollResponse> pollMessages(
+          $pb.ClientContext? ctx, PollRequest request) =>
+      _client.invoke<PollResponse>(
+          ctx, 'RelayClient', 'PollMessages', request, PollResponse());
+  $async.Future<RelayStatusList> getRelayStatus(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<RelayStatusList>(
+          ctx, 'RelayClient', 'GetRelayStatus', request, RelayStatusList());
+  $async.Future<Empty> addRelay(
+          $pb.ClientContext? ctx, RelayEndpoint request) =>
+      _client.invoke<Empty>(ctx, 'RelayClient', 'AddRelay', request, Empty());
+  $async.Future<Empty> removeRelay(
+          $pb.ClientContext? ctx, RelayEndpoint request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'RemoveRelay', request, Empty());
+  $async.Future<IdentityInfo> getIdentity(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<IdentityInfo>(
+          ctx, 'RelayClient', 'GetIdentity', request, IdentityInfo());
+  $async.Future<Empty> addPeer($pb.ClientContext? ctx, PeerInfo request) =>
+      _client.invoke<Empty>(ctx, 'RelayClient', 'AddPeer', request, Empty());
+  $async.Future<TransportStatusResponse> getTransportStatus(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<TransportStatusResponse>(ctx, 'RelayClient',
+          'GetTransportStatus', request, TransportStatusResponse());
+
+  /// New media RPCs
+  $async.Future<SendMediaResponse> sendMedia(
+          $pb.ClientContext? ctx, SendMediaRequest request) =>
+      _client.invoke<SendMediaResponse>(
+          ctx, 'RelayClient', 'SendMedia', request, SendMediaResponse());
+  $async.Future<MediaStatusResponse> getMediaStatus(
+          $pb.ClientContext? ctx, GetMediaStatusRequest request) =>
+      _client.invoke<MediaStatusResponse>(
+          ctx, 'RelayClient', 'GetMediaStatus', request, MediaStatusResponse());
+  $async.Future<Empty> cancelSend(
+          $pb.ClientContext? ctx, CancelSendRequest request) =>
+      _client.invoke<Empty>(ctx, 'RelayClient', 'CancelSend', request, Empty());
+  $async.Future<SendMediaResponse> sendMediaStream(
+          $pb.ClientContext? ctx, MediaUploadChunk request) =>
+      _client.invoke<SendMediaResponse>(
+          ctx, 'RelayClient', 'SendMediaStream', request, SendMediaResponse());
+  $async.Future<GenerateInviteCodeResponse> generateInviteCode(
+          $pb.ClientContext? ctx, GenerateInviteCodeRequest request) =>
+      _client.invoke<GenerateInviteCodeResponse>(ctx, 'RelayClient',
+          'GenerateInviteCode', request, GenerateInviteCodeResponse());
+  $async.Future<JoinViaCodeResponse> joinViaCode(
+          $pb.ClientContext? ctx, JoinViaCodeRequest request) =>
+      _client.invoke<JoinViaCodeResponse>(
+          ctx, 'RelayClient', 'JoinViaCode', request, JoinViaCodeResponse());
+  $async.Future<Empty> removePeer($pb.ClientContext? ctx, PeerInfo request) =>
+      _client.invoke<Empty>(ctx, 'RelayClient', 'RemovePeer', request, Empty());
+  $async.Future<ListPeersResponse> listPeers(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<ListPeersResponse>(
+          ctx, 'RelayClient', 'ListPeers', request, ListPeersResponse());
+  $async.Future<CreateGroupResponse> createGroup(
+          $pb.ClientContext? ctx, CreateGroupRequest request) =>
+      _client.invoke<CreateGroupResponse>(
+          ctx, 'RelayClient', 'CreateGroup', request, CreateGroupResponse());
+  $async.Future<ListGroupsResponse> listGroups(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<ListGroupsResponse>(
+          ctx, 'RelayClient', 'ListGroups', request, ListGroupsResponse());
+  $async.Future<Empty> leaveGroup(
+          $pb.ClientContext? ctx, LeaveGroupRequest request) =>
+      _client.invoke<Empty>(ctx, 'RelayClient', 'LeaveGroup', request, Empty());
+  $async.Future<Empty> removeGroupMember(
+          $pb.ClientContext? ctx, RemoveGroupMemberRequest request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'RemoveGroupMember', request, Empty());
+
+  /// Profile RPCs
+  $async.Future<Empty> updateProfile(
+          $pb.ClientContext? ctx, ProfileInfo request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'UpdateProfile', request, Empty());
+  $async.Future<ProfilePicResponse> getProfilePic(
+          $pb.ClientContext? ctx, Empty request) =>
+      _client.invoke<ProfilePicResponse>(
+          ctx, 'RelayClient', 'GetProfilePic', request, ProfilePicResponse());
+  $async.Future<Empty> setProfilePic(
+          $pb.ClientContext? ctx, SetProfilePicRequest request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'SetProfilePic', request, Empty());
+
+  /// Config RPCs (replaces file-watchers)
+  $async.Future<Empty> setTransportMode(
+          $pb.ClientContext? ctx, SetTransportModeRequest request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'SetTransportMode', request, Empty());
+  $async.Future<Empty> setChunkSize(
+          $pb.ClientContext? ctx, SetChunkSizeRequest request) =>
+      _client.invoke<Empty>(
+          ctx, 'RelayClient', 'SetChunkSize', request, Empty());
 }
 
 const $core.bool _omitFieldNames =

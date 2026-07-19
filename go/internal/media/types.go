@@ -19,31 +19,25 @@ const (
 
 // MediaMessage is the JSON metadata sent alongside (or before) media payload.
 type MediaMessage struct {
-	MessageID string   `json:"message_id"`
-	Timestamp int64    `json:"timestamp"`
-	MediaType MediaType `json:"media_type"`
-	// File info (present for all non-text types)
-	FileName string `json:"file_name,omitempty"`
-	MimeType string `json:"mime_type,omitempty"`
-	FileSize int64  `json:"file_size,omitempty"`
-	Chunks   int32  `json:"chunks,omitempty"`   // total DNS chunks (0 = sent via TCP)
-	ChunkSize int32 `json:"chunk_size,omitempty"`
+	MessageID  string   `json:"message_id"`
+	Timestamp  int64    `json:"timestamp"`
+	MediaType  MediaType `json:"media_type"`
+	// File info
+	FileName   string `json:"file_name,omitempty"`
+	MimeType   string `json:"mime_type,omitempty"`
+	FileSize   int64  `json:"file_size,omitempty"`
 	FileKeyB64 string `json:"file_key_b64,omitempty"` // base64 AES-256 key
 	Checksum   string `json:"checksum,omitempty"`     // "sha256:hex"
 	HasThumbnail bool `json:"has_thumbnail,omitempty"`
 	Thumbnail    *ThumbnailInfo `json:"thumbnail,omitempty"`
-	// DNS msgIDs for each file chunk — receiver uses these to fetch & reassemble.
-	ChunkMsgIDs []string `json:"chunk_msg_ids,omitempty"`
-	// TCP transport fields
-	Transport string `json:"transport,omitempty"` // "dns" or "tcp"
-	FileID     string `json:"file_id,omitempty"`   // file ID on relay (TCP transport)
+	// TCP transport
+	FileID    string `json:"file_id,omitempty"` // file ID on relay (TCP transport)
 }
 
 type ThumbnailInfo struct {
-	Mime   string `json:"mime"`
-	Size   int64  `json:"size"`
-	Chunks int32  `json:"chunks"`
-	Data   []byte `json:"data,omitempty"` // inline thumbnail for DNS path
+	Mime string `json:"mime"`
+	Size int64  `json:"size"`
+	Data []byte `json:"data,omitempty"`
 }
 
 // EncryptFile encrypts data with AES-256-GCM using the given 32-byte key.

@@ -32,7 +32,7 @@ func TestServerStoreAndQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	retrieved, err := dns.QueryChunk("127.0.0.1:5354", "msg.local-domain", msgID, 0)
+		retrieved, err := dns.QueryChunk("127.0.0.1:5354", "msg.local-domain", msgID, 0, dns.TransportAuto)
 	if err != nil {
 		t.Fatal(err)
 	}

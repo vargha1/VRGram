@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:grpc/grpc.dart';
 import '../grpc/client.dart';
 import '../grpc/relay.pb.dart';
@@ -8,9 +7,8 @@ import '../grpc/relay.pb.dart';
 class MediaService {
   final GrpcClient _client;
 
-  /// Daemon decides transport by file size: DNS for <60KB, TCP for >=60KB.
-  /// Since DNS relay is unreliable, we pad small files to force TCP.
-  static const int _tcpThreshold = 60 * 1024; // 60 KB
+  /// Media always sent via TCP relay.
+  static const _maxFileSize = 10 * 1024 * 1024; // 10 MB
 
   MediaService(this._client);
 
@@ -20,20 +18,9 @@ class MediaService {
     required String mimeType,
   }) async {
     final file = File(filePath);
-    var fileBytes = await file.readAsBytes();
-    if (fileBytes.length > 10 * 1024 * 1024) {
+    final fileBytes = await file.readAsBytes();
+    if (fileBytes.length > _maxFileSize) {
       throw Exception('File too large (max 10MB)');
-    }
-
-    // Pad to just above 60KB so the daemon always uses TCP transport.
-    // Trailing zeros are harmless for JPEG/M4A/MP4; for other types the
-    // extra bytes are a small price for reliable delivery.
-    if (fileBytes.length < _tcpThreshold) {
-      // Use Uint8List directly — avoid List<int>.length growth which can
-      // insert nulls on some Dart runtimes.
-      final padded = Uint8List(_tcpThreshold + 1);
-      padded.setRange(0, fileBytes.length, fileBytes);
-      fileBytes = padded;
     }
 
     final filename = filePath.split('/').last.split('\\').last;
@@ -50,7 +37,6 @@ class MediaService {
           mediaData: fileBytes,
           filename: filename,
           mimeType: mimeType,
-          preferredTransport: SendMediaRequest_Transport.AUTO,
         ),
         options: metadata != null ? CallOptions(metadata: metadata) : null,
       ).timeout(deadline);
@@ -63,7 +49,7 @@ class MediaService {
   }
 
   int _estimateTimeout(int fileSize) {
-    // All files use TCP after padding. TCP: ~1MB/s, generous 60s buffer.
+    // TCP: ~1MB/s, generous 60s buffer
     return (fileSize ~/ (1024 * 1024)) + 60;
   }
 }

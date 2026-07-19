@@ -30,6 +30,10 @@ service RelayClient {
   rpc UpdateProfile(ProfileInfo) returns (Empty);
   rpc GetProfilePic(Empty) returns (ProfilePicResponse);
   rpc SetProfilePic(SetProfilePicRequest) returns (Empty);
+
+  // Config RPCs (replaces file-watchers)
+  rpc SetTransportMode(SetTransportModeRequest) returns (Empty);
+  rpc SetChunkSize(SetChunkSizeRequest) returns (Empty);
 }
 
 message SendMediaRequest {
@@ -37,12 +41,6 @@ message SendMediaRequest {
   bytes media_data = 2;
   string filename = 3;
   string mime_type = 4;
-  enum Transport {
-    AUTO = 0;
-    DNS = 1;
-    // LIBP2P = 2; — removed, unused
-  }
-  Transport preferred_transport = 5;
 }
 
 message SendMediaResponse {
@@ -205,4 +203,17 @@ message SetProfilePicRequest {
 message ProfilePicResponse {
   bytes image_data = 1;
   string mime_type = 2;
+}
+
+message SetTransportModeRequest {
+  enum Mode {
+    AUTO = 0;
+    TCP = 1;
+    UDP = 2;
+  }
+  Mode mode = 1;
+}
+
+message SetChunkSizeRequest {
+  int32 size = 1;
 }

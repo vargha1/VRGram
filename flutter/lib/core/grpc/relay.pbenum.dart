@@ -14,26 +14,6 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-class SendMediaRequest_Transport extends $pb.ProtobufEnum {
-  static const SendMediaRequest_Transport AUTO =
-      SendMediaRequest_Transport._(0, _omitEnumNames ? '' : 'AUTO');
-  static const SendMediaRequest_Transport DNS =
-      SendMediaRequest_Transport._(1, _omitEnumNames ? '' : 'DNS');
-
-  static const $core.List<SendMediaRequest_Transport> values =
-      <SendMediaRequest_Transport>[
-    AUTO,
-    DNS,
-  ];
-
-  static final $core.List<SendMediaRequest_Transport?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static SendMediaRequest_Transport? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const SendMediaRequest_Transport._(super.value, super.name);
-}
-
 class MediaStatusResponse_Status extends $pb.ProtobufEnum {
   static const MediaStatusResponse_Status QUEUED =
       MediaStatusResponse_Status._(0, _omitEnumNames ? '' : 'QUEUED');
@@ -61,6 +41,29 @@ class MediaStatusResponse_Status extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const MediaStatusResponse_Status._(super.value, super.name);
+}
+
+class SetTransportModeRequest_Mode extends $pb.ProtobufEnum {
+  static const SetTransportModeRequest_Mode AUTO =
+      SetTransportModeRequest_Mode._(0, _omitEnumNames ? '' : 'AUTO');
+  static const SetTransportModeRequest_Mode TCP =
+      SetTransportModeRequest_Mode._(1, _omitEnumNames ? '' : 'TCP');
+  static const SetTransportModeRequest_Mode UDP =
+      SetTransportModeRequest_Mode._(2, _omitEnumNames ? '' : 'UDP');
+
+  static const $core.List<SetTransportModeRequest_Mode> values =
+      <SetTransportModeRequest_Mode>[
+    AUTO,
+    TCP,
+    UDP,
+  ];
+
+  static final $core.List<SetTransportModeRequest_Mode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static SetTransportModeRequest_Mode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SetTransportModeRequest_Mode._(super.value, super.name);
 }
 
 const $core.bool _omitEnumNames =

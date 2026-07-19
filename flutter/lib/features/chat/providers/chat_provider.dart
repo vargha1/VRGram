@@ -350,7 +350,7 @@ class ChatList extends Notifier<List<ChatMessage>> {
       case MediaStatusResponse_Status.QUEUED: return MessageStatus.sending;
       case MediaStatusResponse_Status.SENDING: return MessageStatus.sending;
       case MediaStatusResponse_Status.ARRIVING: return MessageStatus.sending;
-      case MediaStatusResponse_Status.COMPLETE: return MessageStatus.received;
+      case MediaStatusResponse_Status.COMPLETE: return MessageStatus.sent;
       case MediaStatusResponse_Status.FAILED: return MessageStatus.failed;
       default: return MessageStatus.sending;
     }
